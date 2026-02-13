@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,8 +60,12 @@ export default function ChangePasswordPage() {
           .eq("user_id", user.id);
       }
 
-      // 3) 리디렉트
-      router.push("/overview");
+      // 3) 로그아웃 (새 비밀번호로 다시 로그인하도록)
+      await supabase.auth.signOut();
+
+      // 4) 토스트 후 로그인 페이지로 이동
+      toast.success("비밀번호 변경이 완료되었습니다.");
+      router.push("/login");
       router.refresh();
     } catch {
       setError("비밀번호 변경 중 오류가 발생했습니다.");
