@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Client, EnabledModules } from "@/lib/types/database";
-import { createClient } from "@/lib/supabase/client";
+import { Client } from "@/lib/types/database";
+import { createClient as createSupabase } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,27 +24,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Pencil, Eye } from "lucide-react";
-
-const defaultModules: EnabledModules = {
-  overview: true,
-  execution: true,
-  calendar: true,
-  projects: true,
-  reports: true,
-  assets: true,
-  support: true,
-};
-
-const moduleLabels: Record<keyof EnabledModules, string> = {
-  overview: "Overview",
-  execution: "Execution",
-  calendar: "Calendar",
-  projects: "Projects",
-  reports: "Reports",
-  assets: "Assets",
-  support: "Support",
-};
+import { formatDate } from "@/lib/utils";
+import { Plus, Pencil, ChevronRight } from "lucide-react";
 
 interface Props {
   initialClients: Client[];
@@ -52,24 +33,34 @@ interface Props {
 
 export function ClientsAdmin({ initialClients }: Props) {
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = createSupabase();
   const [clients, setClients] = useState(initialClients);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Client | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
 
   // Form state
   const [name, setName] = useState("");
   const [clientCode, setClientCode] = useState("");
-  const [kakaoUrl, setKakaoUrl] = useState("");
-  const [modules, setModules] = useState<EnabledModules>(defaultModules);
+  const [contactName, setContactName] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+
+  const resetForm = () => {
+    setName("");
+    setClientCode("");
+    setContactName("");
+    setContactPhone("");
+    setContactEmail("");
+    setError("");
+    setSuccessMsg("");
+  };
 
   const openCreate = () => {
     setEditing(null);
-    setName("");
-    setClientCode("");
-    setKakaoUrl("");
-    setModules(defaultModules);
+    resetForm();
     setDialogOpen(true);
   };
 
@@ -77,47 +68,71 @@ export function ClientsAdmin({ initialClients }: Props) {
     setEditing(client);
     setName(client.name);
     setClientCode(client.client_code);
-    setKakaoUrl(client.kakao_chat_url || "");
-    setModules(client.enabled_modules as EnabledModules);
+    setContactName(client.contact_name || "");
+    setContactPhone(client.contact_phone || "");
+    setContactEmail(client.contact_email || "");
+    setError("");
+    setSuccessMsg("");
     setDialogOpen(true);
   };
 
   const handleSave = async () => {
     setLoading(true);
+    setError("");
+    setSuccessMsg("");
+
     try {
       if (editing) {
-        const { error } = await supabase
+        // 수정 — 기존 클라이언트 정보 업데이트
+        const { error: updateErr } = await supabase
           .from("clients")
           .update({
             name,
-            kakao_chat_url: kakaoUrl || null,
-            enabled_modules: modules,
+            contact_name: contactName || null,
+            contact_phone: contactPhone || null,
+            contact_email: contactEmail || null,
           })
           .eq("id", editing.id);
-        if (!error) {
-          router.refresh();
-          setDialogOpen(false);
+
+        if (updateErr) {
+          setError(updateErr.message);
+          return;
         }
+        setDialogOpen(false);
+        router.refresh();
       } else {
-        const { error } = await supabase.from("clients").insert({
-          name,
-          client_code: clientCode.toLowerCase(),
-          kakao_chat_url: kakaoUrl || null,
-          enabled_modules: modules,
-          is_active: true,
+        // 생성 — API 호출 (Auth 유저 + 프로필 + 클라이언트 한 번에)
+        const res = await fetch("/api/admin/clients", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name,
+            client_code: clientCode,
+            contact_name: contactName,
+            contact_phone: contactPhone,
+            contact_email: contactEmail,
+          }),
         });
-        if (!error) {
-          router.refresh();
-          setDialogOpen(false);
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          setError(data.error || "생성 실패");
+          return;
         }
+
+        setSuccessMsg(data.message);
+        // 2초 후 다이얼로그 닫기
+        setTimeout(() => {
+          setDialogOpen(false);
+          router.refresh();
+        }, 2000);
       }
+    } catch (err: any) {
+      setError(err?.message || "오류 발생");
     } finally {
       setLoading(false);
     }
-  };
-
-  const toggleModule = (key: keyof EnabledModules) => {
-    setModules((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
   return (
@@ -133,62 +148,68 @@ export function ClientsAdmin({ initialClients }: Props) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>이름</TableHead>
-                <TableHead>코드</TableHead>
+                <TableHead>회사명</TableHead>
+                <TableHead>클라이언트 코드</TableHead>
+                <TableHead>담당자</TableHead>
+                <TableHead>연락처</TableHead>
                 <TableHead>상태</TableHead>
-                <TableHead>모듈</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>등록일</TableHead>
+                <TableHead className="text-right">관리</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {clients.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                     등록된 클라이언트가 없습니다.
                   </TableCell>
                 </TableRow>
               ) : (
                 clients.map((client) => (
-                  <TableRow key={client.id}>
+                  <TableRow
+                    key={client.id}
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => router.push(`/admin/clients/${client.id}`)}
+                  >
                     <TableCell className="font-medium">{client.name}</TableCell>
                     <TableCell>
                       <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
-                        {client.client_code}
+                        {client.client_code}@onecation.co.kr
                       </code>
                     </TableCell>
+                    <TableCell className="text-sm">{client.contact_name || "-"}</TableCell>
+                    <TableCell className="text-sm">{client.contact_phone || "-"}</TableCell>
                     <TableCell>
                       <Badge variant={client.is_active ? "done" : "hold"}>
                         {client.is_active ? "활성" : "비활성"}
                       </Badge>
                     </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1 flex-wrap">
-                        {Object.entries(client.enabled_modules as EnabledModules)
-                          .filter(([, v]) => v)
-                          .map(([k]) => (
-                            <Badge key={k} variant="outline" className="text-[10px]">
-                              {k}
-                            </Badge>
-                          ))}
-                      </div>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {formatDate(client.created_at)}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => openEdit(client)} title="수정">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openEdit(client);
+                          }}
+                          title="수정"
+                        >
                           <Pencil className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"
                           size="icon"
-                          title="Shadow View"
-                          onClick={() =>
-                            window.open(
-                              `/admin/preview?client=${client.id}`,
-                              "_blank"
-                            )
-                          }
+                          title="상세 보기"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(`/admin/clients/${client.id}`);
+                          }}
                         >
-                          <Eye className="h-4 w-4" />
+                          <ChevronRight className="h-4 w-4" />
                         </Button>
                       </div>
                     </TableCell>
@@ -200,60 +221,92 @@ export function ClientsAdmin({ initialClients }: Props) {
         </CardContent>
       </Card>
 
+      {/* 클라이언트 추가/수정 다이얼로그 */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>{editing ? "클라이언트 수정" : "클라이언트 추가"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            {/* 회사명 */}
             <div className="space-y-2">
-              <Label>이름</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="회사명" />
+              <Label>회사명 *</Label>
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="예: (주)원마케팅"
+              />
             </div>
+
+            {/* 클라이언트 코드 — 생성 시만 */}
             {!editing && (
               <div className="space-y-2">
-                <Label>클라이언트 코드 (로그인 ID)</Label>
-                <Input
-                  value={clientCode}
-                  onChange={(e) => setClientCode(e.target.value)}
-                  placeholder="예: acme"
-                />
+                <Label>클라이언트 코드 (로그인 ID) *</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={clientCode}
+                    onChange={(e) => setClientCode(e.target.value.replace(/[^a-zA-Z0-9_-]/g, ""))}
+                    placeholder="예: onemarketing"
+                    className="flex-1"
+                  />
+                  <span className="text-sm text-muted-foreground whitespace-nowrap">
+                    @onecation.co.kr
+                  </span>
+                </div>
                 <p className="text-xs text-muted-foreground">
-                  로그인 이메일: {clientCode || "code"}@onecation.client
+                  로그인 이메일: <strong>{clientCode || "code"}@onecation.co.kr</strong> / 초기 비밀번호: <strong>Admin123!</strong>
                 </p>
               </div>
             )}
-            <div className="space-y-2">
-              <Label>카카오톡 상담 URL</Label>
-              <Input
-                value={kakaoUrl}
-                onChange={(e) => setKakaoUrl(e.target.value)}
-                placeholder="https://open.kakao.com/..."
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>활성 모듈</Label>
-              <div className="grid grid-cols-2 gap-2">
-                {(Object.keys(moduleLabels) as (keyof EnabledModules)[]).map((key) => (
-                  <label key={key} className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={modules[key]}
-                      onChange={() => toggleModule(key)}
-                      className="rounded"
-                    />
-                    {moduleLabels[key]}
-                  </label>
-                ))}
+
+            {/* 담당자 정보 */}
+            <div className="border-t pt-4 space-y-3">
+              <p className="text-sm font-medium text-muted-foreground">담당자 정보</p>
+              <div className="space-y-2">
+                <Label>담당자 명</Label>
+                <Input
+                  value={contactName}
+                  onChange={(e) => setContactName(e.target.value)}
+                  placeholder="예: 홍길동"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>담당자 연락처</Label>
+                <Input
+                  value={contactPhone}
+                  onChange={(e) => setContactPhone(e.target.value)}
+                  placeholder="예: 010-1234-5678"
+                  type="tel"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>담당자 이메일</Label>
+                <Input
+                  value={contactEmail}
+                  onChange={(e) => setContactEmail(e.target.value)}
+                  placeholder="예: hong@company.com"
+                  type="email"
+                />
               </div>
             </div>
+
+            {/* 에러/성공 메시지 */}
+            {error && (
+              <p className="text-sm text-destructive bg-destructive/10 p-3 rounded-lg">{error}</p>
+            )}
+            {successMsg && (
+              <p className="text-sm text-green-700 bg-green-50 p-3 rounded-lg">{successMsg}</p>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               취소
             </Button>
-            <Button onClick={handleSave} disabled={loading || !name}>
-              {loading ? "저장 중..." : "저장"}
+            <Button
+              onClick={handleSave}
+              disabled={loading || !name || (!editing && !clientCode)}
+            >
+              {loading ? "처리 중..." : editing ? "저장" : "생성"}
             </Button>
           </DialogFooter>
         </DialogContent>

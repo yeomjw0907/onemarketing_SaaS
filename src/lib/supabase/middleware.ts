@@ -31,15 +31,26 @@ export async function updateSession(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
 
+  // 프로필 조회 헬퍼 (must_change_password 컬럼 없어도 안전)
+  async function getProfile(userId: string) {
+    const { data } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("user_id", userId)
+      .single();
+    return data as { role?: string; must_change_password?: boolean } | null;
+  }
+
   // Public routes
   if (pathname === "/login" || pathname === "/") {
     if (user) {
-      // Check role
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("user_id", user.id)
-        .single();
+      const profile = await getProfile(user.id);
+
+      if (profile?.must_change_password) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/change-password";
+        return NextResponse.redirect(url);
+      }
 
       if (profile?.role === "admin") {
         const url = request.nextUrl.clone();
@@ -59,6 +70,16 @@ export async function updateSession(request: NextRequest) {
     return supabaseResponse;
   }
 
+  // 비밀번호 변경 페이지 — 로그인한 유저만 접근 가능
+  if (pathname === "/change-password") {
+    if (!user) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      return NextResponse.redirect(url);
+    }
+    return supabaseResponse;
+  }
+
   // Protected routes
   if (!user) {
     const url = request.nextUrl.clone();
@@ -66,14 +87,17 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  const profile = await getProfile(user.id);
+
+  // 비밀번호 미변경 유저는 다른 페이지 접근 차단
+  if (profile?.must_change_password) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/change-password";
+    return NextResponse.redirect(url);
+  }
+
   // Admin route protection
   if (pathname.startsWith("/admin")) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("user_id", user.id)
-      .single();
-
     if (profile?.role !== "admin") {
       const url = request.nextUrl.clone();
       url.pathname = "/overview";

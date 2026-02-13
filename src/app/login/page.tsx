@@ -29,8 +29,8 @@ export default function LoginPage() {
 
     try {
       const trimmed = idOrEmail.trim().toLowerCase();
-      // @ 포함이면 이메일로, 아니면 클라이언트 코드 → client_code@onecation.client
-      const email = trimmed.includes("@") ? trimmed : `${trimmed}@onecation.client`;
+      // @ 포함이면 이메일로, 아니면 클라이언트 코드 → code@onecation.co.kr
+      const email = trimmed.includes("@") ? trimmed : `${trimmed}@onecation.co.kr`;
 
       const { error: authError } = await supabase.auth.signInWithPassword({
         email,
@@ -43,14 +43,21 @@ export default function LoginPage() {
         return;
       }
 
-      // Check role to redirect
+      // Check role + must_change_password
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("role")
+          .select("role, must_change_password")
           .eq("user_id", user.id)
           .single();
+
+        // 초기 비밀번호 변경 필요 시
+        if (profile?.must_change_password) {
+          router.push("/change-password");
+          router.refresh();
+          return;
+        }
 
         if (profile?.role === "admin") {
           router.push("/admin");

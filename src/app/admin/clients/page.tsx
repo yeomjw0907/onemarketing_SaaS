@@ -14,8 +14,10 @@ export default async function AdminClientsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Client 관리</h1>
-        <p className="text-muted-foreground text-sm mt-1">클라이언트를 생성하고 관리합니다.</p>
+        <h1 className="text-2xl font-bold">클라이언트 관리</h1>
+        <p className="text-muted-foreground text-sm mt-1">
+          클라이언트를 추가하고, 클릭하면 상세 설정(KPI·지표·실행항목 등)을 관리할 수 있습니다.
+        </p>
       </div>
       <ClientsAdmin initialClients={clients || []} />
     </div>

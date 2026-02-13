@@ -2,10 +2,12 @@ import { requireClient, isModuleEnabled } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { ModuleDisabled } from "@/components/module-guard";
 import { EmptyState } from "@/components/empty-state";
-import { FileItemCard } from "@/components/file-item-card";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText } from "lucide-react";
+import { FileText, ChevronRight } from "lucide-react";
+import { formatDate } from "@/lib/utils";
+import Link from "next/link";
 
 export default async function ReportsPage() {
   const session = await requireClient();
@@ -26,11 +28,44 @@ export default async function ReportsPage() {
   const weeklyReports = reports?.filter((r) => r.report_type === "weekly") || [];
   const monthlyReports = reports?.filter((r) => r.report_type === "monthly") || [];
 
+  const ReportCard = ({ report }: { report: any }) => (
+    <Link href={`/reports/${report.id}`}>
+      <Card className="transition-all hover:shadow-md hover:border-primary/30 cursor-pointer group">
+        <CardContent className="py-4 px-6">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <FileText className="h-8 w-8 text-muted-foreground shrink-0" />
+              <div className="min-w-0">
+                <h3 className="text-sm font-medium truncate group-hover:text-primary transition-colors">
+                  {report.title}
+                </h3>
+                {report.summary && !report.summary.startsWith("<") && (
+                  <p className="text-xs text-muted-foreground truncate mt-0.5">
+                    {report.summary.slice(0, 80)}
+                  </p>
+                )}
+                <div className="flex items-center gap-2 mt-1">
+                  <Badge variant="secondary" className="text-xs">
+                    {report.report_type === "weekly" ? "주간" : "월간"}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">
+                    {formatDate(report.published_at)}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
+          </div>
+        </CardContent>
+      </Card>
+    </Link>
+  );
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-2">
-          <FileText className="h-6 w-6" /> Reports
+          <FileText className="h-6 w-6" /> 리포트
         </h1>
         <p className="text-muted-foreground text-sm mt-1">마케팅 리포트</p>
       </div>
@@ -46,15 +81,7 @@ export default async function ReportsPage() {
           {reports && reports.length > 0 ? (
             <div className="space-y-3">
               {reports.map((report) => (
-                <FileItemCard
-                  key={report.id}
-                  title={report.title}
-                  subtitle={report.summary || ""}
-                  date={report.published_at}
-                  badge={report.report_type}
-                  bucket="reports"
-                  filePath={report.file_path}
-                />
+                <ReportCard key={report.id} report={report} />
               ))}
             </div>
           ) : (
@@ -66,15 +93,7 @@ export default async function ReportsPage() {
           {weeklyReports.length > 0 ? (
             <div className="space-y-3">
               {weeklyReports.map((report) => (
-                <FileItemCard
-                  key={report.id}
-                  title={report.title}
-                  subtitle={report.summary || ""}
-                  date={report.published_at}
-                  badge="weekly"
-                  bucket="reports"
-                  filePath={report.file_path}
-                />
+                <ReportCard key={report.id} report={report} />
               ))}
             </div>
           ) : (
@@ -86,15 +105,7 @@ export default async function ReportsPage() {
           {monthlyReports.length > 0 ? (
             <div className="space-y-3">
               {monthlyReports.map((report) => (
-                <FileItemCard
-                  key={report.id}
-                  title={report.title}
-                  subtitle={report.summary || ""}
-                  date={report.published_at}
-                  badge="monthly"
-                  bucket="reports"
-                  filePath={report.file_path}
-                />
+                <ReportCard key={report.id} report={report} />
               ))}
             </div>
           ) : (

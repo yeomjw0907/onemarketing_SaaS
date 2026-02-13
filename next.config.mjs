@@ -1,10 +1,20 @@
+import { fileURLToPath } from "node:url";
+import path from "node:path";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // 브라우저에서 env가 비는 경우 방지: 클라이언트에 명시 전달
+  // ── 워크스페이스 루트를 이 프로젝트 폴더로 고정 ──
+  // 상위 폴더에 package-lock.json 등이 있으면 Next.js가 루트를 잘못 추론하므로 명시 지정
+  outputFileTracingRoot: __dirname,
+
+  // ── 브라우저에 env 전달 (NEXT_PUBLIC_ 자동 주입의 보험) ──
   env: {
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
     NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   },
+
   images: {
     remotePatterns: [
       {

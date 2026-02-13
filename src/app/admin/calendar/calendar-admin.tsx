@@ -48,6 +48,11 @@ export function CalendarAdmin({ initialEvents, clients }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [clientActions, setClientActions] = useState<{ id: string; title: string }[]>([]);
+  const [filterClient, setFilterClient] = useState("all");
+
+  const filteredEvents = filterClient === "all"
+    ? initialEvents
+    : initialEvents.filter((e: any) => e.client_id === filterClient);
 
   const [clientId, setClientId] = useState("");
   const [title, setTitle] = useState("");
@@ -144,7 +149,16 @@ export function CalendarAdmin({ initialEvents, clients }: Props) {
 
   return (
     <>
-      <div className="flex justify-end">
+      <div className="flex items-center justify-between gap-4">
+        <Select value={filterClient} onValueChange={setFilterClient}>
+          <SelectTrigger className="w-[200px]"><SelectValue placeholder="전체 클라이언트" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">전체 클라이언트</SelectItem>
+            {clients.map((c) => (
+              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Button onClick={openCreate}>
           <Plus className="h-4 w-4 mr-2" /> 이벤트 추가
         </Button>
@@ -164,14 +178,14 @@ export function CalendarAdmin({ initialEvents, clients }: Props) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {initialEvents.length === 0 ? (
+              {filteredEvents.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                     등록된 이벤트가 없습니다.
                   </TableCell>
                 </TableRow>
               ) : (
-                initialEvents.map((event: any) => (
+                filteredEvents.map((event: any) => (
                   <TableRow key={event.id}>
                     <TableCell>{event.clients?.name || "-"}</TableCell>
                     <TableCell className="font-medium">{event.title}</TableCell>

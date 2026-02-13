@@ -1,36 +1,43 @@
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, Zap, FolderKanban, FileText, CalendarDays, Image } from "lucide-react";
+import { Users, FolderKanban, FileText, CalendarDays, Image } from "lucide-react";
 import Link from "next/link";
 
 export default async function AdminDashboard() {
   const session = await requireAdmin();
   const supabase = await createClient();
 
-  // Fetch counts
-  const [clients, actions, projects, reports, events, assets] = await Promise.all([
-    supabase.from("clients").select("id", { count: "exact", head: true }),
-    supabase.from("actions").select("id", { count: "exact", head: true }),
-    supabase.from("projects").select("id", { count: "exact", head: true }),
-    supabase.from("reports").select("id", { count: "exact", head: true }),
-    supabase.from("calendar_events").select("id", { count: "exact", head: true }),
-    supabase.from("assets").select("id", { count: "exact", head: true }),
+  // Fetch counts — 개별 에러 무시
+  const safeCount = async (table: string) => {
+    try {
+      const { count } = await supabase.from(table).select("id", { count: "exact", head: true });
+      return count ?? 0;
+    } catch {
+      return 0;
+    }
+  };
+
+  const [clientsN, projectsN, eventsN, reportsN, assetsN] = await Promise.all([
+    safeCount("clients"),
+    safeCount("projects"),
+    safeCount("calendar_events"),
+    safeCount("reports"),
+    safeCount("assets"),
   ]);
 
   const stats = [
-    { label: "Clients", count: clients.count || 0, icon: Users, href: "/admin/clients" },
-    { label: "Actions", count: actions.count || 0, icon: Zap, href: "/admin/actions" },
-    { label: "Projects", count: projects.count || 0, icon: FolderKanban, href: "/admin/projects" },
-    { label: "Calendar Events", count: events.count || 0, icon: CalendarDays, href: "/admin/calendar" },
-    { label: "Reports", count: reports.count || 0, icon: FileText, href: "/admin/reports" },
-    { label: "Assets", count: assets.count || 0, icon: Image, href: "/admin/assets" },
+    { label: "클라이언트", count: clientsN, icon: Users, href: "/admin/clients" },
+    { label: "프로젝트", count: projectsN, icon: FolderKanban, href: "/admin/projects" },
+    { label: "캘린더", count: eventsN, icon: CalendarDays, href: "/admin/calendar" },
+    { label: "리포트", count: reportsN, icon: FileText, href: "/admin/reports" },
+    { label: "자료실", count: assetsN, icon: Image, href: "/admin/assets" },
   ];
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Admin Dashboard</h1>
+        <h1 className="text-2xl font-bold">대시보드</h1>
         <p className="text-muted-foreground text-sm mt-1">
           환영합니다, {session.profile.display_name}
         </p>
@@ -41,7 +48,7 @@ export default async function AdminDashboard() {
           const Icon = stat.icon;
           return (
             <Link key={stat.href} href={stat.href}>
-              <Card className="transition-subtle hover:shadow-md cursor-pointer">
+              <Card className="hover:shadow-md cursor-pointer transition-colors">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground">
                     {stat.label}

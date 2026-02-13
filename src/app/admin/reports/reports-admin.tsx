@@ -2,12 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import { ReportType } from "@/lib/types/database";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -20,7 +16,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { formatDate } from "@/lib/utils";
-import { Plus, Upload } from "lucide-react";
+import { Plus } from "lucide-react";
 
 interface Props {
   initialReports: any[];
@@ -29,72 +25,43 @@ interface Props {
 
 export function ReportsAdmin({ initialReports, clients }: Props) {
   const router = useRouter();
-  const supabase = createClient();
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [filterClient, setFilterClient] = useState("all");
 
-  const [clientId, setClientId] = useState("");
-  const [title, setTitle] = useState("");
-  const [summary, setSummary] = useState("");
-  const [reportType, setReportType] = useState<ReportType>("weekly");
-  const [publishedAt, setPublishedAt] = useState(new Date().toISOString().split("T")[0]);
-  const [file, setFile] = useState<File | null>(null);
+  // 클라이언트 선택 다이얼로그 (리포트 작성 전)
+  const [pickDialogOpen, setPickDialogOpen] = useState(false);
+  const [pickClientId, setPickClientId] = useState(clients[0]?.id || "");
 
-  const openCreate = () => {
-    setClientId(clients[0]?.id || "");
-    setTitle(""); setSummary(""); setReportType("weekly");
-    setPublishedAt(new Date().toISOString().split("T")[0]);
-    setFile(null); setError("");
-    setDialogOpen(true);
+  const filteredReports = filterClient === "all"
+    ? initialReports
+    : initialReports.filter((r: any) => r.client_id === filterClient);
+
+  const handleCreateReport = () => {
+    if (clients.length === 1) {
+      // 클라이언트가 1개면 바로 이동
+      router.push(`/admin/clients/${clients[0].id}/reports/new`);
+    } else {
+      setPickClientId(clients[0]?.id || "");
+      setPickDialogOpen(true);
+    }
   };
 
-  const handleSave = async () => {
-    if (!title) { setError("제목은 필수입니다."); return; }
-    if (!summary) { setError("요약은 필수입니다."); return; }
-    if (!publishedAt) { setError("발행일은 필수입니다."); return; }
-    if (!file) { setError("파일을 선택해주세요."); return; }
-
-    setLoading(true);
-    setError("");
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Upload file
-      const filePath = `${clientId}/${Date.now()}_${file.name}`;
-      const { error: uploadError } = await supabase.storage
-        .from("reports")
-        .upload(filePath, file);
-
-      if (uploadError) {
-        setError("파일 업로드 실패: " + uploadError.message);
-        return;
-      }
-
-      // Create report record
-      await supabase.from("reports").insert({
-        client_id: clientId,
-        report_type: reportType,
-        title,
-        summary,
-        file_path: filePath,
-        published_at: publishedAt,
-        visibility: "visible",
-        created_by: user.id,
-      });
-
-      setDialogOpen(false);
-      router.refresh();
-    } finally {
-      setLoading(false);
+  const goToEditor = () => {
+    if (pickClientId) {
+      router.push(`/admin/clients/${pickClientId}/reports/new`);
     }
   };
 
   return (
     <>
-      <div className="flex justify-end">
-        <Button onClick={openCreate}><Plus className="h-4 w-4 mr-2" /> 리포트 추가</Button>
+      <div className="flex items-center justify-between gap-4">
+        <Select value={filterClient} onValueChange={setFilterClient}>
+          <SelectTrigger className="w-[200px]"><SelectValue placeholder="전체 클라이언트" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">전체 클라이언트</SelectItem>
+            {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Button onClick={handleCreateReport}><Plus className="h-4 w-4 mr-2" /> 리포트 작성</Button>
       </div>
 
       <Card><CardContent className="p-0">
@@ -102,67 +69,35 @@ export function ReportsAdmin({ initialReports, clients }: Props) {
           <TableHeader><TableRow>
             <TableHead>클라이언트</TableHead><TableHead>제목</TableHead>
             <TableHead>유형</TableHead><TableHead>발행일</TableHead>
-            <TableHead>파일</TableHead>
           </TableRow></TableHeader>
           <TableBody>
-            {initialReports.length === 0 ? (
-              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">없음</TableCell></TableRow>
-            ) : initialReports.map((r: any) => (
-              <TableRow key={r.id}>
+            {filteredReports.length === 0 ? (
+              <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">없음</TableCell></TableRow>
+            ) : filteredReports.map((r: any) => (
+              <TableRow key={r.id} className="cursor-pointer hover:bg-muted/50" onClick={() => router.push(`/admin/clients/${r.client_id}`)}>
                 <TableCell>{r.clients?.name || "-"}</TableCell>
                 <TableCell className="font-medium">{r.title}</TableCell>
-                <TableCell><Badge variant="outline">{r.report_type}</Badge></TableCell>
+                <TableCell><Badge variant="outline">{r.report_type === "weekly" ? "주간" : "월간"}</Badge></TableCell>
                 <TableCell className="text-sm">{formatDate(r.published_at)}</TableCell>
-                <TableCell className="text-xs text-muted-foreground truncate max-w-[200px]">{r.file_path}</TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </CardContent></Card>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>리포트 추가</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>클라이언트</Label>
-              <Select value={clientId} onValueChange={setClientId}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2"><Label>제목 *</Label><Input value={title} onChange={e => setTitle(e.target.value)} /></div>
-            <div className="space-y-2"><Label>요약 *</Label><Textarea value={summary} onChange={e => setSummary(e.target.value)} /></div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>유형</Label>
-                <Select value={reportType} onValueChange={v => setReportType(v as ReportType)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="weekly">주간</SelectItem>
-                    <SelectItem value="monthly">월간</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>발행일 *</Label>
-                <Input type="date" value={publishedAt} onChange={e => setPublishedAt(e.target.value)} />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>파일 *</Label>
-              <div className="flex items-center gap-2">
-                <Input type="file" onChange={e => setFile(e.target.files?.[0] || null)} />
-              </div>
-            </div>
-            {error && <p className="text-sm text-destructive">{error}</p>}
-          </div>
+      {/* 클라이언트 선택 다이얼로그 */}
+      <Dialog open={pickDialogOpen} onOpenChange={setPickDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>리포트 작성할 클라이언트 선택</DialogTitle></DialogHeader>
+          <Select value={pickClientId} onValueChange={setPickClientId}>
+            <SelectTrigger><SelectValue placeholder="클라이언트 선택" /></SelectTrigger>
+            <SelectContent>
+              {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>취소</Button>
-            <Button onClick={handleSave} disabled={loading}>
-              <Upload className="h-4 w-4 mr-2" />
-              {loading ? "업로드 중..." : "업로드"}
-            </Button>
+            <Button variant="outline" onClick={() => setPickDialogOpen(false)}>취소</Button>
+            <Button onClick={goToEditor} disabled={!pickClientId}>에디터로 이동</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

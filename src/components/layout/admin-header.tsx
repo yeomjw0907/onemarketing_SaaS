@@ -17,7 +17,7 @@ export function AdminHeader({ displayName }: { displayName: string }) {
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-card/80 backdrop-blur-sm px-6">
-      <h2 className="text-sm font-medium text-muted-foreground">Admin Console</h2>
+      <h2 className="text-sm font-medium text-muted-foreground">관리자 콘솔</h2>
       <div className="flex items-center gap-4">
         <span className="text-sm text-muted-foreground">{displayName}</span>
         <Button variant="ghost" size="icon" onClick={handleLogout} title="로그아웃">

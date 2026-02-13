@@ -10,19 +10,18 @@ export default async function AdminAssetsPage() {
     .from("assets")
     .select("*, clients(name)")
     .order("created_at", { ascending: false })
-    .limit(100);
+    .limit(200);
 
   const { data: clients } = await supabase
     .from("clients")
     .select("id, name, client_code")
-    .eq("is_active", true)
     .order("name");
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Assets 관리</h1>
-        <p className="text-muted-foreground text-sm mt-1">브랜드 에셋을 관리합니다.</p>
+        <h1 className="text-2xl font-bold">자료실 (전체)</h1>
+        <p className="text-muted-foreground text-sm mt-1">모든 클라이언트의 브랜드 에셋을 모아봅니다.</p>
       </div>
       <AssetsAdmin initialAssets={assets || []} clients={clients || []} />
     </div>

@@ -31,9 +31,13 @@ export interface Client {
   id: string;
   name: string;
   client_code: string;
+  contact_name: string | null;
+  contact_phone: string | null;
+  contact_email: string | null;
   logo_url: string | null;
   kakao_chat_url: string | null;
   enabled_modules: EnabledModules;
+  enabled_services: Record<string, boolean>;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -45,6 +49,7 @@ export interface Profile {
   client_id: string | null;
   display_name: string;
   email: string;
+  must_change_password: boolean;
   created_at: string;
 }
 
@@ -162,6 +167,51 @@ export interface AuditLog {
   created_at: string;
 }
 
+// ── 외부 데이터 연동 (META, GA, 네이버 등) ──
+export type IntegrationPlatform = "meta_ads" | "google_analytics" | "google_ads" | "naver_ads" | "naver_searchad";
+export type IntegrationStatus = "active" | "inactive" | "error";
+
+export interface DataIntegration {
+  id: string;
+  client_id: string;
+  platform: IntegrationPlatform;
+  display_name: string;
+  credentials: Json;
+  config: Json;
+  status: IntegrationStatus;
+  last_synced_at: string | null;
+  error_message: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface IntegrationSyncLog {
+  id: string;
+  integration_id: string;
+  client_id: string;
+  platform: string;
+  sync_type: "full" | "incremental";
+  status: "running" | "success" | "error";
+  records_synced: number;
+  error_message: string | null;
+  started_at: string;
+  completed_at: string | null;
+}
+
+export interface PlatformMetric {
+  id: string;
+  client_id: string;
+  integration_id: string;
+  platform: string;
+  metric_date: string;
+  metric_key: string;
+  metric_value: number;
+  dimensions: Json;
+  raw_data: Json;
+  created_at: string;
+}
+
 // Supabase Database type
 export interface Database {
   public: {
@@ -215,6 +265,21 @@ export interface Database {
         Row: AuditLog;
         Insert: Omit<AuditLog, "id" | "created_at">;
         Update: never;
+      };
+      data_integrations: {
+        Row: DataIntegration;
+        Insert: Omit<DataIntegration, "id" | "created_at" | "updated_at">;
+        Update: Partial<Omit<DataIntegration, "id" | "created_at" | "updated_at">>;
+      };
+      integration_sync_logs: {
+        Row: IntegrationSyncLog;
+        Insert: Omit<IntegrationSyncLog, "id">;
+        Update: Partial<Omit<IntegrationSyncLog, "id">>;
+      };
+      platform_metrics: {
+        Row: PlatformMetric;
+        Insert: Omit<PlatformMetric, "id" | "created_at">;
+        Update: Partial<Omit<PlatformMetric, "id" | "created_at">>;
       };
     };
     Functions: {

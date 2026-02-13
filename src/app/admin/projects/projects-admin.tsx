@@ -34,6 +34,11 @@ export function ProjectsAdmin({ initialProjects, clients }: Props) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
+  const [filterClient, setFilterClient] = useState("all");
+
+  const filteredProjects = filterClient === "all"
+    ? initialProjects
+    : initialProjects.filter((p: any) => p.client_id === filterClient);
 
   const [clientId, setClientId] = useState("");
   const [title, setTitle] = useState("");
@@ -87,7 +92,14 @@ export function ProjectsAdmin({ initialProjects, clients }: Props) {
 
   return (
     <>
-      <div className="flex justify-end">
+      <div className="flex items-center justify-between gap-4">
+        <Select value={filterClient} onValueChange={setFilterClient}>
+          <SelectTrigger className="w-[200px]"><SelectValue placeholder="전체 클라이언트" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">전체 클라이언트</SelectItem>
+            {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
         <Button onClick={openCreate}><Plus className="h-4 w-4 mr-2" /> 프로젝트 추가</Button>
       </div>
 
@@ -99,9 +111,9 @@ export function ProjectsAdmin({ initialProjects, clients }: Props) {
             <TableHead>진행률</TableHead><TableHead className="text-right">Actions</TableHead>
           </TableRow></TableHeader>
           <TableBody>
-            {initialProjects.length === 0 ? (
+            {filteredProjects.length === 0 ? (
               <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">없음</TableCell></TableRow>
-            ) : initialProjects.map((p: any) => (
+            ) : filteredProjects.map((p: any) => (
               <TableRow key={p.id}>
                 <TableCell>{p.clients?.name || "-"}</TableCell>
                 <TableCell className="font-medium">{p.title}</TableCell>

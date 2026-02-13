@@ -5,8 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/status-badge";
 import { formatDate } from "@/lib/utils";
-import { TrendingUp, Zap, CalendarDays, FileText, Image } from "lucide-react";
+import {
+  Zap, CalendarDays, FileText,
+  ChevronRight,
+} from "lucide-react";
 import Link from "next/link";
+import { ServiceCatalogView } from "@/components/service-catalog-view";
+import { OverviewCharts } from "./overview-charts";
+import { CalendarClient } from "@/app/(portal)/calendar/calendar-client";
 
 export default async function OverviewPage() {
   const session = await requireClient();
@@ -19,7 +25,7 @@ export default async function OverviewPage() {
   const supabase = await createClient();
   const clientId = session.profile.client_id!;
 
-  // Fetch KPIs for overview (top 4)
+  // KPI 정의 (상위 4개)
   const { data: kpiDefs } = await supabase
     .from("kpi_definitions")
     .select("*")
@@ -28,7 +34,7 @@ export default async function OverviewPage() {
     .order("overview_order", { ascending: true })
     .limit(4);
 
-  // Fetch latest metric values for each KPI
+  // 각 KPI 최신값
   const kpiCards = [];
   if (kpiDefs) {
     for (const kpi of kpiDefs) {
@@ -49,13 +55,9 @@ export default async function OverviewPage() {
       });
     }
   }
+  while (kpiCards.length < 4) kpiCards.push(null);
 
-  // Fill to 4 cards
-  while (kpiCards.length < 4) {
-    kpiCards.push(null);
-  }
-
-  // Fetch latest actions
+  // 최근 실행 내역
   const { data: latestActions } = await supabase
     .from("actions")
     .select("id, title, status, action_date, category")
@@ -64,7 +66,7 @@ export default async function OverviewPage() {
     .order("action_date", { ascending: false })
     .limit(5);
 
-  // Fetch done events (last 14 days) and upcoming (next 14 days)
+  // 이벤트
   const now = new Date();
   const twoWeeksAgo = new Date(now.getTime() - 14 * 86400000).toISOString();
   const twoWeeksLater = new Date(now.getTime() + 14 * 86400000).toISOString();
@@ -88,7 +90,7 @@ export default async function OverviewPage() {
     .order("start_at", { ascending: true })
     .limit(5);
 
-  // Fetch latest reports
+  // 최신 리포트
   const { data: latestReports } = await supabase
     .from("reports")
     .select("id, title, report_type, published_at")
@@ -97,91 +99,131 @@ export default async function OverviewPage() {
     .order("published_at", { ascending: false })
     .limit(4);
 
-  // Fetch recent assets
-  const { data: recentAssets } = await supabase
-    .from("assets")
-    .select("id, title, asset_type")
+  // 캘린더 전체 이벤트 (로드맵 달력용)
+  const { data: calendarEvents } = await supabase
+    .from("calendar_events")
+    .select("*")
     .eq("client_id", clientId)
     .eq("visibility", "visible")
-    .order("created_at", { ascending: false })
-    .limit(4);
+    .order("start_at", { ascending: true });
+
+  // ── KPI 추이 데이터 (최근 12주/6개월) ──
+  const twelveWeeksAgo = new Date(Date.now() - 84 * 86400000).toISOString().split("T")[0];
+  const { data: kpiTrendData } = await supabase
+    .from("metrics")
+    .select("period_start, period_type, metric_key, value")
+    .eq("client_id", clientId)
+    .eq("visibility", "visible")
+    .gte("period_start", twelveWeeksAgo)
+    .order("period_start", { ascending: true });
+
+  // ── 마케팅 플랫폼 지표 (최근 30일) ──
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0];
+  const { data: platformMetrics } = await supabase
+    .from("platform_metrics")
+    .select("platform, metric_date, metric_key, metric_value")
+    .eq("client_id", clientId)
+    .gte("metric_date", thirtyDaysAgo)
+    .order("metric_date", { ascending: true });
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Overview</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          {session.client?.name} 대시보드
+    <div className="space-y-8">
+      {/* ─── 히어로 영역 ─── */}
+      <div className="rounded-2xl bg-gradient-to-br from-primary/8 via-primary/4 to-transparent border border-primary/10 p-6 md:p-8">
+        <p className="text-sm text-muted-foreground font-medium">안녕하세요</p>
+        <h1 className="text-2xl md:text-3xl font-bold mt-1 tracking-tight">
+          {session.client?.name}
+        </h1>
+        <p className="text-sm text-muted-foreground mt-2">
+          마케팅 현황을 한눈에 확인하세요
         </p>
       </div>
 
-      {/* KPI Cards - Always 4 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* ─── KPI 카드 ─── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         {kpiCards.map((kpi, i) =>
           kpi ? (
-            <Card key={kpi.id}>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
+            <Card key={kpi.id} className="border-border/50 shadow-sm hover:shadow-md transition-shadow">
+              <CardContent className="pt-5 pb-4">
+                <p className="text-xs font-medium text-muted-foreground truncate">
                   {kpi.metric_label}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {kpi.latestValue !== null
-                    ? `${Number(kpi.latestValue).toLocaleString()}${kpi.unit}`
-                    : "-"}
+                </p>
+                <div className="flex items-baseline gap-1.5 mt-2">
+                  <span className="text-2xl md:text-3xl font-bold tracking-tight">
+                    {kpi.latestValue !== null
+                      ? Number(kpi.latestValue).toLocaleString()
+                      : "-"}
+                  </span>
+                  <span className="text-sm text-muted-foreground">{kpi.unit}</span>
                 </div>
                 {kpi.latestNotes && (
-                  <p className="text-xs text-muted-foreground mt-1 truncate">
+                  <p className="text-[11px] text-muted-foreground mt-1.5 truncate">
                     {kpi.latestNotes}
                   </p>
                 )}
               </CardContent>
             </Card>
           ) : (
-            <Card key={`placeholder-${i}`} className="opacity-50">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  KPI 미설정
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-muted-foreground">-</div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  관리자가 설정 예정
-                </p>
+            <Card key={`ph-${i}`} className="border-dashed border-border/40 bg-muted/20">
+              <CardContent className="pt-5 pb-4">
+                <p className="text-xs font-medium text-muted-foreground/60">KPI 미설정</p>
+                <div className="text-2xl md:text-3xl font-bold text-muted-foreground/30 mt-2">-</div>
+                <p className="text-[11px] text-muted-foreground/50 mt-1.5">관리자가 설정 예정</p>
               </CardContent>
             </Card>
           )
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Execution Feed */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Zap className="h-4 w-4" /> 최근 실행 내역
+      {/* ─── KPI 추이 차트 ─── */}
+      <OverviewCharts
+        kpiDefs={(kpiDefs || []).map((k) => ({
+          metric_key: k.metric_key,
+          metric_label: k.metric_label,
+          unit: k.unit,
+        }))}
+        kpiTrendData={(kpiTrendData || []).map((d) => ({
+          period_start: d.period_start,
+          period_type: d.period_type as "weekly" | "monthly",
+          metric_key: d.metric_key,
+          value: d.value,
+        }))}
+        platformMetrics={(platformMetrics || []).map((m) => ({
+          platform: m.platform,
+          metric_date: m.metric_date,
+          metric_key: m.metric_key,
+          metric_value: m.metric_value,
+        }))}
+      />
+
+      {/* ─── 2열 그리드: 최근 실행 내역 | 최신 리포트 ─── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+        {/* 최근 실행 내역 */}
+        <Card className="border-border/50 shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between pb-3">
+            <CardTitle className="text-sm font-bold flex items-center gap-2">
+              <div className="h-7 w-7 rounded-lg bg-violet-100 text-violet-600 flex items-center justify-center">
+                <Zap className="h-3.5 w-3.5" />
+              </div>
+              최근 실행 내역
             </CardTitle>
             {isModuleEnabled(modules, "execution") && (
-              <Link href="/execution" className="text-sm text-primary hover:underline">
-                전체보기
+              <Link href="/execution" className="text-xs text-primary hover:underline flex items-center gap-0.5">
+                전체보기 <ChevronRight className="h-3 w-3" />
               </Link>
             )}
           </CardHeader>
           <CardContent>
             {latestActions && latestActions.length > 0 ? (
-              <div className="space-y-3">
+              <div className="space-y-1">
                 {latestActions.map((action) => (
-                  <div key={action.id} className="flex items-center justify-between py-1">
+                  <div
+                    key={action.id}
+                    className="flex items-center justify-between py-2.5 px-2 -mx-2 rounded-lg hover:bg-muted/50 transition-colors"
+                  >
                     <div className="flex-1 min-w-0">
-                      <Link
-                        href={`/execution/actions/${action.id}`}
-                        className="text-sm font-medium hover:underline truncate block"
-                      >
-                        {action.title}
-                      </Link>
-                      <span className="text-xs text-muted-foreground">
+                      <p className="text-sm font-medium truncate">{action.title}</p>
+                      <span className="text-[11px] text-muted-foreground">
                         {formatDate(action.action_date)}
                       </span>
                     </div>
@@ -190,130 +232,84 @@ export default async function OverviewPage() {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">아직 실행 내역이 없습니다.</p>
+              <div className="py-8 text-center">
+                <p className="text-sm text-muted-foreground">아직 실행 내역이 없습니다</p>
+              </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Roadmap Summary */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-base flex items-center gap-2">
-              <CalendarDays className="h-4 w-4" /> 로드맵
-            </CardTitle>
-            {isModuleEnabled(modules, "calendar") && (
-              <Link href="/calendar" className="text-sm text-primary hover:underline">
-                캘린더
-              </Link>
-            )}
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div>
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-2">
-                  완료 (최근 14일)
-                </h4>
-                {doneEvents && doneEvents.length > 0 ? (
-                  <div className="space-y-1">
-                    {doneEvents.map((ev) => (
-                      <div key={ev.id} className="flex items-center gap-2 text-sm">
-                        <span className="h-1.5 w-1.5 rounded-full bg-status-done" />
-                        <span className="flex-1 truncate">{ev.title}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {formatDate(ev.start_at)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground">최근 완료 항목 없음</p>
-                )}
+        {/* 최신 리포트 */}
+        <Card className="border-border/50 shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between pb-3">
+            <CardTitle className="text-sm font-bold flex items-center gap-2">
+              <div className="h-7 w-7 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center">
+                <FileText className="h-3.5 w-3.5" />
               </div>
-              <div>
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-2">
-                  예정 (향후 14일)
-                </h4>
-                {upcomingEvents && upcomingEvents.length > 0 ? (
-                  <div className="space-y-1">
-                    {upcomingEvents.map((ev) => (
-                      <div key={ev.id} className="flex items-center gap-2 text-sm">
-                        <span className="h-1.5 w-1.5 rounded-full bg-status-planned" />
-                        <span className="flex-1 truncate">{ev.title}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {formatDate(ev.start_at)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground">예정된 항목 없음</p>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Latest Reports */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-base flex items-center gap-2">
-              <FileText className="h-4 w-4" /> 최신 리포트
+              최신 리포트
             </CardTitle>
             {isModuleEnabled(modules, "reports") && (
-              <Link href="/reports" className="text-sm text-primary hover:underline">
-                전체보기
+              <Link href="/reports" className="text-xs text-primary hover:underline flex items-center gap-0.5">
+                전체보기 <ChevronRight className="h-3 w-3" />
               </Link>
             )}
           </CardHeader>
           <CardContent>
             {latestReports && latestReports.length > 0 ? (
-              <div className="space-y-2">
+              <div className="space-y-1">
                 {latestReports.map((report) => (
-                  <div key={report.id} className="flex items-center justify-between">
-                    <span className="text-sm truncate">{report.title}</span>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary">{report.report_type}</Badge>
-                      <span className="text-xs text-muted-foreground">
+                  <Link
+                    key={report.id}
+                    href={`/reports/${report.id}`}
+                    className="flex items-center justify-between py-2.5 px-2 -mx-2 rounded-lg hover:bg-muted/50 transition-colors group"
+                  >
+                    <span className="text-sm font-medium truncate flex-1 group-hover:text-primary transition-colors">
+                      {report.title}
+                    </span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Badge variant="secondary" className="text-[10px]">
+                        {report.report_type === "weekly" ? "주간" : "월간"}
+                      </Badge>
+                      <span className="text-[11px] text-muted-foreground">
                         {formatDate(report.published_at)}
                       </span>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">리포트가 없습니다.</p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Assets Quick Links */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Image className="h-4 w-4" /> 에셋
-            </CardTitle>
-            {isModuleEnabled(modules, "assets") && (
-              <Link href="/assets" className="text-sm text-primary hover:underline">
-                전체보기
-              </Link>
-            )}
-          </CardHeader>
-          <CardContent>
-            {recentAssets && recentAssets.length > 0 ? (
-              <div className="space-y-2">
-                {recentAssets.map((asset) => (
-                  <div key={asset.id} className="flex items-center justify-between">
-                    <span className="text-sm truncate">{asset.title}</span>
-                    <Badge variant="outline">{asset.asset_type}</Badge>
-                  </div>
-                ))}
+              <div className="py-8 text-center">
+                <p className="text-sm text-muted-foreground">리포트가 없습니다</p>
               </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">에셋이 없습니다.</p>
             )}
           </CardContent>
         </Card>
       </div>
+
+      {/* ─── 로드맵 (캘린더 전체 너비, 세로로 길게) ─── */}
+      {isModuleEnabled(modules, "calendar") && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <div className="h-8 w-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center">
+                <CalendarDays className="h-4 w-4" />
+              </div>
+              로드맵
+            </h2>
+            <Link href="/calendar" className="text-sm text-primary hover:underline flex items-center gap-0.5">
+              캘린더 전체보기 <ChevronRight className="h-4 w-4" />
+            </Link>
+          </div>
+          <CalendarClient
+            events={calendarEvents || []}
+            recentDone={doneEvents || []}
+            upcomingPlanned={upcomingEvents || []}
+          />
+        </div>
+      )}
+
+      {/* ─── 서비스 항목 ─── */}
+      <ServiceCatalogView enabledServices={(session.client?.enabled_services || {}) as Record<string, boolean>} />
     </div>
   );
 }

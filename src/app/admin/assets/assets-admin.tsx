@@ -18,6 +18,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { safeFilePath } from "@/lib/utils";
 import { Plus, Upload } from "lucide-react";
 
 interface Props {
@@ -31,6 +32,11 @@ export function AssetsAdmin({ initialAssets, clients }: Props) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [filterClient, setFilterClient] = useState("all");
+
+  const filteredAssets = filterClient === "all"
+    ? initialAssets
+    : initialAssets.filter((a: any) => a.client_id === filterClient);
 
   const [clientId, setClientId] = useState("");
   const [title, setTitle] = useState("");
@@ -55,7 +61,7 @@ export function AssetsAdmin({ initialAssets, clients }: Props) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const filePath = `${clientId}/${Date.now()}_${file.name}`;
+      const filePath = safeFilePath(clientId, file.name);
       const { error: uploadError } = await supabase.storage
         .from("assets")
         .upload(filePath, file);
@@ -79,7 +85,14 @@ export function AssetsAdmin({ initialAssets, clients }: Props) {
 
   return (
     <>
-      <div className="flex justify-end">
+      <div className="flex items-center justify-between gap-4">
+        <Select value={filterClient} onValueChange={setFilterClient}>
+          <SelectTrigger className="w-[200px]"><SelectValue placeholder="전체 클라이언트" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">전체 클라이언트</SelectItem>
+            {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
         <Button onClick={openCreate}><Plus className="h-4 w-4 mr-2" /> 에셋 추가</Button>
       </div>
 
@@ -91,9 +104,9 @@ export function AssetsAdmin({ initialAssets, clients }: Props) {
             <TableHead>파일</TableHead>
           </TableRow></TableHeader>
           <TableBody>
-            {initialAssets.length === 0 ? (
+            {filteredAssets.length === 0 ? (
               <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">없음</TableCell></TableRow>
-            ) : initialAssets.map((a: any) => (
+            ) : filteredAssets.map((a: any) => (
               <TableRow key={a.id}>
                 <TableCell>{a.clients?.name || "-"}</TableCell>
                 <TableCell className="font-medium">{a.title}</TableCell>
