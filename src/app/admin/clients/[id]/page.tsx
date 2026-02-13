@@ -5,11 +5,14 @@ import { ClientDetail } from "./client-detail";
 
 interface Props {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ tab?: string }>;
 }
 
-export default async function ClientDetailPage({ params }: Props) {
+export default async function ClientDetailPage({ params, searchParams }: Props) {
   await requireAdmin();
   const { id } = await params;
+  const sp = await searchParams?.catch(() => ({}));
+  const initialTab = sp?.tab === "integrations" ? "integrations" : "kpis";
   const supabase = await createClient();
 
   const { data: client } = await supabase
@@ -45,6 +48,7 @@ export default async function ClientDetailPage({ params }: Props) {
     <ClientDetail
       client={client}
       clientProfile={clientProfile || null}
+      initialTab={initialTab}
       initialKpis={kpisRes.data || []}
       initialMetrics={metricsRes.data || []}
       initialActions={actionsRes.data || []}

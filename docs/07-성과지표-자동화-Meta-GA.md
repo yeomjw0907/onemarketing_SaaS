@@ -43,8 +43,25 @@
 | `conversions` | `actions` 중 전환 이벤트 | `conversions` |
 | `page_views` | - | `screenPageViews` |
 
-- 각 플랫폼 fetcher(`meta.ts`, `ga4.ts` 등)에서 **저장하는 `metric_key`** 를 위와 맞추거나,  
-  **집계 job** 안에서 “플랫폼 키 → KPI metric_key” 변환 테이블을 두면 됩니다.
+- **우리 쪽 약속 (추가 설정 없음)**  
+  - **GA / Meta 설정은 건드리지 않아도 됩니다.**  
+  - 플랫폼 fetcher(`meta.ts`, `ga4.ts`)가 API 응답을 우리가 정한 `metric_key`로 `platform_metrics`에 저장하고,  
+  - 집계 job에서 **플랫폼 키 → KPI metric_key** 변환 테이블(`PLATFORM_METRIC_TO_KPI`)로 매핑합니다.  
+  - 따라서 **필요한 것은 한 가지만**: 관리자가 **KPI 정의**를 넣을 때 **Metric Key**를 아래 표에 맞춰 등록하는 것입니다.
+
+**자동 반영을 쓰려면 KPI 정의의 Metric Key를 아래와 맞추세요**
+
+| 사용할 Metric Key (KPI 정의) | 출처 | 비고 |
+|------------------------------|------|------|
+| `revenue` | Meta (비용) | 매출/광고비 등 |
+| `conversions` | Meta, GA4 | 전환 수 |
+| `impressions`, `clicks`, `reach` | Meta | 노출, 클릭, 도달 |
+| `page_views` | GA4 | 페이지뷰 |
+| `sessions`, `users`, `new_users` | GA4 | 세션, 사용자 수 |
+| `bounce_rate`, `avg_session_duration` | GA4 | 이탈률, 체류시간 |
+
+- 위 키로 KPI를 등록해 두면, 연동 동기화 후 **성과 지표 반영** 시 자동으로 채워집니다.  
+- 각 플랫폼 fetcher에서 저장하는 `metric_key`와 위 표는 코드의 `PLATFORM_METRIC_TO_KPI` 매핑으로 연결되어 있습니다.
 
 ### 3-2. 집계 Job 설계
 
@@ -67,9 +84,21 @@
    - `metrics` 테이블에 **insert** (해당 `client_id`, `period_type`, `period_start`, `period_end`, `metric_key`, `value`)  
    - 이미 같은 (client_id, period_type, period_start, period_end, metric_key) 행이 있으면 **update** (또는 upsert)
 
-5. **실행 주기**  
-   - **Vercel Cron** (또는 서버 cron): 매일 새벽 1회  
-   - 또는 **수동 동기화** 후 “성과 지표 반영” 버튼을 눌렀을 때 같은 로직 호출
+5. **실행 주기 (권장: 일 1회)**  
+   - **Vercel Cron**: **매일 1회** (UTC 21:00 = 한국 새벽 06:00) 플랫폼 동기화 → 10분 뒤 집계  
+   - 성과 지표가 주간/월간 단위이므로 **일 1회**면 충분하고, 비용·API 호출 수 절감에 유리  
+   - 또는 **수동 동기화** 후 “성과 지표 반영” 버튼으로 즉시 반영 가능
+
+**실행 주기 선택 가이드**
+
+| 주기 | Cron 예시 | 월 호출 수 | 적합한 경우 |
+|------|------------|------------|-------------|
+| **일 1회 (권장)** | `0 21 * * *` | 약 60회 | 주간/월간 지표만 쓸 때, 비용·API 부담 최소화 |
+| 3시간마다 | `0 */3 * * *` | 약 240회 | 당일 데이터를 자주 보고 싶을 때 (필요 시만) |
+| 수동 | 버튼만 사용 | 0회 | Cron 없이 필요할 때만 반영 |
+
+- Meta/GA 데이터는 **당일 완료까지 지연**이 있어, 3시간마다 돌려도 당일 오전 데이터는 비어 있는 경우가 많음.  
+- 성과 지표가 **주·월 단위**이므로 **매일 새벽 1회**면 충분하고, Vercel 호출·비용을 크게 줄일 수 있음.
 
 ### 3-3. 구현 위치 제안
 

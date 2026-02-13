@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,7 +33,7 @@ export default function LoginPage() {
       // @ 포함이면 이메일로, 아니면 클라이언트 코드 → code@onecation.co.kr
       const email = trimmed.includes("@") ? trimmed : `${trimmed}@onecation.co.kr`;
 
-      const { error: authError } = await supabase.auth.signInWithPassword({
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
@@ -43,8 +44,8 @@ export default function LoginPage() {
         return;
       }
 
-      // Check role + must_change_password
-      const { data: { user } } = await supabase.auth.getUser();
+      // signInWithPassword 응답의 user 사용 (getUser() 호출 제거로 왕복 1회 절약)
+      const user = authData?.user;
       if (user) {
         const { data: profile } = await supabase
           .from("profiles")
@@ -117,7 +118,14 @@ export default function LoginPage() {
               <p className="text-sm text-destructive text-center">{error}</p>
             )}
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "로그인 중..." : "로그인"}
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  로그인 중...
+                </>
+              ) : (
+                "로그인"
+              )}
             </Button>
           </form>
         </CardContent>

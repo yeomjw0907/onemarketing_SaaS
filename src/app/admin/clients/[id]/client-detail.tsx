@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   Client, EnabledModules, KpiDefinition, ActionStatus, PeriodType,
@@ -31,7 +31,7 @@ import {
   ArrowLeft, Plus, Pencil, Save, Upload, KeyRound, Power, Check, X,
   Unplug, RefreshCw, Trash2, Zap, TestTube2, ExternalLink,
   LayoutDashboard, CalendarDays, FolderKanban, FileText, Image, MessageCircle,
-  GripVertical,
+  GripVertical, BarChart2,
 } from "lucide-react";
 import { SERVICE_CATALOG, ALL_SERVICE_KEYS, defaultEnabledServices } from "@/lib/service-catalog";
 import { ServiceIcon } from "@/components/service-icon";
@@ -61,6 +61,7 @@ const KPI_MAX_COUNT = 4;
 interface Props {
   client: Client;
   clientProfile: { user_id: string; email: string; display_name: string } | null;
+  initialTab?: string;
   initialKpis: KpiDefinition[];
   initialMetrics: any[];
   initialActions: any[];
@@ -73,6 +74,7 @@ interface Props {
 
 export function ClientDetail({
   client, clientProfile,
+  initialTab = "kpis",
   initialKpis, initialMetrics, initialActions,
   initialEvents, initialProjects, initialReports, initialAssets,
   initialIntegrations,
@@ -151,7 +153,7 @@ export function ClientDetail({
       </div>
 
       {/* ── 탭 ── */}
-      <Tabs defaultValue="kpis" className="space-y-4">
+      <Tabs defaultValue={initialTab} className="space-y-4">
         <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
         <TabsList className="flex-wrap h-auto gap-1 w-max md:w-auto">
           <TabsTrigger value="kpis">KPI 정의</TabsTrigger>
@@ -673,11 +675,21 @@ const STATUS_LABEL: Record<IntegrationStatus, string> = {
 };
 
 function IntegrationTab({ clientId, initialIntegrations, router }: { clientId: string; initialIntegrations: DataIntegration[]; router: any }) {
+  const searchParams = useSearchParams();
+  const metaTokenFromUrl = searchParams.get("metaToken");
+  const metaExpiresInFromUrl = searchParams.get("metaExpiresIn");
+
   const [integrations, setIntegrations] = useState<DataIntegration[]>(initialIntegrations);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [testResult, setTestResult] = useState<string | null>(null);
   const [syncLoading, setSyncLoading] = useState<string | null>(null);
+  const [aggregateLoading, setAggregateLoading] = useState(false);
+
+  // Meta OAuth 콜백 후 저장 폼 (URL에 metaToken 있을 때)
+  const [metaSaveDisplayName, setMetaSaveDisplayName] = useState("Meta 광고");
+  const [metaSaveAdAccountId, setMetaSaveAdAccountId] = useState("");
+  const [metaSaveLoading, setMetaSaveLoading] = useState(false);
 
   // 폼 상태
   const [platform, setPlatform] = useState<IntegrationPlatform>("naver_ads");
@@ -790,6 +802,63 @@ function IntegrationTab({ clientId, initialIntegrations, router }: { clientId: s
     }
   };
 
+  const handleAggregate = async () => {
+    setAggregateLoading(true);
+    try {
+      const res = await fetch("/api/admin/sync-metrics-from-platform", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId }),
+      });
+      const data = await res.json();
+      if (data.success !== false) {
+        alert(`성과 지표 반영 완료. 추가 ${data.inserted ?? 0}건, 수정 ${data.updated ?? 0}건`);
+        router.refresh();
+      } else {
+        alert(`반영 실패: ${data.errors?.length ? data.errors.join(", ") : "알 수 없는 오류"}`);
+      }
+    } catch (e: any) {
+      alert(`오류: ${e?.message ?? String(e)}`);
+    } finally {
+      setAggregateLoading(false);
+    }
+  };
+
+  const handleMetaSaveFromUrl = async () => {
+    if (!metaTokenFromUrl || !metaSaveAdAccountId.trim()) {
+      alert("광고 계정 ID를 입력하세요. (예: act_123456789)");
+      return;
+    }
+    setMetaSaveLoading(true);
+    try {
+      const res = await fetch("/api/admin/integrations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientId,
+          platform: "meta_ads",
+          displayName: metaSaveDisplayName.trim() || "Meta 광고",
+          credentials: {
+            accessToken: metaTokenFromUrl,
+            adAccountId: metaSaveAdAccountId.trim().startsWith("act_") ? metaSaveAdAccountId.trim() : `act_${metaSaveAdAccountId.trim()}`,
+          },
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "저장 실패");
+      }
+      router.replace(`/admin/clients/${clientId}?tab=integrations`, { scroll: false });
+      router.refresh();
+      const listRes = await fetch(`/api/admin/integrations?clientId=${clientId}`);
+      if (listRes.ok) setIntegrations(await listRes.json());
+    } catch (e: any) {
+      alert(e?.message || "저장 실패");
+    } finally {
+      setMetaSaveLoading(false);
+    }
+  };
+
   const startMetaOAuth = () => {
     const appId = prompt("Meta App ID를 입력하세요:");
     if (!appId) return;
@@ -826,13 +895,42 @@ function IntegrationTab({ clientId, initialIntegrations, router }: { clientId: s
         </div>
       </div>
 
-      {integrations.length === 0 ? (
+      {metaTokenFromUrl && (
+        <Card className="border-primary/50 bg-primary/5">
+          <CardContent className="py-4 space-y-3">
+            <p className="text-sm font-medium">Meta 인증이 완료되었습니다. 광고 계정 ID를 입력하고 저장하세요.</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs">표시명</Label>
+                <Input
+                  value={metaSaveDisplayName}
+                  onChange={(e) => setMetaSaveDisplayName(e.target.value)}
+                  placeholder="예: Meta 광고"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">광고 계정 ID *</Label>
+                <Input
+                  value={metaSaveAdAccountId}
+                  onChange={(e) => setMetaSaveAdAccountId(e.target.value)}
+                  placeholder="act_123456789"
+                />
+              </div>
+            </div>
+            <Button size="sm" onClick={handleMetaSaveFromUrl} disabled={metaSaveLoading}>
+              {metaSaveLoading ? "저장 중..." : "연동 저장"}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {integrations.length === 0 && !metaTokenFromUrl ? (
         <Card><CardContent className="py-12 text-center text-muted-foreground">
           <Unplug className="h-8 w-8 mx-auto mb-3 opacity-40" />
           <p>연결된 플랫폼이 없습니다.</p>
           <p className="text-xs mt-1">위 버튼을 눌러 네이버, Meta, Google 등의 광고 플랫폼을 연결하세요.</p>
         </CardContent></Card>
-      ) : (
+      ) : integrations.length > 0 ? (
         <div className="grid gap-3">
           {integrations.map(integ => (
             <Card key={integ.id}>
@@ -872,6 +970,29 @@ function IntegrationTab({ clientId, initialIntegrations, router }: { clientId: s
             </Card>
           ))}
         </div>
+      ) : null}
+
+      {integrations.length > 0 && (
+        <Card className="mt-4">
+          <CardContent className="py-4 flex items-center justify-between gap-4">
+            <div>
+              <p className="font-medium text-sm">성과 지표 자동 반영</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                연동된 플랫폼의 일별 데이터를 주간·월간으로 집계해 성과 지표 탭에 반영합니다. (KPI 정의에 있는 지표만 반영)
+              </p>
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleAggregate}
+              disabled={aggregateLoading}
+              title="지난 주·지난 달 구간 집계 후 metrics 반영"
+            >
+              <BarChart2 className={`h-4 w-4 mr-1 ${aggregateLoading ? "animate-pulse" : ""}`} />
+              {aggregateLoading ? "반영 중…" : "성과 지표 반영"}
+            </Button>
+          </CardContent>
+        </Card>
       )}
 
       {/* 연동 추가 다이얼로그 */}

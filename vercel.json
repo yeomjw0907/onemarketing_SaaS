@@ -1,12 +1,7 @@
 {
   "crons": [
-    {
-      "path": "/api/cron/sync-metrics",
-      "schedule": "0 21 * * *"
-    },
-    {
-      "path": "/api/cron/generate-report",
-      "schedule": "0 0 * * 1"
-    }
+    { "path": "/api/cron/sync-metrics", "schedule": "0 21 * * *" },
+    { "path": "/api/cron/aggregate-platform-metrics", "schedule": "10 21 * * *" },
+    { "path": "/api/cron/generate-report", "schedule": "0 0 * * 1" }
   ]
 }

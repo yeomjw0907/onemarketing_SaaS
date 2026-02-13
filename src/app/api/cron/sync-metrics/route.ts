@@ -1,6 +1,6 @@
 /**
- * Vercel Cron Job — 모든 활성 연동의 데이터 동기화
- * 매일 새벽 6시(KST) 실행
+ * Vercel Cron Job — 모든 활성 연동의 데이터 동기화 (Meta/GA/네이버 등 → platform_metrics)
+ * 매일 1회 실행 (0 21 * * * = UTC 21:00, 한국 새벽 06:00)
  */
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
