@@ -38,6 +38,8 @@ export interface Client {
   kakao_chat_url: string | null;
   enabled_modules: EnabledModules;
   enabled_services: Record<string, boolean>;
+  /** 서비스 키별 바로가기 URL (관리자 설정) */
+  service_urls?: Record<string, string>;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -91,6 +93,7 @@ export interface Action {
   description: string | null;
   status: ActionStatus;
   action_date: string;
+  end_date: string | null;
   links: Json;
   attachments: Json;
   visibility: Visibility;
@@ -212,6 +215,18 @@ export interface PlatformMetric {
   created_at: string;
 }
 
+export interface NotificationLog {
+  id: string;
+  client_id: string | null;
+  notification_type: string;
+  recipient_phone: string | null;
+  success: boolean;
+  message_id: string | null;
+  error_message: string | null;
+  payload: Json;
+  created_at: string;
+}
+
 // Supabase Database type
 export interface Database {
   public: {
@@ -280,6 +295,11 @@ export interface Database {
         Row: PlatformMetric;
         Insert: Omit<PlatformMetric, "id" | "created_at">;
         Update: Partial<Omit<PlatformMetric, "id" | "created_at">>;
+      };
+      notification_logs: {
+        Row: NotificationLog;
+        Insert: Omit<NotificationLog, "id" | "created_at">;
+        Update: never;
       };
     };
     Functions: {

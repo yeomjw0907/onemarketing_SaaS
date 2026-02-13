@@ -42,7 +42,7 @@ export default async function ActionDetailPage({ params }: Props) {
     <div className="space-y-6 max-w-3xl">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" asChild>
-          <Link href="/execution">
+          <Link href="/execution" aria-label="실행 현황으로">
             <ArrowLeft className="h-4 w-4" />
           </Link>
         </Button>

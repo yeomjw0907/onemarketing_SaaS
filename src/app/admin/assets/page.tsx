@@ -1,6 +1,12 @@
+import type { Metadata } from "next";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { AssetsAdmin } from "./assets-admin";
+
+export const metadata: Metadata = {
+  title: "자료실 | Onecation 관리자",
+  description: "전체 클라이언트 자료실 관리",
+};
 
 export default async function AdminAssetsPage() {
   await requireAdmin();

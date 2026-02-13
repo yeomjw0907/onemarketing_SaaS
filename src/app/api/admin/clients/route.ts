@@ -16,20 +16,36 @@ export async function POST(request: Request) {
     const {
       name,
       client_code,
+      login_email,
       contact_name,
       contact_phone,
       contact_email,
     } = body as {
       name: string;
-      client_code: string;
+      client_code?: string;
+      login_email?: string;
       contact_name?: string;
       contact_phone?: string;
       contact_email?: string;
     };
 
-    if (!name || !client_code) {
-      return NextResponse.json({ error: "회사명과 클라이언트 코드는 필수입니다." }, { status: 400 });
+    if (!name) {
+      return NextResponse.json({ error: "회사명은 필수입니다." }, { status: 400 });
     }
+
+    // 로그인 이메일 결정: login_email 우선, 없으면 client_code@onecation.co.kr
+    const email = login_email
+      ? login_email.trim().toLowerCase()
+      : client_code
+        ? `${client_code.toLowerCase()}@onecation.co.kr`
+        : null;
+
+    if (!email || !email.includes("@")) {
+      return NextResponse.json({ error: "올바른 로그인 이메일이 필요합니다." }, { status: 400 });
+    }
+
+    // client_code: 이메일의 @ 앞 부분
+    const code = client_code || email.split("@")[0];
 
     const supabase = await createClient();
     const serviceClient = await createServiceClient();
@@ -39,7 +55,7 @@ export async function POST(request: Request) {
       .from("clients")
       .insert({
         name,
-        client_code: client_code.toLowerCase(),
+        client_code: code.toLowerCase(),
         contact_name: contact_name || null,
         contact_phone: contact_phone || null,
         contact_email: contact_email || null,
@@ -56,15 +72,13 @@ export async function POST(request: Request) {
     }
 
     // 2) Supabase Auth 유저 생성 (service role 필요)
-    const loginEmail = `${client_code.toLowerCase()}@onecation.co.kr`;
     const { data: authData, error: authErr } = await serviceClient.auth.admin.createUser({
-      email: loginEmail,
+      email,
       password: DEFAULT_PASSWORD,
-      email_confirm: true, // 이메일 인증 건너뜀
+      email_confirm: true,
     });
 
     if (authErr) {
-      // 유저 생성 실패 시 클라이언트도 롤백
       await supabase.from("clients").delete().eq("id", client.id);
       return NextResponse.json({ error: `유저 생성 실패: ${authErr.message}` }, { status: 400 });
     }
@@ -77,12 +91,11 @@ export async function POST(request: Request) {
         role: "client",
         client_id: client.id,
         display_name: contact_name || name,
-        email: loginEmail,
+        email,
         must_change_password: true,
       });
 
     if (profileErr) {
-      // 프로필 생성 실패 — 유저, 클라이언트 롤백
       await serviceClient.auth.admin.deleteUser(authData.user.id);
       await supabase.from("clients").delete().eq("id", client.id);
       return NextResponse.json({ error: `프로필 생성 실패: ${profileErr.message}` }, { status: 400 });
@@ -90,8 +103,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       client,
-      loginEmail,
-      message: `클라이언트 "${name}" 생성 완료. 로그인: ${loginEmail} / 초기 비밀번호: ${DEFAULT_PASSWORD}`,
+      loginEmail: email,
+      message: `클라이언트 "${name}" 생성 완료.\n로그인: ${email}\n초기 비밀번호: ${DEFAULT_PASSWORD}`,
     });
   } catch (err: any) {
     return NextResponse.json({ error: err?.message || "서버 오류" }, { status: 500 });

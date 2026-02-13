@@ -1,6 +1,12 @@
+import type { Metadata } from "next";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { ClientsAdmin } from "./clients-admin";
+
+export const metadata: Metadata = {
+  title: "클라이언트 관리 | Onecation 관리자",
+  description: "클라이언트 목록 및 설정",
+};
 
 export default async function AdminClientsPage() {
   await requireAdmin();

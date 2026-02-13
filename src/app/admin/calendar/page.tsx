@@ -1,6 +1,12 @@
+import type { Metadata } from "next";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { CalendarAdmin } from "./calendar-admin";
+
+export const metadata: Metadata = {
+  title: "캘린더 | Onecation 관리자",
+  description: "전체 클라이언트 캘린더 이벤트",
+};
 
 export default async function AdminCalendarPage() {
   await requireAdmin();

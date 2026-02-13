@@ -5,6 +5,42 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/**
+ * 연락처(휴대폰)를 하이픈 포맷으로 표시 (010-1234-5678)
+ * 숫자만 추출 후 11자리(010 시작)면 010-XXXX-XXXX로 포맷
+ */
+export function formatPhoneDisplay(phone: string | null | undefined): string {
+  if (!phone) return "";
+  const digits = phone.replace(/\D/g, "").slice(0, 11);
+  if (digits.length <= 3) return digits;
+  if (digits.startsWith("010") && digits.length >= 4) {
+    if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+    return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+  }
+  if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+}
+
+/**
+ * 입력 중 연락처 포맷팅: 숫자만 허용, 최대 11자리, 010-XXXX-XXXX 형태로 표시
+ */
+export function formatPhoneInput(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 11);
+  if (digits.length <= 3) return digits;
+  if (digits.startsWith("010") && digits.length >= 4) {
+    if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+    return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+  }
+  if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+}
+
+/** 연락처에서 숫자만 반환 (저장/API 전송용) */
+export function phoneToDigits(phone: string | null | undefined): string {
+  if (!phone) return "";
+  return phone.replace(/\D/g, "").slice(0, 11);
+}
+
 export function formatDate(date: string | Date): string {
   return new Date(date).toLocaleDateString("ko-KR", {
     year: "numeric",
@@ -21,6 +57,12 @@ export function formatDateTime(date: string | Date): string {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+/** 고객 포털에서 표시할 리포트 제목 (내부용 [AI] 접두어 제거) */
+export function clientReportTitle(title: string | null | undefined): string {
+  if (!title) return "";
+  return title.replace(/^\[AI\]\s*/i, "").trim() || title;
 }
 
 /**

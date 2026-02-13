@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { requireClient, isModuleEnabled } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { ModuleDisabled } from "@/components/module-guard";
@@ -6,8 +7,13 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText, ChevronRight } from "lucide-react";
-import { formatDate } from "@/lib/utils";
+import { formatDate, clientReportTitle } from "@/lib/utils";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "리포트 | Onecation",
+  description: "마케팅 주간·월간 리포트",
+};
 
 export default async function ReportsPage() {
   const session = await requireClient();
@@ -37,7 +43,7 @@ export default async function ReportsPage() {
               <FileText className="h-8 w-8 text-muted-foreground shrink-0" />
               <div className="min-w-0">
                 <h3 className="text-sm font-medium truncate group-hover:text-primary transition-colors">
-                  {report.title}
+                  {clientReportTitle(report.title)}
                 </h3>
                 {report.summary && !report.summary.startsWith("<") && (
                   <p className="text-xs text-muted-foreground truncate mt-0.5">

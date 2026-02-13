@@ -1,10 +1,11 @@
+import type { Metadata } from "next";
 import { requireClient, isModuleEnabled } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { ModuleDisabled } from "@/components/module-guard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/status-badge";
-import { formatDate } from "@/lib/utils";
+import { formatDate, clientReportTitle } from "@/lib/utils";
 import {
   Zap, CalendarDays, FileText,
   ChevronRight,
@@ -13,6 +14,11 @@ import Link from "next/link";
 import { ServiceCatalogView } from "@/components/service-catalog-view";
 import { OverviewCharts } from "./overview-charts";
 import { CalendarClient } from "@/app/(portal)/calendar/calendar-client";
+
+export const metadata: Metadata = {
+  title: "개요 | Onecation",
+  description: "클라이언트 대시보드 개요 및 요약",
+};
 
 export default async function OverviewPage() {
   const session = await requireClient();
@@ -264,7 +270,7 @@ export default async function OverviewPage() {
                     className="flex items-center justify-between py-2.5 px-2 -mx-2 rounded-lg hover:bg-muted/50 transition-colors group"
                   >
                     <span className="text-sm font-medium truncate flex-1 group-hover:text-primary transition-colors">
-                      {report.title}
+                      {clientReportTitle(report.title)}
                     </span>
                     <div className="flex items-center gap-2 shrink-0">
                       <Badge variant="secondary" className="text-[10px]">
@@ -309,7 +315,7 @@ export default async function OverviewPage() {
       )}
 
       {/* ─── 서비스 항목 ─── */}
-      <ServiceCatalogView enabledServices={(session.client?.enabled_services || {}) as Record<string, boolean>} />
+      <ServiceCatalogView enabledServices={(session.client?.enabled_services || {}) as Record<string, boolean>} serviceUrls={(session.client?.service_urls || {}) as Record<string, string>} />
     </div>
   );
 }

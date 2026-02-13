@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { requireClient, isModuleEnabled } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { ModuleDisabled } from "@/components/module-guard";
@@ -8,6 +9,11 @@ import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
 import Link from "next/link";
 import { Zap } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "실행 현황 | Onecation",
+  description: "마케팅 실행 내역 및 진행 상황",
+};
 
 interface Props {
   searchParams: Promise<{ ids?: string; category?: string }>;
@@ -58,7 +64,7 @@ export default async function ExecutionPage({ searchParams }: Props) {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Zap className="h-6 w-6" /> Execution
+          <Zap className="h-6 w-6" /> 실행 현황
         </h1>
         <p className="text-muted-foreground text-sm mt-1">마케팅 실행 내역</p>
       </div>

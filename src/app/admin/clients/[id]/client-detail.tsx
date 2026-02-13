@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -26,10 +26,12 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { StatusBadge } from "@/components/status-badge";
-import { formatDate, formatDateTime, safeFilePath } from "@/lib/utils";
+import { formatDate, formatDateTime, formatPhoneDisplay, safeFilePath, cn } from "@/lib/utils";
 import {
   ArrowLeft, Plus, Pencil, Save, Upload, KeyRound, Power, Check, X,
   Unplug, RefreshCw, Trash2, Zap, TestTube2, ExternalLink,
+  LayoutDashboard, CalendarDays, FolderKanban, FileText, Image, MessageCircle,
+  GripVertical,
 } from "lucide-react";
 import { SERVICE_CATALOG, ALL_SERVICE_KEYS, defaultEnabledServices } from "@/lib/service-catalog";
 import { ServiceIcon } from "@/components/service-icon";
@@ -39,6 +41,21 @@ const moduleLabels: Record<keyof EnabledModules, string> = {
   overview: "개요", execution: "실행 현황", calendar: "캘린더",
   projects: "프로젝트", reports: "리포트", assets: "자료실", support: "문의하기",
 };
+
+// ── KPI 표시명 ↔ Metric Key 매핑 (선택용) ──
+const KPI_PRESETS: { key: string; label: string }[] = [
+  { key: "sales", label: "매출액" },
+  { key: "signup_count", label: "가입자 수" },
+  { key: "conversions", label: "전환 수" },
+  { key: "revenue", label: "매출(금액)" },
+  { key: "orders", label: "주문 수" },
+  { key: "page_views", label: "페이지뷰" },
+  { key: "leads", label: "리드 수" },
+  { key: "engagement_rate", label: "참여율" },
+  { key: "other", label: "기타 (직접 입력)" },
+];
+
+const KPI_MAX_COUNT = 4;
 
 // ── Props ──
 interface Props {
@@ -94,26 +111,29 @@ export function ClientDetail({
     setPwLoading(false);
   };
 
+  // 로그인 이메일: profile에서 가져오거나, client_code 기반
+  const displayEmail = clientProfile?.email || `${client.client_code}@onecation.co.kr`;
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* ── 헤더 ── */}
-      <div className="flex items-start gap-4">
-        <Link href="/admin/clients">
-          <Button variant="ghost" size="icon" className="mt-1"><ArrowLeft className="h-4 w-4" /></Button>
+      <div className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4">
+        <Link href="/admin/clients" className="shrink-0">
+          <Button variant="ghost" size="icon" className="mt-0.5" aria-label="클라이언트 목록으로"><ArrowLeft className="h-4 w-4" /></Button>
         </Link>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold">{client.name}</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            <code>{client.client_code}@onecation.co.kr</code>
-            {client.contact_name && <span className="ml-3">담당: {client.contact_name}</span>}
-            {client.contact_phone && <span className="ml-2">/ {client.contact_phone}</span>}
-          </p>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-xl md:text-2xl font-bold truncate">{client.name}</h1>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground mt-1">
+            <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{displayEmail}</code>
+            {client.contact_name && <span>담당: {client.contact_name}</span>}
+            {client.contact_phone && <span>{formatPhoneDisplay(client.contact_phone)}</span>}
+          </div>
           <p className="text-xs text-muted-foreground mt-1">등록일: {formatDate(client.created_at)}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           {clientProfile && (
             <Button variant="outline" size="sm" onClick={() => { setPwDialogOpen(true); setPwMsg(""); }}>
-              <KeyRound className="h-3 w-3 mr-1" /> 비밀번호 리셋
+              <KeyRound className="h-3 w-3 mr-1" /> <span className="hidden sm:inline">비밀번호 </span>리셋
             </Button>
           )}
           <Button
@@ -132,7 +152,8 @@ export function ClientDetail({
 
       {/* ── 탭 ── */}
       <Tabs defaultValue="kpis" className="space-y-4">
-        <TabsList className="flex-wrap h-auto gap-1">
+        <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+        <TabsList className="flex-wrap h-auto gap-1 w-max md:w-auto">
           <TabsTrigger value="kpis">KPI 정의</TabsTrigger>
           <TabsTrigger value="metrics">성과 지표</TabsTrigger>
           <TabsTrigger value="actions">실행 항목</TabsTrigger>
@@ -144,6 +165,7 @@ export function ClientDetail({
           <TabsTrigger value="services">이용중인 서비스</TabsTrigger>
           <TabsTrigger value="modules">활성 모듈</TabsTrigger>
         </TabsList>
+        </div>
 
         <TabsContent value="kpis"><KpiTab clientId={client.id} initialKpis={initialKpis} supabase={supabase} router={router} /></TabsContent>
         <TabsContent value="metrics"><MetricTab clientId={client.id} initialMetrics={initialMetrics} kpiDefs={initialKpis} supabase={supabase} router={router} /></TabsContent>
@@ -153,7 +175,7 @@ export function ClientDetail({
         <TabsContent value="reports"><ReportTab clientId={client.id} initialReports={initialReports} supabase={supabase} router={router} /></TabsContent>
         <TabsContent value="assets"><AssetTab clientId={client.id} initialAssets={initialAssets} supabase={supabase} router={router} /></TabsContent>
         <TabsContent value="integrations"><IntegrationTab clientId={client.id} initialIntegrations={initialIntegrations} router={router} /></TabsContent>
-        <TabsContent value="services"><ServiceTab clientId={client.id} initialServices={(client.enabled_services || {}) as Record<string, boolean>} supabase={supabase} router={router} /></TabsContent>
+        <TabsContent value="services"><ServiceTab clientId={client.id} initialServices={(client.enabled_services || {}) as Record<string, boolean>} initialServiceUrls={(client.service_urls || {}) as Record<string, string>} supabase={supabase} router={router} /></TabsContent>
         <TabsContent value="modules"><ModuleTab clientId={client.id} initialModules={client.enabled_modules as EnabledModules} supabase={supabase} router={router} /></TabsContent>
       </Tabs>
 
@@ -182,7 +204,7 @@ export function ClientDetail({
 }
 
 // ╔══════════════════════════════════════════════╗
-// ║  KPI 정의 탭                                  ║
+// ║  KPI 정의 탭 (최대 4개, 드래그로 순서 변경)     ║
 // ╚══════════════════════════════════════════════╝
 function KpiTab({ clientId, initialKpis, supabase, router }: { clientId: string; initialKpis: KpiDefinition[]; supabase: any; router: any }) {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -192,31 +214,178 @@ function KpiTab({ clientId, initialKpis, supabase, router }: { clientId: string;
   const [metricLabel, setMetricLabel] = useState("");
   const [unit, setUnit] = useState("");
   const [showOnOverview, setShowOnOverview] = useState(true);
-  const [overviewOrder, setOverviewOrder] = useState(0);
   const [chartEnabled, setChartEnabled] = useState(false);
   const [description, setDescription] = useState("");
+  const [presetSelect, setPresetSelect] = useState("");
+  const sortedInitial = useMemo(() => [...(initialKpis || [])].sort((a, b) => (a.overview_order ?? 0) - (b.overview_order ?? 0)), [initialKpis]);
+  const [orderedKpis, setOrderedKpis] = useState<KpiDefinition[]>(() => sortedInitial);
+  const [orderDirty, setOrderDirty] = useState(false);
+  const [orderSaving, setOrderSaving] = useState(false);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
 
-  const openCreate = () => { setEditing(null); setMetricKey(""); setMetricLabel(""); setUnit(""); setShowOnOverview(true); setOverviewOrder(0); setChartEnabled(false); setDescription(""); setDialogOpen(true); };
-  const openEdit = (k: KpiDefinition) => { setEditing(k); setMetricKey(k.metric_key); setMetricLabel(k.metric_label); setUnit(k.unit); setShowOnOverview(k.show_on_overview); setOverviewOrder(k.overview_order); setChartEnabled(k.chart_enabled); setDescription(k.description || ""); setDialogOpen(true); };
+  useEffect(() => {
+    if (!orderDirty && sortedInitial.length >= 0) setOrderedKpis(sortedInitial);
+  }, [sortedInitial, orderDirty]);
+
+  const isOther = presetSelect === "other";
+  const atLimit = initialKpis.length >= KPI_MAX_COUNT;
+
+  const openCreate = () => {
+    if (atLimit) {
+      alert(`KPI는 최대 ${KPI_MAX_COUNT}개까지 등록할 수 있습니다. 기존 항목을 수정·삭제한 후 추가해 주세요.`);
+      return;
+    }
+    setEditing(null);
+    setPresetSelect("");
+    setMetricKey("");
+    setMetricLabel("");
+    setUnit("");
+    setShowOnOverview(true);
+    setChartEnabled(false);
+    setDescription("");
+    setDialogOpen(true);
+  };
+  const openEdit = (k: KpiDefinition) => { setEditing(k); setMetricKey(k.metric_key); setMetricLabel(k.metric_label); setUnit(k.unit); setShowOnOverview(k.show_on_overview); setChartEnabled(k.chart_enabled); setDescription(k.description || ""); setDialogOpen(true); };
+
+  const onPresetChange = (value: string) => {
+    setPresetSelect(value);
+    if (value === "other") { setMetricKey(""); setMetricLabel(""); return; }
+    const preset = KPI_PRESETS.find(p => p.key === value);
+    if (preset) { setMetricKey(preset.key); setMetricLabel(preset.label); }
+  };
 
   const handleSave = async () => {
+    if (!editing && atLimit) return;
     setLoading(true);
-    if (editing) { await supabase.from("kpi_definitions").update({ metric_label: metricLabel, unit, show_on_overview: showOnOverview, overview_order: overviewOrder, chart_enabled: chartEnabled, description: description || null }).eq("id", editing.id); }
-    else { await supabase.from("kpi_definitions").insert({ client_id: clientId, metric_key: metricKey, metric_label: metricLabel, unit, show_on_overview: showOnOverview, overview_order: overviewOrder, chart_enabled: chartEnabled, description: description || null, validation_rule: { required: true } }); }
-    setDialogOpen(false); router.refresh(); setLoading(false);
+    const newOrder = editing ? undefined : orderedKpis.length;
+    if (editing) {
+      await supabase.from("kpi_definitions").update({ metric_label: metricLabel, unit, show_on_overview: showOnOverview, chart_enabled: chartEnabled, description: description || null }).eq("id", editing.id);
+    } else {
+      await supabase.from("kpi_definitions").insert({ client_id: clientId, metric_key: metricKey, metric_label: metricLabel, unit, show_on_overview: showOnOverview, overview_order: newOrder ?? 0, chart_enabled: chartEnabled, description: description || null, validation_rule: { required: true } });
+    }
+    setDialogOpen(false);
+    router.refresh();
+    setLoading(false);
+  };
+
+  const handleDragStart = (e: React.DragEvent, id: string) => { setDraggingId(id); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", id); };
+  const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; };
+  const handleDrop = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    setDraggingId(null);
+    const id = e.dataTransfer.getData("text/plain");
+    if (!id || id === targetId) return;
+    const from = orderedKpis.findIndex((k) => k.id === id);
+    const to = orderedKpis.findIndex((k) => k.id === targetId);
+    if (from === -1 || to === -1) return;
+    const next = [...orderedKpis];
+    const [removed] = next.splice(from, 1);
+    next.splice(to, 0, removed);
+    setOrderedKpis(next);
+    setOrderDirty(true);
+  };
+  const handleDragEnd = () => { setDraggingId(null); };
+
+  const saveOrder = async () => {
+    setOrderSaving(true);
+    for (let i = 0; i < orderedKpis.length; i++) {
+      await supabase.from("kpi_definitions").update({ overview_order: i }).eq("id", orderedKpis[i].id);
+    }
+    setOrderDirty(false);
+    router.refresh();
+    setOrderSaving(false);
   };
 
   return (<>
-    <div className="flex items-center justify-between mb-4"><h3 className="text-lg font-semibold">KPI 정의</h3><Button size="sm" onClick={openCreate}><Plus className="h-4 w-4 mr-1" /> 추가</Button></div>
-    <Card><CardContent className="p-0"><Table><TableHeader><TableRow><TableHead>Key</TableHead><TableHead>표시명</TableHead><TableHead>단위</TableHead><TableHead>개요</TableHead><TableHead>순서</TableHead><TableHead className="text-right">수정</TableHead></TableRow></TableHeader><TableBody>
-      {initialKpis.length === 0 ? <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">등록된 KPI가 없습니다.</TableCell></TableRow> : initialKpis.map(k => (
-        <TableRow key={k.id}><TableCell><code className="text-xs bg-muted px-1 rounded">{k.metric_key}</code></TableCell><TableCell className="font-medium">{k.metric_label}</TableCell><TableCell>{k.unit}</TableCell><TableCell><Badge variant={k.show_on_overview ? "done" : "secondary"}>{k.show_on_overview ? "표시" : "숨김"}</Badge></TableCell><TableCell>{k.overview_order}</TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" onClick={() => openEdit(k)}><Pencil className="h-4 w-4" /></Button></TableCell></TableRow>
-      ))}</TableBody></Table></CardContent></Card>
-    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}><DialogContent className="max-w-lg"><DialogHeader><DialogTitle>{editing ? "KPI 수정" : "KPI 추가"}</DialogTitle></DialogHeader><div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4"><div className="space-y-2"><Label>Metric Key</Label><Input value={metricKey} onChange={e => setMetricKey(e.target.value)} disabled={!!editing} /></div><div className="space-y-2"><Label>표시명</Label><Input value={metricLabel} onChange={e => setMetricLabel(e.target.value)} /></div></div>
-      <div className="grid grid-cols-3 gap-4"><div className="space-y-2"><Label>단위</Label><Input value={unit} onChange={e => setUnit(e.target.value)} /></div><div className="space-y-2"><Label>순서</Label><Input type="number" value={overviewOrder} onChange={e => setOverviewOrder(Number(e.target.value))} /></div><div className="space-y-2 pt-6"><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={showOnOverview} onChange={() => setShowOnOverview(!showOnOverview)} />개요 표시</label><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={chartEnabled} onChange={() => setChartEnabled(!chartEnabled)} />차트</label></div></div>
+    <div className="flex items-center justify-between mb-4">
+      <h3 className="text-lg font-semibold">KPI 정의</h3>
+      <div className="flex items-center gap-2">
+        {atLimit && <span className="text-xs text-muted-foreground">KPI는 최대 {KPI_MAX_COUNT}개까지 등록 가능합니다.</span>}
+        <Button size="sm" onClick={openCreate} disabled={atLimit} title={atLimit ? `최대 ${KPI_MAX_COUNT}개까지` : undefined}><Plus className="h-4 w-4 mr-1" /> 추가</Button>
+        {orderDirty && <Button size="sm" variant="secondary" onClick={saveOrder} disabled={orderSaving}><Save className="h-4 w-4 mr-1" /> 순서 저장</Button>}
+      </div>
+    </div>
+    <Card>
+      <CardContent className="p-0 overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-9" />
+              <TableHead>Key</TableHead>
+              <TableHead>표시명</TableHead>
+              <TableHead>단위</TableHead>
+              <TableHead>개요</TableHead>
+              <TableHead className="text-right">수정</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {orderedKpis.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                  등록된 KPI가 없습니다. 위에서부터 1번 순서로 드래그하여 변경할 수 있습니다.
+                </TableCell>
+              </TableRow>
+            ) : (
+              orderedKpis.map((k, idx) => (
+                <TableRow
+                  key={k.id}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, k.id)}
+                  onDragOver={handleDragOver}
+                  onDrop={(e) => handleDrop(e, k.id)}
+                  onDragEnd={handleDragEnd}
+                  className={cn("cursor-grab active:cursor-grabbing", draggingId === k.id && "opacity-50")}
+                >
+                  <TableCell className="w-9 p-1 text-muted-foreground"><GripVertical className="h-4 w-4" aria-hidden /></TableCell>
+                  <TableCell><code className="text-xs bg-muted px-1 rounded">{k.metric_key}</code></TableCell>
+                  <TableCell className="font-medium">{k.metric_label}</TableCell>
+                  <TableCell>{k.unit}</TableCell>
+                  <TableCell><Badge variant={k.show_on_overview ? "done" : "secondary"}>{k.show_on_overview ? "표시" : "숨김"}</Badge></TableCell>
+                  <TableCell className="text-right"><Button variant="ghost" size="icon" onClick={() => openEdit(k)} aria-label="KPI 수정" draggable={false} onDragStart={(e) => e.stopPropagation()}><Pencil className="h-4 w-4" /></Button></TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{editing ? "KPI 수정" : "KPI 추가"}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+      <div className="space-y-2">
+        <Label>표시명 (선택 시 Metric Key 자동 매핑) *</Label>
+        {editing ? (
+          <div className="flex gap-2"><Input value={metricLabel} readOnly className="bg-muted" /><code className="text-xs self-center text-muted-foreground">{metricKey}</code></div>
+        ) : (
+          <>
+            <Select value={presetSelect} onValueChange={onPresetChange}>
+              <SelectTrigger><SelectValue placeholder="표시명 선택" /></SelectTrigger>
+              <SelectContent>
+                {KPI_PRESETS.filter(p => p.key !== "other").map(p => (<SelectItem key={p.key} value={p.key}>{p.label} ({p.key})</SelectItem>))}
+                <SelectItem value="other">기타 (직접 입력)</SelectItem>
+              </SelectContent>
+            </Select>
+            {isOther && (
+              <div className="grid grid-cols-2 gap-3 mt-2">
+                <div className="space-y-1"><Label className="text-xs">표시명</Label><Input value={metricLabel} onChange={e => setMetricLabel(e.target.value)} placeholder="예: 커스텀 지표" /></div>
+                <div className="space-y-1"><Label className="text-xs">Metric Key</Label><Input value={metricKey} onChange={e => setMetricKey(e.target.value.replace(/\s/g, "_").replace(/[^a-zA-Z0-9_]/g, "").toLowerCase())} placeholder="예: custom_metric" /></div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+      <div className="grid grid-cols-2 gap-4"><div className="space-y-2"><Label>단위</Label><Input value={unit} onChange={e => setUnit(e.target.value)} /></div><div className="space-y-2 pt-6"><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={showOnOverview} onChange={() => setShowOnOverview(!showOnOverview)} />개요 표시</label><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={chartEnabled} onChange={() => setChartEnabled(!chartEnabled)} />차트</label></div></div>
       <div className="space-y-2"><Label>설명</Label><Input value={description} onChange={e => setDescription(e.target.value)} /></div>
-    </div><DialogFooter><Button variant="outline" onClick={() => setDialogOpen(false)}>취소</Button><Button onClick={handleSave} disabled={loading || !metricKey || !metricLabel}>{loading ? "저장 중..." : "저장"}</Button></DialogFooter></DialogContent></Dialog>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setDialogOpen(false)}>취소</Button>
+          <Button onClick={handleSave} disabled={loading || !metricKey || !metricLabel}>{loading ? "저장 중..." : "저장"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </>);
 }
 
@@ -233,9 +402,9 @@ function MetricTab({ clientId, initialMetrics, kpiDefs, supabase, router }: { cl
     setDialogOpen(false); router.refresh(); setLoading(false); };
   return (<>
     <div className="flex items-center justify-between mb-4"><h3 className="text-lg font-semibold">성과 지표</h3><Button size="sm" onClick={openCreate}><Plus className="h-4 w-4 mr-1" /> 추가</Button></div>
-    <Card><CardContent className="p-0"><Table><TableHeader><TableRow><TableHead>기간</TableHead><TableHead>지표</TableHead><TableHead>값</TableHead><TableHead>비고</TableHead><TableHead className="text-right">수정</TableHead></TableRow></TableHeader><TableBody>
+    <Card><CardContent className="p-0 overflow-x-auto"><Table><TableHeader><TableRow><TableHead>기간</TableHead><TableHead>지표</TableHead><TableHead>값</TableHead><TableHead>비고</TableHead><TableHead className="text-right">수정</TableHead></TableRow></TableHeader><TableBody>
       {initialMetrics.length === 0 ? <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">데이터 없음</TableCell></TableRow> : initialMetrics.map((m: any) => (
-        <TableRow key={m.id}><TableCell><Badge variant="outline" className="text-xs mr-1">{m.period_type === "weekly" ? "주간" : "월간"}</Badge>{formatDate(m.period_start)}</TableCell><TableCell><code className="text-xs">{m.metric_key}</code></TableCell><TableCell className="font-medium">{Number(m.value).toLocaleString()}</TableCell><TableCell className="text-sm text-muted-foreground truncate max-w-[150px]">{m.notes || "-"}</TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" onClick={() => { setEditing(m); setMetricKey(m.metric_key); setValue(m.value.toString()); setNotes(m.notes || ""); setDialogOpen(true); }}><Pencil className="h-4 w-4" /></Button></TableCell></TableRow>
+        <TableRow key={m.id}><TableCell><Badge variant="outline" className="text-xs mr-1">{m.period_type === "weekly" ? "주간" : "월간"}</Badge>{formatDate(m.period_start)}</TableCell><TableCell><code className="text-xs">{m.metric_key}</code></TableCell><TableCell className="font-medium">{Number(m.value).toLocaleString()}</TableCell><TableCell className="text-sm text-muted-foreground truncate max-w-[150px]">{m.notes || "-"}</TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" onClick={() => { setEditing(m); setMetricKey(m.metric_key); setValue(m.value.toString()); setNotes(m.notes || ""); setDialogOpen(true); }} aria-label="성과지표 수정"><Pencil className="h-4 w-4" /></Button></TableCell></TableRow>
       ))}</TableBody></Table></CardContent></Card>
     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}><DialogContent className="max-w-md"><DialogHeader><DialogTitle>{editing ? "지표 수정" : "지표 추가"}</DialogTitle></DialogHeader><div className="space-y-4">
       {!editing && (<><div className="space-y-2"><Label>KPI</Label><Select value={metricKey} onValueChange={setMetricKey}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{kpiDefs.map(k => <SelectItem key={k.metric_key} value={k.metric_key}>{k.metric_label}</SelectItem>)}</SelectContent></Select></div>
@@ -248,30 +417,17 @@ function MetricTab({ clientId, initialMetrics, kpiDefs, supabase, router }: { cl
 }
 
 // ╔══════════════════════════════════════════════╗
-// ║  실행 항목 탭                                  ║
+// ║  실행 항목 탭 (작성/수정은 전용 페이지에서)     ║
 // ╚══════════════════════════════════════════════╝
-function ActionTab({ clientId, initialActions, supabase, router }: { clientId: string; initialActions: any[]; supabase: any; router: any }) {
-  const [dialogOpen, setDialogOpen] = useState(false); const [editing, setEditing] = useState<any>(null); const [loading, setLoading] = useState(false);
-  const [title, setTitle] = useState(""); const [description, setDescription] = useState(""); const [category, setCategory] = useState("general"); const [status, setStatus] = useState<ActionStatus>("planned"); const [actionDate, setActionDate] = useState(new Date().toISOString().split("T")[0]);
-  const openCreate = () => { setEditing(null); setTitle(""); setDescription(""); setCategory("general"); setStatus("planned"); setActionDate(new Date().toISOString().split("T")[0]); setDialogOpen(true); };
-  const openEdit = (a: any) => { setEditing(a); setTitle(a.title); setDescription(a.description || ""); setCategory(a.category); setStatus(a.status); setActionDate(a.action_date); setDialogOpen(true); };
-  const handleSave = async () => { setLoading(true); const { data: { user } } = await supabase.auth.getUser(); if (!user) return;
-    if (editing) { await supabase.from("actions").update({ title, description: description || null, category, status, action_date: actionDate }).eq("id", editing.id); }
-    else { await supabase.from("actions").insert({ client_id: clientId, title, description: description || null, category, status, action_date: actionDate, created_by: user.id, visibility: "visible" }); }
-    setDialogOpen(false); router.refresh(); setLoading(false); };
+function ActionTab({ clientId, initialActions, router }: { clientId: string; initialActions: any[]; supabase: any; router: any }) {
   return (<>
-    <div className="flex items-center justify-between mb-4"><h3 className="text-lg font-semibold">실행 항목</h3><Button size="sm" onClick={openCreate}><Plus className="h-4 w-4 mr-1" /> 추가</Button></div>
-    <Card><CardContent className="p-0"><Table><TableHeader><TableRow><TableHead>제목</TableHead><TableHead>카테고리</TableHead><TableHead>상태</TableHead><TableHead>날짜</TableHead><TableHead className="text-right">수정</TableHead></TableRow></TableHeader><TableBody>
+    <div className="flex items-center justify-between mb-4"><h3 className="text-lg font-semibold">실행 항목</h3>
+      <Button size="sm" type="button" onClick={() => router.push(`/admin/clients/${clientId}/actions/new`)}><Plus className="h-4 w-4 mr-1" /> 추가</Button>
+    </div>
+    <Card><CardContent className="p-0 overflow-x-auto"><Table><TableHeader><TableRow><TableHead>제목</TableHead><TableHead>카테고리</TableHead><TableHead>상태</TableHead><TableHead>날짜</TableHead><TableHead className="text-right">수정</TableHead></TableRow></TableHeader><TableBody>
       {initialActions.length === 0 ? <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">없음</TableCell></TableRow> : initialActions.map((a: any) => (
-        <TableRow key={a.id}><TableCell className="font-medium">{a.title}</TableCell><TableCell>{a.category}</TableCell><TableCell><StatusBadge status={a.status} /></TableCell><TableCell className="text-sm">{formatDate(a.action_date)}</TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" onClick={() => openEdit(a)}><Pencil className="h-4 w-4" /></Button></TableCell></TableRow>
+        <TableRow key={a.id}><TableCell className="font-medium">{a.title}</TableCell><TableCell>{a.category}</TableCell><TableCell><StatusBadge status={a.status} /></TableCell><TableCell className="text-sm">{formatDate(a.action_date)}</TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" asChild><Link href={`/admin/clients/${clientId}/actions/${a.id}`} aria-label="실행항목 수정"><Pencil className="h-4 w-4" /></Link></Button></TableCell></TableRow>
       ))}</TableBody></Table></CardContent></Card>
-    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}><DialogContent className="max-w-md"><DialogHeader><DialogTitle>{editing ? "수정" : "추가"}</DialogTitle></DialogHeader><div className="space-y-4">
-      <div className="space-y-2"><Label>제목</Label><Input value={title} onChange={e => setTitle(e.target.value)} /></div>
-      <div className="space-y-2"><Label>설명</Label><Textarea value={description} onChange={e => setDescription(e.target.value)} /></div>
-      <div className="grid grid-cols-2 gap-4"><div className="space-y-2"><Label>카테고리</Label><Input value={category} onChange={e => setCategory(e.target.value)} /></div>
-        <div className="space-y-2"><Label>상태</Label><Select value={status} onValueChange={v => setStatus(v as ActionStatus)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="planned">계획됨</SelectItem><SelectItem value="in_progress">진행중</SelectItem><SelectItem value="done">완료</SelectItem><SelectItem value="hold">보류</SelectItem></SelectContent></Select></div></div>
-      <div className="space-y-2"><Label>날짜</Label><Input type="date" value={actionDate} onChange={e => setActionDate(e.target.value)} /></div>
-    </div><DialogFooter><Button variant="outline" onClick={() => setDialogOpen(false)}>취소</Button><Button onClick={handleSave} disabled={loading || !title}>{loading ? "저장 중..." : "저장"}</Button></DialogFooter></DialogContent></Dialog>
   </>);
 }
 
@@ -290,15 +446,15 @@ function CalendarTab({ clientId, initialEvents, supabase, router }: { clientId: 
     setDialogOpen(false); router.refresh(); setLoading(false); };
   return (<>
     <div className="flex items-center justify-between mb-4"><h3 className="text-lg font-semibold">캘린더</h3><Button size="sm" onClick={openCreate}><Plus className="h-4 w-4 mr-1" /> 추가</Button></div>
-    <Card><CardContent className="p-0"><Table><TableHeader><TableRow><TableHead>제목</TableHead><TableHead>시작</TableHead><TableHead>종료</TableHead><TableHead>상태</TableHead><TableHead className="text-right">수정</TableHead></TableRow></TableHeader><TableBody>
+    <Card><CardContent className="p-0 overflow-x-auto"><Table><TableHeader><TableRow><TableHead>제목</TableHead><TableHead>시작</TableHead><TableHead>종료</TableHead><TableHead>상태</TableHead><TableHead className="text-right">수정</TableHead></TableRow></TableHeader><TableBody>
       {initialEvents.length === 0 ? <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">없음</TableCell></TableRow> : initialEvents.map((ev: any) => (
-        <TableRow key={ev.id}><TableCell className="font-medium">{ev.title}</TableCell><TableCell className="text-sm">{formatDateTime(ev.start_at)}</TableCell><TableCell className="text-sm">{ev.end_at ? formatDateTime(ev.end_at) : "-"}</TableCell><TableCell><StatusBadge status={ev.status} /></TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" onClick={() => openEdit(ev)}><Pencil className="h-4 w-4" /></Button></TableCell></TableRow>
+        <TableRow key={ev.id}><TableCell className="font-medium">{ev.title}</TableCell><TableCell className="text-sm">{formatDateTime(ev.start_at)}</TableCell><TableCell className="text-sm">{ev.end_at ? formatDateTime(ev.end_at) : "-"}</TableCell><TableCell><StatusBadge status={ev.status} /></TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" onClick={() => openEdit(ev)} aria-label="일정 수정"><Pencil className="h-4 w-4" /></Button></TableCell></TableRow>
       ))}</TableBody></Table></CardContent></Card>
     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}><DialogContent className="max-w-md"><DialogHeader><DialogTitle>{editing ? "수정" : "추가"}</DialogTitle></DialogHeader><div className="space-y-4">
       <div className="space-y-2"><Label>제목</Label><Input value={title} onChange={e => setTitle(e.target.value)} /></div>
       <div className="space-y-2"><Label>설명</Label><Textarea value={description} onChange={e => setDescription(e.target.value)} /></div>
       <div className="grid grid-cols-2 gap-4"><div className="space-y-2"><Label>시작</Label><Input type="datetime-local" value={startAt} onChange={e => setStartAt(e.target.value)} /></div><div className="space-y-2"><Label>종료</Label><Input type="datetime-local" value={endAt} onChange={e => setEndAt(e.target.value)} /></div></div>
-      <div className="grid grid-cols-2 gap-4"><div className="space-y-2"><Label>타입</Label><Input value={eventType} onChange={e => setEventType(e.target.value)} /></div>
+      <div className="grid grid-cols-2 gap-4"><div className="space-y-2"><Label>일정 타입</Label><Select value={eventType} onValueChange={setEventType}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="task">작업</SelectItem><SelectItem value="meeting">미팅</SelectItem><SelectItem value="deadline">마감일</SelectItem><SelectItem value="milestone">마일스톤</SelectItem><SelectItem value="other">기타</SelectItem></SelectContent></Select></div>
         <div className="space-y-2"><Label>상태</Label><Select value={status} onValueChange={v => setStatus(v as EventStatus)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="planned">계획됨</SelectItem><SelectItem value="done">완료</SelectItem><SelectItem value="hold">보류</SelectItem></SelectContent></Select></div></div>
     </div><DialogFooter><Button variant="outline" onClick={() => setDialogOpen(false)}>취소</Button><Button onClick={handleSave} disabled={loading || !title || !startAt}>{loading ? "저장 중..." : "저장"}</Button></DialogFooter></DialogContent></Dialog>
   </>);
@@ -319,9 +475,9 @@ function ProjectTab({ clientId, initialProjects, supabase, router }: { clientId:
     setDialogOpen(false); router.refresh(); setLoading(false); };
   return (<>
     <div className="flex items-center justify-between mb-4"><h3 className="text-lg font-semibold">프로젝트</h3><Button size="sm" onClick={openCreate}><Plus className="h-4 w-4 mr-1" /> 추가</Button></div>
-    <Card><CardContent className="p-0"><Table><TableHeader><TableRow><TableHead>제목</TableHead><TableHead>유형</TableHead><TableHead>단계</TableHead><TableHead>진행률</TableHead><TableHead>기간</TableHead><TableHead className="text-right">수정</TableHead></TableRow></TableHeader><TableBody>
+    <Card><CardContent className="p-0 overflow-x-auto"><Table><TableHeader><TableRow><TableHead>제목</TableHead><TableHead>유형</TableHead><TableHead>단계</TableHead><TableHead>진행률</TableHead><TableHead>기간</TableHead><TableHead className="text-right">수정</TableHead></TableRow></TableHeader><TableBody>
       {initialProjects.length === 0 ? <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">없음</TableCell></TableRow> : initialProjects.map((p: any) => (
-        <TableRow key={p.id}><TableCell className="font-medium">{p.title}</TableCell><TableCell><Badge variant="outline">{p.project_type}</Badge></TableCell><TableCell><StatusBadge status={p.stage} /></TableCell><TableCell>{p.progress}%</TableCell><TableCell className="text-xs">{p.start_date ? formatDate(p.start_date) : "-"} ~ {p.due_date ? formatDate(p.due_date) : "-"}</TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button></TableCell></TableRow>
+        <TableRow key={p.id}><TableCell className="font-medium">{p.title}</TableCell><TableCell><Badge variant="outline">{p.project_type}</Badge></TableCell><TableCell><StatusBadge status={p.stage} /></TableCell><TableCell>{p.progress}%</TableCell><TableCell className="text-xs">{p.start_date ? formatDate(p.start_date) : "-"} ~ {p.due_date ? formatDate(p.due_date) : "-"}</TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" onClick={() => openEdit(p)} aria-label="프로젝트 수정"><Pencil className="h-4 w-4" /></Button></TableCell></TableRow>
       ))}</TableBody></Table></CardContent></Card>
     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}><DialogContent className="max-w-md"><DialogHeader><DialogTitle>{editing ? "수정" : "추가"}</DialogTitle></DialogHeader><div className="space-y-4">
       <div className="space-y-2"><Label>제목</Label><Input value={title} onChange={e => setTitle(e.target.value)} /></div>
@@ -340,9 +496,11 @@ function ProjectTab({ clientId, initialProjects, supabase, router }: { clientId:
 function ReportTab({ clientId, initialReports, supabase, router }: { clientId: string; initialReports: any[]; supabase: any; router: any }) {
   return (<>
     <div className="flex items-center justify-between mb-4"><h3 className="text-lg font-semibold">리포트</h3>
-      <Link href={`/admin/clients/${clientId}/reports/new`}><Button size="sm"><Plus className="h-4 w-4 mr-1" /> 리포트 작성</Button></Link>
+      <Button size="sm" type="button" onClick={() => router.push(`/admin/clients/${clientId}/reports/new`)}>
+        <Plus className="h-4 w-4 mr-1" /> 리포트 작성
+      </Button>
     </div>
-    <Card><CardContent className="p-0"><Table><TableHeader><TableRow><TableHead>제목</TableHead><TableHead>유형</TableHead><TableHead>발행일</TableHead><TableHead>파일</TableHead></TableRow></TableHeader><TableBody>
+    <Card><CardContent className="p-0 overflow-x-auto"><Table><TableHeader><TableRow><TableHead>제목</TableHead><TableHead>유형</TableHead><TableHead>발행일</TableHead><TableHead>파일</TableHead></TableRow></TableHeader><TableBody>
       {initialReports.length === 0 ? <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">없음</TableCell></TableRow> : initialReports.map((r: any) => (
         <TableRow key={r.id}><TableCell className="font-medium">{r.title}</TableCell><TableCell><Badge variant="outline">{r.report_type === "weekly" ? "주간" : "월간"}</Badge></TableCell><TableCell className="text-sm">{formatDate(r.published_at)}</TableCell><TableCell className="text-xs text-muted-foreground truncate max-w-[200px]">{r.file_path || r.summary?.slice(0, 50) || "-"}</TableCell></TableRow>
       ))}</TableBody></Table></CardContent></Card>
@@ -354,26 +512,48 @@ function ReportTab({ clientId, initialReports, supabase, router }: { clientId: s
 // ╚══════════════════════════════════════════════╝
 function AssetTab({ clientId, initialAssets, supabase, router }: { clientId: string; initialAssets: any[]; supabase: any; router: any }) {
   const [dialogOpen, setDialogOpen] = useState(false); const [loading, setLoading] = useState(false); const [error, setError] = useState("");
-  const [title, setTitle] = useState(""); const [assetType, setAssetType] = useState<AssetType>("other"); const [tags, setTags] = useState(""); const [file, setFile] = useState<File | null>(null);
-  const openCreate = () => { setTitle(""); setAssetType("other"); setTags(""); setFile(null); setError(""); setDialogOpen(true); };
+  const [title, setTitle] = useState(""); const [assetType, setAssetType] = useState<AssetType>("other"); const [tagList, setTagList] = useState<string[]>([]); const [tagInput, setTagInput] = useState(""); const [file, setFile] = useState<File | null>(null);
+  const openCreate = () => { setTitle(""); setAssetType("other"); setTagList([]); setTagInput(""); setFile(null); setError(""); setDialogOpen(true); };
+  const addTag = () => { const v = tagInput.trim(); if (v && !tagList.includes(v)) { setTagList(prev => [...prev, v]); setTagInput(""); } };
+  const removeTag = (idx: number) => { setTagList(prev => prev.filter((_, i) => i !== idx)); };
+  const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addTag(); } };
   const handleSave = async () => { if (!title || !file) { setError("제목과 파일은 필수입니다."); return; }
     setLoading(true); setError("");
     const { data: { user } } = await supabase.auth.getUser(); if (!user) return;
     const filePath = safeFilePath(clientId, file.name);
     const { error: upErr } = await supabase.storage.from("assets").upload(filePath, file);
     if (upErr) { setError("업로드 실패: " + upErr.message); setLoading(false); return; }
-    await supabase.from("assets").insert({ client_id: clientId, asset_type: assetType, title, file_path: filePath, tags: tags.split(",").map(t => t.trim()).filter(Boolean), visibility: "visible", created_by: user.id });
+    const tagsToSave = tagInput.trim() ? [...tagList, tagInput.trim()] : tagList;
+    await supabase.from("assets").insert({ client_id: clientId, asset_type: assetType, title, file_path: filePath, tags: tagsToSave, visibility: "visible", created_by: user.id });
     setDialogOpen(false); router.refresh(); setLoading(false); };
   return (<>
     <div className="flex items-center justify-between mb-4"><h3 className="text-lg font-semibold">자료실</h3><Button size="sm" onClick={openCreate}><Plus className="h-4 w-4 mr-1" /> 추가</Button></div>
-    <Card><CardContent className="p-0"><Table><TableHeader><TableRow><TableHead>제목</TableHead><TableHead>유형</TableHead><TableHead>태그</TableHead><TableHead>파일</TableHead></TableRow></TableHeader><TableBody>
+    <Card><CardContent className="p-0 overflow-x-auto"><Table><TableHeader><TableRow><TableHead>제목</TableHead><TableHead>유형</TableHead><TableHead>태그</TableHead><TableHead>파일</TableHead></TableRow></TableHeader><TableBody>
       {initialAssets.length === 0 ? <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">없음</TableCell></TableRow> : initialAssets.map((a: any) => (
         <TableRow key={a.id}><TableCell className="font-medium">{a.title}</TableCell><TableCell><Badge variant="outline">{a.asset_type}</Badge></TableCell><TableCell className="text-xs">{a.tags?.join(", ") || "-"}</TableCell><TableCell className="text-xs text-muted-foreground truncate max-w-[200px]">{a.file_path}</TableCell></TableRow>
       ))}</TableBody></Table></CardContent></Card>
     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}><DialogContent className="max-w-md"><DialogHeader><DialogTitle>에셋 추가</DialogTitle></DialogHeader><div className="space-y-4">
       <div className="space-y-2"><Label>제목 *</Label><Input value={title} onChange={e => setTitle(e.target.value)} /></div>
       <div className="space-y-2"><Label>유형</Label><Select value={assetType} onValueChange={v => setAssetType(v as AssetType)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="logo">로고</SelectItem><SelectItem value="guideline">가이드라인</SelectItem><SelectItem value="font">폰트</SelectItem><SelectItem value="photo">사진</SelectItem><SelectItem value="video">영상</SelectItem><SelectItem value="other">기타</SelectItem></SelectContent></Select></div>
-      <div className="space-y-2"><Label>태그 (쉼표 구분)</Label><Input value={tags} onChange={e => setTags(e.target.value)} /></div>
+      <div className="space-y-2">
+        <Label>태그 (입력 후 엔터로 추가)</Label>
+        <div className="flex flex-wrap gap-2 p-2 border rounded-md bg-background min-h-[42px] focus-within:ring-2 focus-within:ring-ring">
+          {tagList.map((t, i) => (
+            <Badge key={i} variant="secondary" className="gap-1 pr-1">
+              {t}
+              <button type="button" onClick={() => removeTag(i)} className="rounded-full hover:bg-muted p-0.5" aria-label="태그 제거"><X className="h-3 w-3" /></button>
+            </Badge>
+          ))}
+          <input
+            type="text"
+            value={tagInput}
+            onChange={e => setTagInput(e.target.value)}
+            onKeyDown={handleTagKeyDown}
+            placeholder={tagList.length === 0 ? "태그 입력 후 엔터" : ""}
+            className="flex-1 min-w-[120px] outline-none bg-transparent text-sm"
+          />
+        </div>
+      </div>
       <div className="space-y-2"><Label>파일 *</Label><Input type="file" onChange={e => setFile(e.target.files?.[0] || null)} /></div>
       {error && <p className="text-sm text-destructive">{error}</p>}
     </div><DialogFooter><Button variant="outline" onClick={() => setDialogOpen(false)}>취소</Button><Button onClick={handleSave} disabled={loading}><Upload className="h-4 w-4 mr-1" />{loading ? "업로드 중..." : "업로드"}</Button></DialogFooter></DialogContent></Dialog>
@@ -381,19 +561,21 @@ function AssetTab({ clientId, initialAssets, supabase, router }: { clientId: str
 }
 
 // ╔══════════════════════════════════════════════╗
-// ║  서비스 항목 탭 (관리자 on/off)                  ║
+// ║  서비스 항목 탭 (관리자 on/off + 서비스별 URL)   ║
 // ╚══════════════════════════════════════════════╝
-function ServiceTab({ clientId, initialServices, supabase, router }: { clientId: string; initialServices: Record<string, boolean>; supabase: any; router: any }) {
+function ServiceTab({ clientId, initialServices, initialServiceUrls, supabase, router }: { clientId: string; initialServices: Record<string, boolean>; initialServiceUrls?: Record<string, string>; supabase: any; router: any }) {
   const [services, setServices] = useState<Record<string, boolean>>(() => {
     const merged = { ...defaultEnabledServices() };
     for (const [k, v] of Object.entries(initialServices || {})) { merged[k] = v; }
     return merged;
   });
+  const [urls, setUrls] = useState<Record<string, string>>(() => ({ ...(initialServiceUrls || {}) }));
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
 
   const toggle = (key: string) => { setServices(prev => ({ ...prev, [key]: !prev[key] })); setSaved(false); setError(""); };
+  const setUrl = (key: string, value: string) => { setUrls(prev => ({ ...prev, [key]: value })); setSaved(false); };
 
   const handleSave = async () => {
     setLoading(true); setError("");
@@ -401,7 +583,7 @@ function ServiceTab({ clientId, initialServices, supabase, router }: { clientId:
       const res = await fetch("/api/admin/update-services", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId, enabledServices: services }),
+        body: JSON.stringify({ clientId, enabledServices: services, serviceUrls: urls }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error); return; }
@@ -416,7 +598,7 @@ function ServiceTab({ clientId, initialServices, supabase, router }: { clientId:
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold">서비스 항목</h3>
-          <p className="text-sm text-muted-foreground">{activeCount}개 활성화</p>
+          <p className="text-sm text-muted-foreground">{activeCount}개 활성화 · 고객 포털에서 바로가기 링크로 연결됩니다</p>
         </div>
         <Button size="sm" onClick={handleSave} disabled={loading}>
           <Save className="h-4 w-4 mr-1" /> {loading ? "저장 중..." : "저장"}
@@ -428,25 +610,37 @@ function ServiceTab({ clientId, initialServices, supabase, router }: { clientId:
         {SERVICE_CATALOG.map(cat => (
           <div key={cat.key}>
             <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">{cat.label}</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {cat.items.map(item => (
-                <label
+                <div
                   key={item.key}
-                  className={`flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
+                  className={`rounded-xl border p-3.5 space-y-2 ${
                     services[item.key]
                       ? "border-primary/40 bg-primary/5 shadow-sm"
-                      : "border-border/60 hover:bg-muted/50"
+                      : "border-border/60 bg-muted/30"
                   }`}
                 >
-                  <input type="checkbox" checked={services[item.key] || false} onChange={() => toggle(item.key)} className="sr-only" />
-                  <ServiceIcon iconKey={item.iconKey} color={item.color} size="sm" className={!services[item.key] ? "opacity-40" : ""} />
-                  <div className="flex-1 min-w-0">
-                    <span className="text-sm font-medium">{item.label}</span>
-                  </div>
-                  <div className={`h-5 w-9 rounded-full relative transition-colors ${services[item.key] ? "bg-primary" : "bg-muted"}`}>
-                    <div className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${services[item.key] ? "left-[18px]" : "left-0.5"}`} />
-                  </div>
-                </label>
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" checked={services[item.key] || false} onChange={() => toggle(item.key)} className="sr-only" />
+                    <ServiceIcon iconKey={item.iconKey} color={item.color} size="sm" className={!services[item.key] ? "opacity-40" : ""} />
+                    <span className="text-sm font-medium flex-1">{item.label}</span>
+                    <div className={`h-5 w-9 rounded-full relative transition-colors ${services[item.key] ? "bg-primary" : "bg-muted"}`}>
+                      <div className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${services[item.key] ? "left-[18px]" : "left-0.5"}`} />
+                    </div>
+                  </label>
+                  {services[item.key] && (
+                    <div className="pl-9">
+                      <label className="text-xs text-muted-foreground block mb-1">바로가기 URL (선택)</label>
+                      <Input
+                        type="url"
+                        value={urls[item.key] || ""}
+                        onChange={e => setUrl(item.key, e.target.value)}
+                        placeholder="https://..."
+                        className="text-sm h-8"
+                      />
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
           </div>
@@ -666,10 +860,11 @@ function IntegrationTab({ clientId, initialIntegrations, router }: { clientId: s
                     onClick={() => handleSync(integ.id)}
                     disabled={syncLoading === integ.id}
                     title="수동 동기화"
+                    aria-label="수동 동기화"
                   >
                     <RefreshCw className={`h-4 w-4 ${syncLoading === integ.id ? "animate-spin" : ""}`} />
                   </Button>
-                  <Button variant="ghost" size="icon" onClick={() => handleDelete(integ.id)} title="삭제">
+                  <Button variant="ghost" size="icon" onClick={() => handleDelete(integ.id)} title="삭제" aria-label="연동 삭제">
                     <Trash2 className="h-4 w-4 text-destructive" />
                   </Button>
                 </div>
@@ -757,24 +952,42 @@ function IntegrationTab({ clientId, initialIntegrations, router }: { clientId: s
   );
 }
 
+// ── 활성 모듈용 아이콘 매핑 ──
+const moduleIcons: Record<keyof EnabledModules, typeof LayoutDashboard> = {
+  overview: LayoutDashboard,
+  execution: Zap,
+  calendar: CalendarDays,
+  projects: FolderKanban,
+  reports: FileText,
+  assets: Image,
+  support: MessageCircle,
+};
+
 // ╔══════════════════════════════════════════════╗
-// ║  활성 모듈 탭                                  ║
+// ║  활성 모듈 탭 (이용중인 서비스 스타일)           ║
 // ╚══════════════════════════════════════════════╝
 function ModuleTab({ clientId, initialModules, supabase, router }: { clientId: string; initialModules: EnabledModules; supabase: any; router: any }) {
   const [modules, setModules] = useState<EnabledModules>(initialModules);
-  const [loading, setLoading] = useState(false); const [saved, setSaved] = useState(false);
-  const toggle = (key: keyof EnabledModules) => { setModules(prev => ({ ...prev, [key]: !prev[key] })); setSaved(false); };
-  const handleSave = async () => { setLoading(true); await supabase.from("clients").update({ enabled_modules: modules }).eq("id", clientId); setSaved(true); router.refresh(); setLoading(false); };
+  const [loading, setLoading] = useState(false); const [saved, setSaved] = useState(false); const [error, setError] = useState("");
+  const toggle = (key: keyof EnabledModules) => { setModules(prev => ({ ...prev, [key]: !prev[key] })); setSaved(false); setError(""); };
+  const handleSave = async () => { setLoading(true); setError(""); try { const { error: e } = await supabase.from("clients").update({ enabled_modules: modules }).eq("id", clientId); if (e) setError(e.message); else { setSaved(true); router.refresh(); } } finally { setLoading(false); } };
   return (<div className="space-y-4">
     <div className="flex items-center justify-between"><h3 className="text-lg font-semibold">활성 모듈</h3><Button size="sm" onClick={handleSave} disabled={loading}><Save className="h-4 w-4 mr-1" /> {loading ? "저장 중..." : "저장"}</Button></div>
     {saved && <p className="text-sm text-green-600">저장되었습니다.</p>}
-    <Card><CardContent className="pt-6"><div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-      {(Object.keys(moduleLabels) as (keyof EnabledModules)[]).map(key => (
-        <label key={key} className="flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors">
-          <input type="checkbox" checked={modules[key]} onChange={() => toggle(key)} className="rounded h-4 w-4" />
-          <span className="text-sm font-medium">{moduleLabels[key]}</span>
-        </label>
-      ))}
-    </div></CardContent></Card>
+    {error && <p className="text-sm text-destructive">{error}</p>}
+    <p className="text-sm text-muted-foreground">클라이언트 포털에서 보일 메뉴를 선택하세요.</p>
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+      {(Object.keys(moduleLabels) as (keyof EnabledModules)[]).map(key => {
+        const Icon = moduleIcons[key];
+        const isOn = modules[key];
+        return (
+          <button key={key} type="button" onClick={() => toggle(key)} className={cn("flex items-center gap-3 p-4 rounded-xl border text-left transition-all", isOn ? "border-primary/40 bg-primary/5 shadow-sm" : "border-border/50 bg-muted/20 hover:bg-muted/40")}>
+            <div className={cn("h-10 w-10 rounded-lg flex items-center justify-center shrink-0", isOn ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground")}><Icon className="h-5 w-5" /></div>
+            <span className="text-sm font-medium">{moduleLabels[key]}</span>
+            <span className="ml-auto shrink-0">{isOn ? <Check className="h-4 w-4 text-primary" /> : <X className="h-4 w-4 text-muted-foreground" />}</span>
+          </button>
+        );
+      })}
+    </div>
   </div>);
 }

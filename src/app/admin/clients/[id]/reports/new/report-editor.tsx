@@ -14,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Save, Upload } from "lucide-react";
+import { ArrowLeft, Save, Upload, Bell } from "lucide-react";
 
 // SSR 비활성화 — Tiptap은 브라우저에서만 동작
 const TiptapEditor = dynamic(
@@ -38,6 +38,7 @@ export function ReportEditor({ clientId, clientName }: Props) {
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [sendNotification, setSendNotification] = useState(false);
 
   const handleSave = async () => {
     if (!title) { setError("제목은 필수입니다."); return; }
@@ -81,6 +82,26 @@ export function ReportEditor({ clientId, clientName }: Props) {
         return;
       }
 
+      // 알림톡 발송
+      if (sendNotification) {
+        try {
+          await fetch("/api/admin/notifications/send", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              type: "report_published",
+              clientId,
+              data: {
+                reportTitle: title,
+                reportUrl: `${window.location.origin}/reports`,
+              },
+            }),
+          });
+        } catch {
+          // 알림 실패는 무시 (리포트 저장은 완료)
+        }
+      }
+
       router.push(`/admin/clients/${clientId}`);
       router.refresh();
     } catch {
@@ -94,18 +115,30 @@ export function ReportEditor({ clientId, clientName }: Props) {
       {/* 헤더 */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link href={`/admin/clients/${clientId}`}>
-            <Button variant="ghost" size="icon"><ArrowLeft className="h-4 w-4" /></Button>
+          <Link href={`/admin/clients/${clientId}`} aria-label="클라이언트 상세로 돌아가기">
+            <Button variant="ghost" size="icon" aria-label="클라이언트 상세로 돌아가기"><ArrowLeft className="h-4 w-4" /></Button>
           </Link>
           <div>
             <h1 className="text-2xl font-bold">리포트 작성</h1>
             <p className="text-sm text-muted-foreground">{clientName}</p>
           </div>
         </div>
-        <Button onClick={handleSave} disabled={loading}>
-          <Save className="h-4 w-4 mr-2" />
-          {loading ? "저장 중..." : "발행"}
-        </Button>
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input
+              type="checkbox"
+              checked={sendNotification}
+              onChange={(e) => setSendNotification(e.target.checked)}
+              className="rounded h-4 w-4"
+            />
+            <Bell className="h-3.5 w-3.5 text-amber-500" />
+            <span className="hidden sm:inline text-muted-foreground">알림톡 발송</span>
+          </label>
+          <Button onClick={handleSave} disabled={loading}>
+            <Save className="h-4 w-4 mr-2" />
+            {loading ? "저장 중..." : "발행"}
+          </Button>
+        </div>
       </div>
 
       {/* 메타 정보 */}

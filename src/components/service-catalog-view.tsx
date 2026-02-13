@@ -8,14 +8,16 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import { MessageCircle, ChevronRight } from "lucide-react";
+import { MessageCircle, ChevronRight, ExternalLink } from "lucide-react";
 import Link from "next/link";
 
 interface Props {
   enabledServices: Record<string, boolean>;
+  /** 서비스 키별 바로가기 URL (관리자 설정) */
+  serviceUrls?: Record<string, string>;
 }
 
-export function ServiceCatalogView({ enabledServices }: Props) {
+export function ServiceCatalogView({ enabledServices, serviceUrls = {} }: Props) {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [infoItem, setInfoItem] = useState<ServiceItem | null>(null);
 
@@ -71,25 +73,38 @@ export function ServiceCatalogView({ enabledServices }: Props) {
               이용중인 서비스
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {activeItems.map((item) => (
-                <div
-                  key={item.key}
-                  className="flex items-center gap-4 p-4 rounded-2xl bg-card border border-border/60 shadow-sm"
-                >
-                  <ServiceIcon iconKey={item.iconKey} color={item.color} size="md" />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold">{item.label}</span>
-                      <span className="inline-flex items-center h-5 px-2 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700">
-                        이용중
-                      </span>
+              {activeItems.map((item) => {
+                const linkUrl = serviceUrls[item.key]?.trim();
+                return (
+                  <div
+                    key={item.key}
+                    className="flex items-center gap-4 p-4 rounded-2xl bg-card border border-border/60 shadow-sm"
+                  >
+                    <ServiceIcon iconKey={item.iconKey} color={item.color} size="md" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold">{item.label}</span>
+                        <span className="inline-flex items-center h-5 px-2 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700">
+                          이용중
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                        {item.category}
+                      </p>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                      {item.category}
-                    </p>
+                    {linkUrl && (
+                      <a
+                        href={linkUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="shrink-0 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                      >
+                        바로가기 <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -132,8 +147,8 @@ export function ServiceCatalogView({ enabledServices }: Props) {
 
       {/* 서비스 소개 모달 */}
       <Dialog open={!!infoItem} onOpenChange={() => setInfoItem(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
+        <DialogContent className="max-w-xl max-h-[85vh] flex flex-col">
+          <DialogHeader className="shrink-0">
             <div className="flex items-center gap-3 mb-2">
               {infoItem && <ServiceIcon iconKey={infoItem.iconKey} color={infoItem.color} size="lg" />}
               <div>
@@ -142,11 +157,48 @@ export function ServiceCatalogView({ enabledServices }: Props) {
               </div>
             </div>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="overflow-y-auto space-y-5 pr-1 -mr-1">
             <p className="text-sm text-muted-foreground leading-relaxed">
               {infoItem?.description}
             </p>
-            <div className="rounded-xl bg-gradient-to-br from-primary/5 to-primary/10 p-5">
+
+            {infoItem?.overview && (
+              <div>
+                <h4 className="text-sm font-bold text-foreground mb-1.5">서비스 개요</h4>
+                <p className="text-xs text-muted-foreground leading-relaxed">{infoItem.overview}</p>
+              </div>
+            )}
+
+            {infoItem?.expectedEffects && infoItem.expectedEffects.length > 0 && (
+              <div>
+                <h4 className="text-sm font-bold text-foreground mb-1.5">기대 효과</h4>
+                <ul className="list-disc list-inside text-xs text-muted-foreground space-y-1">
+                  {infoItem.expectedEffects.map((effect, i) => (
+                    <li key={i}>{effect}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {infoItem?.mechanism && (
+              <div>
+                <h4 className="text-sm font-bold text-foreground mb-1.5">운영·메커니즘</h4>
+                <p className="text-xs text-muted-foreground leading-relaxed">{infoItem.mechanism}</p>
+              </div>
+            )}
+
+            {infoItem?.recommendedFor && infoItem.recommendedFor.length > 0 && (
+              <div>
+                <h4 className="text-sm font-bold text-foreground mb-1.5">추천 대상</h4>
+                <ul className="list-disc list-inside text-xs text-muted-foreground space-y-1">
+                  {infoItem.recommendedFor.map((target, i) => (
+                    <li key={i}>{target}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div className="rounded-xl bg-gradient-to-br from-primary/5 to-primary/10 p-5 shrink-0">
               <h4 className="text-sm font-bold mb-1.5">이 서비스가 필요하신가요?</h4>
               <p className="text-xs text-muted-foreground mb-4">
                 현재 이용중이지 않은 서비스입니다. 도입을 원하시면 담당 매니저에게 문의해주세요.
@@ -159,7 +211,7 @@ export function ServiceCatalogView({ enabledServices }: Props) {
               </Link>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="shrink-0 border-t pt-4">
             <Button variant="ghost" onClick={() => setInfoItem(null)}>닫기</Button>
           </DialogFooter>
         </DialogContent>

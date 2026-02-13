@@ -1,6 +1,12 @@
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { MarketingDashboard } from "./marketing-dashboard";
+
+export const metadata: Metadata = {
+  title: "마케팅 성과 | Onecation",
+  description: "광고·트래픽 성과 대시보드",
+};
 
 export default async function MarketingPage() {
   const supabase = await createClient();

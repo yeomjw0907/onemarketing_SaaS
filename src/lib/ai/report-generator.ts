@@ -150,7 +150,7 @@ export async function autoGenerateAndPublish(
 
   const content = await generateMarketingReport(clientName, summaries, reportType);
   const periodLabel = reportType === "weekly" ? "주간" : "월간";
-  const title = `[AI] ${clientName} ${periodLabel} 마케팅 성과 보고서 (${dateFrom} ~ ${dateTo})`;
+  const title = `${clientName} ${periodLabel} 마케팅 성과 보고서 (${dateFrom} ~ ${dateTo})`;
 
   const { data: report } = await supabase
     .from("reports")

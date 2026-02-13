@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { requireClient, isModuleEnabled } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { ModuleDisabled } from "@/components/module-guard";
@@ -6,6 +7,11 @@ import { FileItemCard } from "@/components/file-item-card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Image } from "lucide-react";
 import { Asset } from "@/lib/types/database";
+
+export const metadata: Metadata = {
+  title: "자료실 | Onecation",
+  description: "브랜드 에셋 자료실",
+};
 
 const assetTypeLabels: Record<string, string> = {
   logo: "로고",
@@ -39,7 +45,7 @@ export default async function AssetsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Image className="h-6 w-6" /> Assets
+          <Image className="h-6 w-6" /> 자료실
         </h1>
         <p className="text-muted-foreground text-sm mt-1">브랜드 에셋 자료실</p>
       </div>

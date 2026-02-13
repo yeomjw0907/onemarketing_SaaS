@@ -1,6 +1,8 @@
 import { requireClient } from "@/lib/auth";
 import { ClientSidebar } from "@/components/layout/client-sidebar";
 import { ClientHeader } from "@/components/layout/client-header";
+import { Footer } from "@/components/layout/footer";
+import { MobileSidebarWrapper } from "@/components/layout/mobile-sidebar-wrapper";
 import { EnabledModules } from "@/lib/types/database";
 
 export default async function PortalLayout({
@@ -20,15 +22,19 @@ export default async function PortalLayout({
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <ClientSidebar
-        enabledModules={enabledModules}
-        clientName={session.client?.name || "Client"}
-      />
-      <div className="ml-60">
-        <ClientHeader displayName={session.profile.display_name} />
-        <main className="p-6">{children}</main>
+    <MobileSidebarWrapper
+      sidebar={
+        <ClientSidebar
+          enabledModules={enabledModules}
+          clientName={session.client?.name || "Client"}
+        />
+      }
+      footer={<Footer />}
+    >
+      <div className="flex min-h-screen flex-col">
+        <ClientHeader />
+        <main className="flex-1 p-4 md:p-6">{children}</main>
       </div>
-    </div>
+    </MobileSidebarWrapper>
   );
 }

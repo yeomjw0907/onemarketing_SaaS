@@ -1,8 +1,14 @@
+import type { Metadata } from "next";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, FolderKanban, FileText, CalendarDays, Image } from "lucide-react";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "대시보드 | Onecation 관리자",
+  description: "관리자 대시보드",
+};
 
 export default async function AdminDashboard() {
   const session = await requireAdmin();

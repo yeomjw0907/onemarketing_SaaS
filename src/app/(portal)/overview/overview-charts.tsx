@@ -2,6 +2,8 @@
 
 import { useMemo } from "react";
 import { KpiTrendChart, MetricChart } from "@/components/charts/kpi-trend-chart";
+import { Card, CardContent } from "@/components/ui/card";
+import { BarChart3, TrendingUp } from "lucide-react";
 
 interface KpiDef {
   metric_key: string;
@@ -96,17 +98,31 @@ export function OverviewCharts({ kpiDefs, kpiTrendData, platformMetrics }: Props
   const hasAdData = adChartData.length > 0;
   const hasTrafficData = trafficChartData.length > 0;
 
-  if (!hasKpiData && !hasAdData && !hasTrafficData) return null;
-
   return (
     <div className="space-y-4">
+      {/* 섹션 제목: 성과 그래프 */}
+      <div className="flex items-center gap-2">
+        <BarChart3 className="h-5 w-5 text-primary" />
+        <h2 className="text-lg font-semibold">성과 그래프</h2>
+      </div>
+
       {/* KPI 추이 */}
-      {hasKpiData && (
+      {hasKpiData ? (
         <KpiTrendChart data={kpiTrendData} kpiDefs={kpiDefs} />
+      ) : (
+        <Card className="border-dashed border-border/50 bg-muted/20">
+          <CardContent className="py-10 flex flex-col items-center justify-center gap-2 text-center">
+            <TrendingUp className="h-10 w-10 text-muted-foreground/50" />
+            <p className="text-sm font-medium text-muted-foreground">KPI 추이</p>
+            <p className="text-xs text-muted-foreground max-w-sm">
+              관리자가 KPI를 설정하고 성과 지표를 입력하면 주별·월별 추이를 그래프로 확인할 수 있습니다.
+            </p>
+          </CardContent>
+        </Card>
       )}
 
       {/* 광고 / 트래픽 차트 (2열) */}
-      {(hasAdData || hasTrafficData) && (
+      {hasAdData || hasTrafficData ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {hasAdData && (
             <MetricChart
@@ -155,6 +171,16 @@ export function OverviewCharts({ kpiDefs, kpiTrendData, platformMetrics }: Props
             />
           )}
         </div>
+      ) : (
+        <Card className="border-dashed border-border/50 bg-muted/20">
+          <CardContent className="py-10 flex flex-col items-center justify-center gap-2 text-center">
+            <BarChart3 className="h-10 w-10 text-muted-foreground/50" />
+            <p className="text-sm font-medium text-muted-foreground">광고·트래픽 성과 추이</p>
+            <p className="text-xs text-muted-foreground max-w-sm">
+              네이버·Meta·Google 등 플랫폼 연동 후 데이터가 쌓이면 일별 노출·클릭·비용·트래픽을 그래프로 확인할 수 있습니다.
+            </p>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

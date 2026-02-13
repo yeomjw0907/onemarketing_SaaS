@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { requireClient, isModuleEnabled } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { ModuleDisabled } from "@/components/module-guard";
@@ -7,6 +8,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
 import { FolderKanban } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "프로젝트 | Onecation",
+  description: "진행 중인 프로젝트 현황",
+};
 
 export default async function ProjectsPage() {
   const session = await requireClient();
@@ -34,7 +40,7 @@ export default async function ProjectsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-2">
-          <FolderKanban className="h-6 w-6" /> Projects
+          <FolderKanban className="h-6 w-6" /> 프로젝트
         </h1>
         <p className="text-muted-foreground text-sm mt-1">진행 중인 프로젝트 현황</p>
       </div>

@@ -1,6 +1,12 @@
+import type { Metadata } from "next";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { ReportsAdmin } from "./reports-admin";
+
+export const metadata: Metadata = {
+  title: "리포트 | Onecation 관리자",
+  description: "전체 클라이언트 리포트 관리",
+};
 
 export default async function AdminReportsPage() {
   await requireAdmin();

@@ -47,7 +47,7 @@ export default async function AdminPreviewPage({ searchParams }: Props) {
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" asChild>
-          <Link href="/admin/clients"><ArrowLeft className="h-4 w-4" /></Link>
+          <Link href="/admin/clients" aria-label="클라이언트 목록으로"><ArrowLeft className="h-4 w-4" /></Link>
         </Button>
         <div>
           <h1 className="text-2xl font-bold">Client Preview: {client.name}</h1>

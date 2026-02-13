@@ -90,11 +90,11 @@ export default function LoginPage() {
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="idOrEmail">이메일 또는 클라이언트 코드</Label>
+              <Label htmlFor="idOrEmail">이메일</Label>
               <Input
                 id="idOrEmail"
                 type="text"
-                placeholder="예: admin@onecation.co.kr 또는 democlient"
+                placeholder="예: user@company.com"
                 value={idOrEmail}
                 onChange={(e) => setIdOrEmail(e.target.value)}
                 required
@@ -102,7 +102,7 @@ export default function LoginPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">비밀번호</Label>
               <Input
                 id="password"
                 type="password"

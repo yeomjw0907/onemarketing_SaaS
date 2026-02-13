@@ -9,16 +9,22 @@ import { NextResponse } from "next/server";
 export async function POST(request: Request) {
   try {
     await requireAdmin();
-    const { clientId, enabledServices } = await request.json();
+    const { clientId, enabledServices, serviceUrls } = await request.json();
 
     if (!clientId || typeof enabledServices !== "object") {
       return NextResponse.json({ error: "clientId와 enabledServices가 필요합니다." }, { status: 400 });
     }
 
     const serviceClient = await createServiceClient();
+    const payload: { enabled_services: Record<string, boolean>; service_urls?: Record<string, string> } = {
+      enabled_services: enabledServices,
+    };
+    if (serviceUrls != null && typeof serviceUrls === "object") {
+      payload.service_urls = serviceUrls;
+    }
     const { error } = await serviceClient
       .from("clients")
-      .update({ enabled_services: enabledServices })
+      .update(payload)
       .eq("id", clientId);
 
     if (error) {
