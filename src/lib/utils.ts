@@ -66,6 +66,22 @@ export function clientReportTitle(title: string | null | undefined): string {
 }
 
 /**
+ * HTML 태그를 제거하고 순수 텍스트만 반환 (표시용).
+ * 리치 텍스트 복사 시 붙는 <p>, <br> 등이 그대로 보이는 현상 방지.
+ * 블록/줄바꿈 태그는 줄바꿈으로 치환 후 나머지 태그 제거.
+ */
+export function stripHtml(html: string | null | undefined): string {
+  if (!html || typeof html !== "string") return "";
+  return html
+    .replace(/<\/p>|<\/div>|<\/li>|<\/tr>/gi, "\n")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n\s*\n/g, "\n\n")
+    .trim();
+}
+
+/**
  * Supabase Storage에 안전한 파일 경로 생성
  * 한글/특수문자를 제거하고 타임스탬프로 유니크 보장
  */
