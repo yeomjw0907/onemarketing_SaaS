@@ -92,7 +92,7 @@ export async function POST(request: Request) {
         client_id: client.id,
         display_name: contact_name || name,
         email,
-        must_change_password: true,
+        must_change_password: false,
       });
 
     if (profileErr) {

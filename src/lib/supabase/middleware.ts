@@ -46,12 +46,6 @@ export async function updateSession(request: NextRequest) {
     if (user) {
       const profile = await getProfile(user.id);
 
-      if (profile?.must_change_password) {
-        const url = request.nextUrl.clone();
-        url.pathname = "/change-password";
-        return NextResponse.redirect(url);
-      }
-
       if (profile?.role === "admin") {
         const url = request.nextUrl.clone();
         url.pathname = "/admin";
@@ -88,13 +82,6 @@ export async function updateSession(request: NextRequest) {
   }
 
   const profile = await getProfile(user.id);
-
-  // 비밀번호 미변경 유저는 다른 페이지 접근 차단
-  if (profile?.must_change_password) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/change-password";
-    return NextResponse.redirect(url);
-  }
 
   // Admin route protection
   if (pathname.startsWith("/admin")) {

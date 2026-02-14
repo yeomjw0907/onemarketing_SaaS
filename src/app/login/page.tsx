@@ -49,16 +49,9 @@ export default function LoginPage() {
       if (user) {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("role, must_change_password")
+          .select("role")
           .eq("user_id", user.id)
           .single();
-
-        // 초기 비밀번호 변경 필요 시
-        if (profile?.must_change_password) {
-          router.push("/change-password");
-          router.refresh();
-          return;
-        }
 
         if (profile?.role === "admin") {
           router.push("/admin");

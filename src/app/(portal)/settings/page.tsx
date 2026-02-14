@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { requireClient } from "@/lib/auth";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Settings } from "lucide-react";
+import { ChangePasswordForm } from "./change-password-form";
 
 export const metadata: Metadata = {
   title: "환경설정 | Onecation",
@@ -20,16 +20,7 @@ export default async function SettingsPage() {
         <p className="text-muted-foreground text-sm mt-1">계정 및 환경을 설정합니다.</p>
       </div>
 
-      <Card className="w-full">
-        <CardHeader>
-          <CardTitle className="text-base">설정</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            환경설정 항목은 추후 제공될 예정입니다.
-          </p>
-        </CardContent>
-      </Card>
+      <ChangePasswordForm />
     </div>
   );
 }
