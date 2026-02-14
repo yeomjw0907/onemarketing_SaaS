@@ -9,6 +9,7 @@ export type EventStatus = "planned" | "done" | "hold";
 export type ReportType = "weekly" | "monthly";
 export type AssetType = "logo" | "guideline" | "font" | "photo" | "video" | "other";
 export type Visibility = "visible" | "hidden";
+export type AddonOrderStatus = "pending" | "confirmed" | "done" | "cancelled";
 
 export interface EnabledModules {
   overview: boolean;
@@ -159,6 +160,20 @@ export interface Asset {
   created_at: string;
 }
 
+export interface AddonOrder {
+  id: string;
+  client_id: string;
+  addon_key: string;
+  addon_label: string;
+  price_won: number;
+  status: AddonOrderStatus;
+  memo: string | null;
+  admin_notes: string | null;
+  created_at: string;
+  created_by: string;
+  updated_at: string;
+}
+
 export interface AuditLog {
   id: string;
   actor_user_id: string;
@@ -225,6 +240,25 @@ export interface NotificationLog {
   error_message: string | null;
   payload: Json;
   created_at: string;
+}
+
+/** 알림톡 발송 건 (월/수/목). 보기/승인 토큰 포함 */
+export type NotificationReportType = "MON_REVIEW" | "WED_BUDGET" | "THU_PROPOSAL";
+export type ApprovalStatus = "PENDING" | "APPROVED" | "REJECTED" | null;
+
+export interface Notification {
+  id: string;
+  client_id: string;
+  report_type: NotificationReportType;
+  metrics_snapshot: Json;
+  ai_message: string | null;
+  view_token: string;
+  view_token_expires_at: string;
+  approval_token: string | null;
+  approval_token_expires_at: string | null;
+  approval_used_at: string | null;
+  approval_status: ApprovalStatus;
+  sent_at: string;
 }
 
 // Supabase Database type
@@ -300,6 +334,11 @@ export interface Database {
         Row: NotificationLog;
         Insert: Omit<NotificationLog, "id" | "created_at">;
         Update: never;
+      };
+      addon_orders: {
+        Row: AddonOrder;
+        Insert: Omit<AddonOrder, "id" | "created_at" | "updated_at">;
+        Update: Partial<Omit<AddonOrder, "id" | "client_id" | "addon_key" | "addon_label" | "price_won" | "created_at" | "created_by">>;
       };
     };
     Functions: {

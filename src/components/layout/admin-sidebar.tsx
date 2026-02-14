@@ -16,6 +16,7 @@ import {
   Loader2,
   PanelLeftClose,
   PanelRight,
+  ShoppingCart,
 } from "lucide-react";
 
 const adminMenu = [
@@ -25,6 +26,7 @@ const adminMenu = [
   { label: "프로젝트", href: "/admin/projects", icon: FolderKanban },
   { label: "리포트", href: "/admin/reports", icon: FileText },
   { label: "자료실", href: "/admin/assets", icon: Image },
+  { label: "부가서비스 주문", href: "/admin/addon-orders", icon: ShoppingCart },
   { label: "알림 설정", href: "/admin/notifications", icon: Bell },
 ];
 
