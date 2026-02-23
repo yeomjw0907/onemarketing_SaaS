@@ -1012,6 +1012,9 @@ function IntegrationTab({ clientId, initialIntegrations, router }: { clientId: s
         <div>
           <h3 className="text-lg font-semibold">데이터 연동</h3>
           <p className="text-sm text-muted-foreground">외부 광고/분석 플랫폼 연결을 관리합니다</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            자동 동기화: 매일 06:00 (KST) · 수동 동기화는 각 연동 카드의 새로고침 버튼을 사용하세요.
+          </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={startMetaOAuth}>

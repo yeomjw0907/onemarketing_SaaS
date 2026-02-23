@@ -1,0 +1,37 @@
+Google Ads API – Tool Design Document (Plain text for copy-paste into Word, then Save As .doc)
+================================================================================
+
+1. Tool Name
+One Marketing SaaS - Client Portal (onemarketing.kr)
+
+2. Purpose
+We provide a marketing SaaS platform that gives clients a unified dashboard and reports for their advertising performance across multiple channels. The tool aggregates campaign and conversion data so that clients can view their Google Ads performance in one place alongside other platforms (e.g. Meta Ads, GA4).
+
+3. Use of Google Ads API
+The Google Ads API is used in read-only mode only.
+• We pull campaign data, metrics (impressions, clicks, cost, conversions), and conversion data from Google Ads accounts linked by our clients.
+• Data is stored on our secure backend and displayed in the client dashboard and in generated reports.
+• We do not create or manage Google Ads accounts or campaigns via the API. We do not use App Conversion Tracking API or Remarketing API.
+
+4. Supported Campaign Types (Reporting)
+Our tool reports on data from whatever campaign types the client has in their Google Ads account. We read and display metrics for, among others: Search, Display, Performance Max, and Video campaigns.
+
+5. Access and Users
+• Internal users (our staff): Administrators configure OAuth, link client Google Ads accounts, and trigger or schedule data sync. They do not use the API to create or edit campaigns.
+• External users (clients): Authenticated clients log in to the portal to view their own dashboard and reports. They do not call the Google Ads API directly; they only see data that our backend has already collected.
+Access is restricted to authenticated users only. We do not expose the API or raw credentials to the public.
+
+6. Data Flow
+(1) Client or admin links their Google Ads account via OAuth (one-time or as needed).
+(2) Our server uses the Google Ads API with read-only scope to fetch campaign and conversion metrics.
+(3) Data is stored in our database and associated with the client.
+(4) The client sees this data in the dashboard and in reports (e.g. summary tables, trend charts).
+(5) No write operations (account/campaign creation or management) are performed via the API.
+
+7. Security
+• OAuth tokens and API credentials are stored securely and used only server-side.
+• Data is scoped per client; clients cannot access other clients' data.
+• Access to the tool is via login (email/password or SSO); the tool is not publicly accessible.
+
+8. Summary
+Our tool uses the Google Ads API solely for reporting: we read campaign and conversion data and present it in a client-facing dashboard and reports. We do not create or manage accounts or campaigns, and we do not use App Conversion Tracking or Remarketing APIs.

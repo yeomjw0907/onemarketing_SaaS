@@ -113,4 +113,23 @@
 
 ---
 
+---
+
+## 5. 배포 시 (프로덕션 — https://www.onemarketing.kr)
+
+로컬(`localhost:3000`)만이 아니라 **실서비스 도메인**도 등록해야 OAuth가 프로덕션에서 동작합니다.  
+배포 도메인: **`https://www.onemarketing.kr`** (끝에 슬래시 없음)
+
+| 항목 | 로컬 (개발) | 프로덕션 (배포) |
+|------|-------------|-----------------|
+| **앱 URL** | `NEXT_PUBLIC_APP_URL=http://localhost:3000` | `NEXT_PUBLIC_APP_URL=https://www.onemarketing.kr` (Vercel 환경 변수에 설정) |
+| **Meta 리디렉션 URI** | `http://localhost:3000/api/auth/meta/callback` | `https://www.onemarketing.kr/api/auth/meta/callback` → [Meta for Developers](https://developers.facebook.com) 앱 설정에 **추가** |
+| **Google 리디렉션 URI** | `http://localhost:3000/api/auth/google/callback` | `https://www.onemarketing.kr/api/auth/google/callback` → [Google Cloud Console](https://console.cloud.google.com) OAuth 클라이언트 **승인된 리디렉션 URI**에 **추가** |
+
+**요약:**  
+- **환경 변수:** Vercel에서 `NEXT_PUBLIC_APP_URL=https://www.onemarketing.kr` 설정.  
+- **Meta·Google:** 각 OAuth 앱에 **프로덕션 리디렉션 URI**를 **추가**로 등록 (localhost는 그대로 두고 새 URI만 추가하면 됨).
+
+---
+
 *상세 셋업은 `05-플랫폼-연동-셋업-가이드.md`, Meta만은 `10-Meta-OAuth-이어하기.md`, Google OAuth는 `09-Google-OAuth-클라이언트-발급-가이드.md` 참고.*

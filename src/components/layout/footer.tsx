@@ -1,4 +1,5 @@
 import { Mail, MapPin, Phone, Clock } from "lucide-react";
+import { FooterLegalLinks } from "./footer-legal-modal";
 
 const COMPANY = {
   name: "주식회사 98점7도",
@@ -64,8 +65,9 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="mt-8 pt-6 border-t border-border/50 text-center text-xs text-muted-foreground">
-          © {new Date().getFullYear()} {COMPANY.name}. All rights reserved.
+        <div className="mt-8 pt-6 border-t border-border/50 text-center text-xs text-muted-foreground space-y-2">
+          <FooterLegalLinks />
+          <p>© {new Date().getFullYear()} {COMPANY.name}. All rights reserved.</p>
         </div>
       </div>
     </footer>

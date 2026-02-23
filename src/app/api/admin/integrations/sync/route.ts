@@ -1,12 +1,15 @@
 /**
- * 수동 동기화 트리거 API
+ * 수동 동기화 트리거 API (관리자 전용)
  * POST { integrationId, dateFrom?, dateTo? }
  */
 import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase/server";
 import { syncIntegration } from "@/lib/integrations/sync-engine";
 
 export async function POST(req: NextRequest) {
+  await requireAdmin();
+
   const body = await req.json();
   const { integrationId, dateFrom, dateTo } = body;
 

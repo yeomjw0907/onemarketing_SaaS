@@ -1,14 +1,16 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
   BarChart3, TrendingUp, TrendingDown, Eye, MousePointerClick,
-  DollarSign, Target, Users, ArrowRight, Minus, Unplug,
+  DollarSign, Target, Users, ArrowRight, Minus, Unplug, RefreshCw,
 } from "lucide-react";
 import { MetricChart } from "@/components/charts/kpi-trend-chart";
 
@@ -57,8 +59,36 @@ const METRIC_CONFIG: Record<string, { label: string; icon: React.ElementType; fo
 };
 
 export function MarketingDashboard({ integrations, metrics, dateFrom, dateTo }: Props) {
+  const router = useRouter();
   const [selectedPlatform, setSelectedPlatform] = useState<string>("all");
   const [dateRange, setDateRange] = useState<string>("30");
+  const [syncLoading, setSyncLoading] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
+
+  const lastSyncedAt = useMemo(() => {
+    const dates = integrations.map((i) => i.last_synced_at).filter(Boolean) as string[];
+    if (dates.length === 0) return null;
+    return dates.sort().reverse()[0];
+  }, [integrations]);
+
+  const handleSync = async () => {
+    setSyncLoading(true);
+    setSyncMessage(null);
+    try {
+      const res = await fetch("/api/portal/integrations/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+      const data = await res.json();
+      if (res.ok) {
+        setSyncMessage(data.recordCount != null ? `동기화 완료. ${data.recordCount}건 수집됨` : "동기화 완료");
+        router.refresh();
+      } else {
+        setSyncMessage(data.error || "동기화 실패");
+      }
+    } catch {
+      setSyncMessage("동기화 요청 실패");
+    } finally {
+      setSyncLoading(false);
+    }
+  };
 
   // 날짜 범위에 따른 필터
   const filteredMetrics = useMemo(() => {
@@ -148,14 +178,30 @@ export function MarketingDashboard({ integrations, metrics, dateFrom, dateTo }: 
   return (
     <div className="space-y-6">
       {/* 헤더 */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold">마케팅 성과</h1>
           <p className="text-sm text-muted-foreground mt-1">
             {integrations.length}개 플랫폼 연결됨
+            {lastSyncedAt && (
+              <span className="ml-2">· 마지막 동기화: {new Date(lastSyncedAt).toLocaleString("ko-KR", { dateStyle: "short", timeStyle: "short" })}</span>
+            )}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center flex-wrap">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSync}
+            disabled={syncLoading}
+            title="연동된 플랫폼 데이터 수동 동기화"
+          >
+            <RefreshCw className={`h-4 w-4 mr-1.5 ${syncLoading ? "animate-spin" : ""}`} />
+            {syncLoading ? "동기화 중…" : "데이터 동기화"}
+          </Button>
+          {syncMessage && (
+            <span className="text-xs text-muted-foreground">{syncMessage}</span>
+          )}
           <Select value={dateRange} onValueChange={setDateRange}>
             <SelectTrigger className="w-[130px]"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -211,7 +257,7 @@ export function MarketingDashboard({ integrations, metrics, dateFrom, dateTo }: 
           <CardContent className="py-12 text-center text-muted-foreground">
             <BarChart3 className="h-8 w-8 mx-auto mb-3 opacity-40" />
             <p>선택한 기간에 수집된 데이터가 없습니다.</p>
-            <p className="text-xs mt-1">관리자에게 데이터 동기화를 요청해주세요.</p>
+            <p className="text-xs mt-1">상단 [데이터 동기화] 버튼을 눌러 최신 데이터를 가져오세요.</p>
           </CardContent>
         </Card>
       )}
