@@ -34,6 +34,11 @@ export const TEMPLATE_IDS = {
   ACTION_STATUS_CHANGED: "TPL_action_status",       // 실행항목 상태 변경 알림
   EVENT_REMINDER: "TPL_event_reminder",             // 일정 리마인더
   PASSWORD_RESET: "TPL_password_reset",             // 비밀번호 리셋 안내
+  // 월/수/목 주간 알림 (카카오 채널에 템플릿 등록 필요)
+  MON_REVIEW: "TPL_mon_review",                     // 지난주 성과 리뷰
+  WED_BUDGET: "TPL_wed_budget",                     // 예산 페이싱
+  THU_PROPOSAL: "TPL_thu_proposal",                 // 다음 주 제안 + 승인
+  ADDON_ORDER_TO_ADMIN: "TPL_addon_order_admin",     // 부가서비스 주문 접수 (관리자 수신)
 } as const;
 
 // ── 솔라피 인증 헤더 생성 ──
@@ -173,6 +178,82 @@ export async function notifyEventReminder(params: {
       "#{고객명}": params.clientName,
       "#{일정명}": params.eventTitle,
       "#{날짜}": params.eventDate,
+    },
+  });
+}
+
+// ── 월/수/목 주간 알림 (자세히 보기 링크 포함) ──
+export async function notifyMonReview(params: {
+  phoneNumber: string;
+  clientName: string;
+  summary: string;
+  viewUrl: string;
+}): Promise<SendResult> {
+  return sendAlimtalk({
+    to: params.phoneNumber,
+    templateId: TEMPLATE_IDS.MON_REVIEW,
+    variables: {
+      "#{고객명}": params.clientName,
+      "#{요약}": params.summary,
+      "#{자세히보기}": params.viewUrl,
+    },
+  });
+}
+
+export async function notifyWedBudget(params: {
+  phoneNumber: string;
+  clientName: string;
+  summary: string;
+  viewUrl: string;
+}): Promise<SendResult> {
+  return sendAlimtalk({
+    to: params.phoneNumber,
+    templateId: TEMPLATE_IDS.WED_BUDGET,
+    variables: {
+      "#{고객명}": params.clientName,
+      "#{요약}": params.summary,
+      "#{자세히보기}": params.viewUrl,
+    },
+  });
+}
+
+export async function notifyThuProposal(params: {
+  phoneNumber: string;
+  clientName: string;
+  summary: string;
+  viewUrl: string;
+  approveUrl: string;
+}): Promise<SendResult> {
+  return sendAlimtalk({
+    to: params.phoneNumber,
+    templateId: TEMPLATE_IDS.THU_PROPOSAL,
+    variables: {
+      "#{고객명}": params.clientName,
+      "#{요약}": params.summary,
+      "#{자세히보기}": params.viewUrl,
+      "#{승인하기}": params.approveUrl,
+    },
+  });
+}
+
+// ── 부가서비스 주문 접수 알림 (관리자 수신) ──
+export async function notifyAddonOrderToAdmin(params: {
+  to: string;
+  clientName: string;
+  addonLabel: string;
+  priceWon: number;
+  orderId: string;
+  adminOrdersUrl?: string;
+}): Promise<SendResult> {
+  const link = params.adminOrdersUrl ?? `${process.env.NEXT_PUBLIC_APP_URL || ""}/admin/addon-orders`;
+  return sendAlimtalk({
+    to: params.to,
+    templateId: TEMPLATE_IDS.ADDON_ORDER_TO_ADMIN,
+    variables: {
+      "#{고객명}": params.clientName,
+      "#{서비스명}": params.addonLabel,
+      "#{금액}": `₩${params.priceWon.toLocaleString()}`,
+      "#{링크}": link,
     },
   });
 }

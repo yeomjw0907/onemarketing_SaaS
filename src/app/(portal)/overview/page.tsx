@@ -14,6 +14,7 @@ import Link from "next/link";
 import { ServiceCatalogView } from "@/components/service-catalog-view";
 import { OverviewCharts } from "./overview-charts";
 import { CalendarClient } from "@/app/(portal)/calendar/calendar-client";
+import { CareHistoryTimeline } from "@/components/dashboard/care-history-timeline";
 
 export const metadata: Metadata = {
   title: "개요 | Onecation",
@@ -131,6 +132,14 @@ export default async function OverviewPage() {
     .eq("client_id", clientId)
     .gte("metric_date", thirtyDaysAgo)
     .order("metric_date", { ascending: true });
+
+  // ── 알림 히스토리 (월/수/목 발송 건) ──
+  const { data: notifications } = await supabase
+    .from("notifications")
+    .select("*")
+    .eq("client_id", clientId)
+    .order("sent_at", { ascending: false })
+    .limit(20);
 
   return (
     <div className="space-y-8">
@@ -291,6 +300,9 @@ export default async function OverviewPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* ─── 알림 히스토리 ─── */}
+      <CareHistoryTimeline notifications={notifications ?? []} />
 
       {/* ─── 로드맵 (캘린더 전체 너비, 세로로 길게) ─── */}
       {isModuleEnabled(modules, "calendar") && (

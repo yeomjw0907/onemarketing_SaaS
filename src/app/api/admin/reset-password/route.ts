@@ -28,12 +28,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    // must_change_password 플래그 설정
-    await serviceClient
-      .from("profiles")
-      .update({ must_change_password: true })
-      .eq("user_id", userId);
-
     return NextResponse.json({ message: "비밀번호가 리셋되었습니다." });
   } catch (err: any) {
     return NextResponse.json({ error: err?.message || "서버 오류" }, { status: 500 });

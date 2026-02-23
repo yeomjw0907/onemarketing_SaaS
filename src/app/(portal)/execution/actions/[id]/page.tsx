@@ -5,7 +5,8 @@ import { StatusBadge } from "@/components/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { formatDate } from "@/lib/utils";
+import { formatDate, stripHtml } from "@/lib/utils";
+import { findServiceItem } from "@/lib/service-catalog";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -37,6 +38,8 @@ export default async function ActionDetailPage({ params }: Props) {
   }
 
   const links = Array.isArray(action.links) ? action.links : [];
+  const categoryItem = action.category ? findServiceItem(action.category) : undefined;
+  const categoryLabel = categoryItem?.label ?? (action.category ?? "").replace(/_/g, " ");
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -47,9 +50,9 @@ export default async function ActionDetailPage({ params }: Props) {
           </Link>
         </Button>
         <div>
-          <h1 className="text-2xl font-bold">{action.title}</h1>
+          <h1 className="text-2xl font-bold">{stripHtml(action.title) || action.title}</h1>
           <div className="flex items-center gap-3 mt-1">
-            <Badge variant="outline">{action.category}</Badge>
+            <Badge variant="outline">{categoryLabel}</Badge>
             <StatusBadge status={action.status} />
             <span className="text-sm text-muted-foreground">
               {formatDate(action.action_date)}
@@ -64,7 +67,7 @@ export default async function ActionDetailPage({ params }: Props) {
             <CardTitle className="text-base">설명</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm whitespace-pre-wrap">{action.description}</p>
+            <p className="text-sm whitespace-pre-wrap">{stripHtml(action.description)}</p>
           </CardContent>
         </Card>
       )}

@@ -13,8 +13,10 @@ Supabase Dashboard > **SQL Editor**에서 아래 순서대로 실행하세요.
 | 5 | `04-migrations/003-enabled-services-schema-reload.sql` | enabled_services 컬럼 + 스키마 갱신 |
 | 6 | `04-migrations/004-actions-end-date.sql` | 실행 항목 종료일(선택) |
 | 7 | `04-migrations/004-service-urls.sql` | 클라이언트별 서비스 바로가기 URL |
-| 8 | `03-seed/seed.sql` | 데모 클라이언트 + KPI 정의 (선택) |
-| 9 | `03-seed/profiles.sql` | 프로필 등록 (Auth 사용자 생성 **후** 실행, 여러 번 가능) |
+| 8 | `04-migrations/005-mypage-profile-update-policies.sql` | 마이페이지 본인 프로필/담당자 정보 수정 RLS |
+| 9 | `04-migrations/006-security-advisor-fixes.sql` | Security Advisor: 함수 search_path, notification_logs RLS |
+| 10 | `03-seed/seed.sql` | 데모 클라이언트 + KPI 정의 (선택) |
+| 11 | `03-seed/profiles.sql` | 프로필 등록 (Auth 사용자 생성 **후** 실행, 여러 번 가능) |
 
 ## 이미 schema + 001 적용된 프로젝트에만 추가할 때
 
@@ -26,6 +28,8 @@ Supabase Dashboard > **SQL Editor**에서 아래 순서대로 실행하세요.
 | 2 | `04-migrations/003-enabled-services-schema-reload.sql` |
 | 3 | `04-migrations/004-actions-end-date.sql` |
 | 4 | `04-migrations/004-service-urls.sql` |
+| 5 | `04-migrations/005-mypage-profile-update-policies.sql` |
+| 6 | `04-migrations/006-security-advisor-fixes.sql` |
 
 ## 주의
 

@@ -49,16 +49,9 @@ export default function LoginPage() {
       if (user) {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("role, must_change_password")
+          .select("role")
           .eq("user_id", user.id)
           .single();
-
-        // 초기 비밀번호 변경 필요 시
-        if (profile?.must_change_password) {
-          router.push("/change-password");
-          router.refresh();
-          return;
-        }
 
         if (profile?.role === "admin") {
           router.push("/admin");
@@ -79,7 +72,31 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4 relative">
+      {/* 로그인 중 전체 화면 로딩 오버레이 */}
+      {loading && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-background/95 backdrop-blur-sm animate-in fade-in-0 duration-200"
+          aria-live="polite"
+          aria-busy="true"
+        >
+          <div className="flex flex-col items-center gap-4">
+            <div className="relative">
+              <div className="h-14 w-14 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-lg font-bold text-primary">O</span>
+              </div>
+            </div>
+            <p className="text-sm font-medium text-muted-foreground animate-pulse">
+              로그인 중...
+            </p>
+            <p className="text-xs text-muted-foreground">
+              잠시만 기다려 주세요
+            </p>
+          </div>
+        </div>
+      )}
+
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground text-lg font-bold">
