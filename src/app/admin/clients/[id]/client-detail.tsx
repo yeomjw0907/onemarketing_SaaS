@@ -31,7 +31,7 @@ import {
   ArrowLeft, Plus, Pencil, Save, Upload, KeyRound, Power, Check, X,
   Unplug, RefreshCw, Trash2, Zap, TestTube2, ExternalLink,
   LayoutDashboard, CalendarDays, FolderKanban, FileText, Image, MessageCircle,
-  GripVertical, BarChart2,
+  GripVertical, BarChart2, BookOpen,
 } from "lucide-react";
 import { SERVICE_CATALOG, ALL_SERVICE_KEYS, defaultEnabledServices } from "@/lib/service-catalog";
 import { ServiceIcon } from "@/components/service-icon";
@@ -655,6 +655,64 @@ function ServiceTab({ clientId, initialServices, initialServiceUrls, supabase, r
 // ╔══════════════════════════════════════════════╗
 // ║  데이터 연동 탭                                 ║
 // ╚══════════════════════════════════════════════╝
+
+// ── 플랫폼별 값 넣는 위치 가이드 (관리자 데이터 연동 탭 내 표시용) ──
+const INTEGRATION_GUIDES: Record<string, { title: string; env?: string[]; steps: string[]; fields: { name: string; where: string }[] }> = {
+  naver_ads: {
+    title: "네이버 검색광고",
+    env: [],
+    steps: [
+      "네이버 검색광고에 광고주로 가입 후 로그인",
+      "도구 → API 관리 → 라이선스 발급",
+      "발급된 API Key, Secret Key, Customer ID를 아래 입력란에 넣습니다.",
+    ],
+    fields: [
+      { name: "API Key", where: "네이버 검색광고 API 관리 → 라이선스 발급 후 표시되는 API Key" },
+      { name: "Secret Key", where: "같은 화면에서 발급된 Secret Key (한 번만 표시되므로 안전하게 보관)" },
+      { name: "Customer ID", where: "네이버 검색광고 계정의 고객 ID (숫자, API 관리 화면 또는 계정 설정에서 확인)" },
+    ],
+  },
+  meta_ads: {
+    title: "Meta 광고 (Facebook/Instagram)",
+    env: ["META_APP_ID", "META_APP_SECRET", "NEXT_PUBLIC_APP_URL (OAuth 콜백용)"],
+    steps: [
+      "권장: 상단 [Meta OAuth] 버튼 클릭 → App ID 입력(.env.local의 META_APP_ID) → Facebook 인증 → 돌아온 뒤 광고 계정 ID만 아래에 입력 후 연동 저장",
+      "또는 Meta for Developers에서 앱 생성 후 액세스 토큰·광고 계정 ID를 직접 발급해 입력",
+      "광고 계정 ID: Meta 비즈니스 설정 → 광고 계정 → ID 확인 (act_숫자 형식)",
+    ],
+    fields: [
+      { name: "Access Token", where: "Meta OAuth 버튼 사용 시 자동. 직접 입력 시 Developers 앱에서 토큰 생성" },
+      { name: "Ad Account ID", where: "business.facebook.com → 설정 → 광고 계정 → 광고 계정 ID (act_123456789)" },
+    ],
+  },
+  google_ads: {
+    title: "Google Ads",
+    env: ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "NEXT_PUBLIC_APP_URL"],
+    steps: [
+      "상단 [Google OAuth] 버튼 클릭 → Client ID 입력(.env.local의 GOOGLE_CLIENT_ID) → Google 로그인 동의",
+      "돌아온 URL에 googleRefreshToken=... 이 붙어 있으므로 복사해 아래 Refresh Token란에 붙여넣기",
+      "Customer ID: ads.google.com → 도구 및 설정 → 설정에서 확인. Developer Token: API 센터에서 발급",
+    ],
+    fields: [
+      { name: "Refresh Token", where: "Google OAuth 후 리다이렉트 URL의 googleRefreshToken 값 복사" },
+      { name: "Customer ID", where: "Google Ads → 도구 및 설정 → 설정 → 고객 ID (123-456-7890 또는 숫자만)" },
+      { name: "Developer Token", where: "Google Ads → 도구 및 설정 → 설정 → API 센터 → Developer Token 발급" },
+    ],
+  },
+  google_analytics: {
+    title: "Google Analytics (GA4)",
+    env: ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "NEXT_PUBLIC_APP_URL"],
+    steps: [
+      "Google OAuth는 Google Ads와 동일. Refresh Token은 위 [Google OAuth]로 발급 후 URL에서 복사",
+      "Property ID: GA4 관리 → 속성 → 속성 설정 → 속성 ID (숫자). 입력 시 properties/123456789 형식",
+    ],
+    fields: [
+      { name: "Refresh Token", where: "Google OAuth 버튼으로 인증 후 URL의 googleRefreshToken 복사" },
+      { name: "Property ID", where: "GA4 관리 → 속성 → 속성 설정 → 속성 ID → properties/숫자 형식으로 입력" },
+    ],
+  },
+};
+
 const PLATFORM_OPTIONS: { value: IntegrationPlatform; label: string }[] = [
   { value: "naver_ads", label: "네이버 검색광고" },
   { value: "meta_ads", label: "Meta 광고 (Facebook/Instagram)" },
@@ -895,6 +953,42 @@ function IntegrationTab({ clientId, initialIntegrations, router }: { clientId: s
         </div>
       </div>
 
+      {/* ── 연동 가이드: 값 넣는 위치 ── */}
+      <Card className="border-dashed">
+        <CardContent className="py-3">
+          <details className="group">
+            <summary className="flex items-center gap-2 cursor-pointer list-none text-sm font-medium text-muted-foreground hover:text-foreground">
+              <BookOpen className="h-4 w-4 shrink-0" />
+              <span>연동 가이드 — 각 플랫폼 값은 어디서 넣나요?</span>
+            </summary>
+            <div className="mt-3 pl-6 space-y-3 text-xs text-muted-foreground border-l-2 border-muted">
+              {(Object.keys(INTEGRATION_GUIDES) as (keyof typeof INTEGRATION_GUIDES)[]).map((key) => {
+                const g = INTEGRATION_GUIDES[key];
+                if (!g) return null;
+                return (
+                  <details key={key} className="group/platform">
+                    <summary className="cursor-pointer font-medium text-foreground/90">{g.title}</summary>
+                    <ul className="mt-1.5 space-y-1 ml-2">
+                      {g.steps.map((s, i) => (
+                        <li key={i}>{s}</li>
+                      ))}
+                      {g.fields.map((f) => (
+                        <li key={f.name}>
+                          <strong className="text-foreground/80">{f.name}</strong>: {f.where}
+                        </li>
+                      ))}
+                      {g.env && g.env.length > 0 && (
+                        <li>필요 env: <code className="bg-muted px-1 rounded">{g.env.join(", ")}</code></li>
+                      )}
+                    </ul>
+                  </details>
+                );
+              })}
+            </div>
+          </details>
+        </CardContent>
+      </Card>
+
       {metaTokenFromUrl && (
         <Card className="border-primary/50 bg-primary/5">
           <CardContent className="py-4 space-y-3">
@@ -1017,13 +1111,26 @@ function IntegrationTab({ clientId, initialIntegrations, router }: { clientId: s
               <Input value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder="예: 네이버 키워드 광고 - 메인 계정" />
             </div>
 
+            {/* 플랫폼별 가이드 (값 넣는 위치) ── 다이얼로그 내 ── */}
+            {INTEGRATION_GUIDES[platform] && (
+              <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-xs">
+                <p className="font-medium text-blue-800 dark:text-blue-200 mb-2">값 넣는 위치</p>
+                <ul className="space-y-1 text-muted-foreground">
+                  {INTEGRATION_GUIDES[platform].fields.map((f) => (
+                    <li key={f.name}><strong>{f.name}</strong>: {f.where}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             {/* 네이버 */}
             {(platform === "naver_ads" || platform === "naver_searchad") && (
               <div className="space-y-3 p-3 border rounded-lg bg-muted/30">
                 <p className="text-xs font-semibold text-muted-foreground">네이버 검색광고 API 인증</p>
-                <div className="space-y-2"><Label>API Key</Label><Input value={naverApiKey} onChange={e => setNaverApiKey(e.target.value)} /></div>
-                <div className="space-y-2"><Label>Secret Key</Label><Input type="password" value={naverSecretKey} onChange={e => setNaverSecretKey(e.target.value)} /></div>
-                <div className="space-y-2"><Label>Customer ID</Label><Input value={naverCustomerId} onChange={e => setNaverCustomerId(e.target.value)} /></div>
+                <p className="text-xs text-muted-foreground">발급: 네이버 검색광고 → API 관리 → 라이선스 발급</p>
+                <div className="space-y-2"><Label>API Key</Label><Input value={naverApiKey} onChange={e => setNaverApiKey(e.target.value)} placeholder="발급받은 API Key" /></div>
+                <div className="space-y-2"><Label>Secret Key</Label><Input type="password" value={naverSecretKey} onChange={e => setNaverSecretKey(e.target.value)} placeholder="발급받은 Secret Key" /></div>
+                <div className="space-y-2"><Label>Customer ID</Label><Input value={naverCustomerId} onChange={e => setNaverCustomerId(e.target.value)} placeholder="고객 ID (숫자)" /></div>
               </div>
             )}
 
@@ -1031,9 +1138,9 @@ function IntegrationTab({ clientId, initialIntegrations, router }: { clientId: s
             {platform === "meta_ads" && (
               <div className="space-y-3 p-3 border rounded-lg bg-muted/30">
                 <p className="text-xs font-semibold text-muted-foreground">Meta Ads 인증</p>
-                <p className="text-xs text-muted-foreground">위의 "Meta OAuth" 버튼으로 인증하거나, 직접 토큰을 입력하세요.</p>
-                <div className="space-y-2"><Label>Access Token</Label><Input type="password" value={metaAccessToken} onChange={e => setMetaAccessToken(e.target.value)} /></div>
-                <div className="space-y-2"><Label>Ad Account ID</Label><Input value={metaAdAccountId} onChange={e => setMetaAdAccountId(e.target.value)} placeholder="act_123456789" /></div>
+                <p className="text-xs text-muted-foreground">권장: 상단 [Meta OAuth] → App ID(.env의 META_APP_ID) 입력 → Facebook 인증 후 광고 계정 ID만 입력</p>
+                <div className="space-y-2"><Label>Access Token</Label><Input type="password" value={metaAccessToken} onChange={e => setMetaAccessToken(e.target.value)} placeholder="OAuth 사용 시 자동" /></div>
+                <div className="space-y-2"><Label>Ad Account ID</Label><Input value={metaAdAccountId} onChange={e => setMetaAdAccountId(e.target.value)} placeholder="act_123456789 (비즈니스 설정에서 확인)" /></div>
               </div>
             )}
 
@@ -1041,10 +1148,10 @@ function IntegrationTab({ clientId, initialIntegrations, router }: { clientId: s
             {platform === "google_ads" && (
               <div className="space-y-3 p-3 border rounded-lg bg-muted/30">
                 <p className="text-xs font-semibold text-muted-foreground">Google Ads 인증</p>
-                <p className="text-xs text-muted-foreground">위의 "Google OAuth" 버튼으로 인증하거나, 직접 토큰을 입력하세요.</p>
-                <div className="space-y-2"><Label>Refresh Token</Label><Input type="password" value={googleRefreshToken} onChange={e => setGoogleRefreshToken(e.target.value)} /></div>
+                <p className="text-xs text-muted-foreground">[Google OAuth] 후 URL의 googleRefreshToken 복사 → 여기 붙여넣기. Customer ID·Developer Token은 ads.google.com에서 확인</p>
+                <div className="space-y-2"><Label>Refresh Token</Label><Input type="password" value={googleRefreshToken} onChange={e => setGoogleRefreshToken(e.target.value)} placeholder="OAuth 리다이렉트 URL에서 복사" /></div>
                 <div className="space-y-2"><Label>Customer ID</Label><Input value={googleCustomerId} onChange={e => setGoogleCustomerId(e.target.value)} placeholder="123-456-7890" /></div>
-                <div className="space-y-2"><Label>Developer Token</Label><Input type="password" value={googleDeveloperToken} onChange={e => setGoogleDeveloperToken(e.target.value)} /></div>
+                <div className="space-y-2"><Label>Developer Token</Label><Input type="password" value={googleDeveloperToken} onChange={e => setGoogleDeveloperToken(e.target.value)} placeholder="API 센터에서 발급" /></div>
               </div>
             )}
 
@@ -1052,7 +1159,8 @@ function IntegrationTab({ clientId, initialIntegrations, router }: { clientId: s
             {platform === "google_analytics" && (
               <div className="space-y-3 p-3 border rounded-lg bg-muted/30">
                 <p className="text-xs font-semibold text-muted-foreground">Google Analytics (GA4) 인증</p>
-                <div className="space-y-2"><Label>Refresh Token</Label><Input type="password" value={googleRefreshToken} onChange={e => setGoogleRefreshToken(e.target.value)} /></div>
+                <p className="text-xs text-muted-foreground">Refresh Token은 [Google OAuth]로 발급. Property ID는 GA4 관리 → 속성 → 속성 설정에서 확인 (properties/숫자)</p>
+                <div className="space-y-2"><Label>Refresh Token</Label><Input type="password" value={googleRefreshToken} onChange={e => setGoogleRefreshToken(e.target.value)} placeholder="Google OAuth 후 URL에서 복사" /></div>
                 <div className="space-y-2"><Label>Property ID</Label><Input value={ga4PropertyId} onChange={e => setGA4PropertyId(e.target.value)} placeholder="properties/123456789" /></div>
               </div>
             )}
