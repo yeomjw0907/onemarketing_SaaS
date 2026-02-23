@@ -31,7 +31,7 @@ import {
   ArrowLeft, Plus, Pencil, Save, Upload, KeyRound, Power, Check, X,
   Unplug, RefreshCw, Trash2, Zap, TestTube2, ExternalLink,
   LayoutDashboard, CalendarDays, FolderKanban, FileText, Image, MessageCircle,
-  GripVertical, BarChart2, BookOpen,
+  GripVertical, BarChart2, BookOpen, Settings,
 } from "lucide-react";
 import { SERVICE_CATALOG, ALL_SERVICE_KEYS, defaultEnabledServices } from "@/lib/service-catalog";
 import { ServiceIcon } from "@/components/service-icon";
@@ -687,16 +687,16 @@ const INTEGRATION_GUIDES: Record<string, { title: string; env?: string[]; steps:
   },
   google_ads: {
     title: "Google Ads",
-    env: ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "NEXT_PUBLIC_APP_URL"],
+    env: ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "NEXT_PUBLIC_APP_URL", "GOOGLE_DEVELOPER_TOKEN(선택, .env에 넣으면 연동마다 입력 안 함)"],
     steps: [
       "상단 [Google OAuth] 버튼 클릭 → Client ID 입력(.env.local의 GOOGLE_CLIENT_ID) → Google 로그인 동의",
       "돌아온 URL에 googleRefreshToken=... 이 붙어 있으므로 복사해 아래 Refresh Token란에 붙여넣기",
-      "Customer ID: ads.google.com → 도구 및 설정 → 설정에서 확인. Developer Token: API 센터에서 발급",
+      "Customer ID: ads.google.com → 도구 및 설정 → 설정에서 확인. Developer Token: API 센터에서 발급 (또는 .env에 GOOGLE_DEVELOPER_TOKEN 한 번 넣으면 연동마다 입력 생략)",
     ],
     fields: [
       { name: "Refresh Token", where: "Google OAuth 후 리다이렉트 URL의 googleRefreshToken 값 복사" },
       { name: "Customer ID", where: "Google Ads → 도구 및 설정 → 설정 → 고객 ID (123-456-7890 또는 숫자만)" },
-      { name: "Developer Token", where: "Google Ads → 도구 및 설정 → 설정 → API 센터 → Developer Token 발급" },
+      { name: "Developer Token", where: "API 센터에서 발급. .env에 GOOGLE_DEVELOPER_TOKEN 넣으면 여기 비워도 됨(원케이션 1세트)" },
     ],
   },
   google_analytics: {
@@ -732,6 +732,16 @@ const STATUS_LABEL: Record<IntegrationStatus, string> = {
   active: "활성", inactive: "비활성", error: "오류",
 };
 
+const SETTING_KEYS = ["META_APP_ID", "META_APP_SECRET", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_DEVELOPER_TOKEN", "NEXT_PUBLIC_APP_URL"] as const;
+const SETTING_LABELS: Record<string, string> = {
+  META_APP_ID: "Meta App ID",
+  META_APP_SECRET: "Meta App Secret",
+  GOOGLE_CLIENT_ID: "Google Client ID",
+  GOOGLE_CLIENT_SECRET: "Google Client Secret",
+  GOOGLE_DEVELOPER_TOKEN: "Google Developer Token (선택)",
+  NEXT_PUBLIC_APP_URL: "앱 URL (OAuth 콜백용)",
+};
+
 function IntegrationTab({ clientId, initialIntegrations, router }: { clientId: string; initialIntegrations: DataIntegration[]; router: any }) {
   const searchParams = useSearchParams();
   const metaTokenFromUrl = searchParams.get("metaToken");
@@ -743,6 +753,44 @@ function IntegrationTab({ clientId, initialIntegrations, router }: { clientId: s
   const [testResult, setTestResult] = useState<string | null>(null);
   const [syncLoading, setSyncLoading] = useState<string | null>(null);
   const [aggregateLoading, setAggregateLoading] = useState(false);
+
+  // OAuth용 공개 키 (설정되어 있으면 프롬프트 없이 바로 OAuth)
+  const [oauthKeys, setOauthKeys] = useState<{ metaAppId: string | null; googleClientId: string | null; nextPublicAppUrl: string | null } | null>(null);
+  // 연동 기본 설정 (관리자 키값 관리)
+  const [adminSettings, setAdminSettings] = useState<Record<string, { value: string; masked: string }>>({});
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [settingsForm, setSettingsForm] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/admin/oauth-keys");
+        if (res.ok) setOauthKeys(await res.json());
+      } catch {
+        // ignore
+      }
+    })();
+  }, []);
+  useEffect(() => {
+    if (!settingsOpen) return;
+    (async () => {
+      try {
+        const res = await fetch("/api/admin/settings");
+        if (res.ok) {
+          const data = await res.json();
+          setAdminSettings(data);
+          setSettingsForm(
+            Object.fromEntries(
+              SETTING_KEYS.map((k) => [k, data[k]?.value ?? ""])
+            )
+          );
+        }
+      } catch {
+        // ignore
+      }
+    })();
+  }, [settingsOpen]);
 
   // Meta OAuth 콜백 후 저장 폼 (URL에 metaToken 있을 때)
   const [metaSaveDisplayName, setMetaSaveDisplayName] = useState("Meta 광고");
@@ -918,19 +966,44 @@ function IntegrationTab({ clientId, initialIntegrations, router }: { clientId: s
   };
 
   const startMetaOAuth = () => {
-    const appId = prompt("Meta App ID를 입력하세요:");
+    const appId = oauthKeys?.metaAppId?.trim() || prompt("Meta App ID를 입력하세요 (또는 위 연동 기본 설정에서 저장):");
     if (!appId) return;
-    const redirectUri = `${window.location.origin}/api/auth/meta/callback`;
+    const base = oauthKeys?.nextPublicAppUrl?.trim() || window.location.origin;
+    const redirectUri = `${base}/api/auth/meta/callback`;
     const scope = "ads_read,ads_management";
     window.location.href = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${clientId}&scope=${scope}&response_type=code`;
   };
 
   const startGoogleOAuth = () => {
-    const clientIdVal = prompt("Google OAuth Client ID를 입력하세요:");
+    const clientIdVal = oauthKeys?.googleClientId?.trim() || prompt("Google OAuth Client ID를 입력하세요 (또는 위 연동 기본 설정에서 저장):");
     if (!clientIdVal) return;
-    const redirectUri = `${window.location.origin}/api/auth/google/callback`;
+    const base = oauthKeys?.nextPublicAppUrl?.trim() || window.location.origin;
+    const redirectUri = `${base}/api/auth/google/callback`;
     const scope = "https://www.googleapis.com/auth/adwords.readonly https://www.googleapis.com/auth/analytics.readonly";
     window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientIdVal}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${clientId}&scope=${encodeURIComponent(scope)}&response_type=code&access_type=offline&prompt=consent`;
+  };
+
+  const handleSaveSettings = async () => {
+    setSettingsSaving(true);
+    try {
+      const payload: Record<string, string> = {};
+      for (const k of SETTING_KEYS) {
+        const v = settingsForm[k]?.trim();
+        if (v) payload[k] = v;
+      }
+      const res = await fetch("/api/admin/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        const keysRes = await fetch("/api/admin/oauth-keys");
+        if (keysRes.ok) setOauthKeys(await keysRes.json());
+        setSettingsOpen(false);
+      }
+    } finally {
+      setSettingsSaving(false);
+    }
   };
 
   return (
@@ -947,11 +1020,48 @@ function IntegrationTab({ clientId, initialIntegrations, router }: { clientId: s
           <Button variant="outline" size="sm" onClick={startGoogleOAuth}>
             <ExternalLink className="h-3.5 w-3.5 mr-1" /> Google OAuth
           </Button>
+          <Button variant="outline" size="sm" onClick={() => setSettingsOpen(true)}>
+            <Settings className="h-3.5 w-3.5 mr-1" /> 연동 기본 설정
+          </Button>
           <Button size="sm" onClick={() => { resetForm(); setDialogOpen(true); }}>
             <Plus className="h-4 w-4 mr-1" /> 연동 추가
           </Button>
         </div>
       </div>
+
+      {/* 연동 기본 설정 다이얼로그 — 한 번만 세팅하는 키값 관리 */}
+      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Settings className="h-4 w-4" /> 연동 기본 설정
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground">
+            아래 키값을 저장해 두면 OAuth 시 프롬프트 없이 사용됩니다. .env에 넣어도 되고, 여기 저장해 두면 DB에 보관됩니다 (DB 우선).
+          </p>
+          <div className="space-y-3 py-2">
+            {SETTING_KEYS.map((key) => (
+              <div key={key} className="space-y-1">
+                <Label className="text-xs">{SETTING_LABELS[key]}</Label>
+                <Input
+                  type={key.includes("SECRET") || key === "GOOGLE_DEVELOPER_TOKEN" ? "password" : "text"}
+                  value={settingsForm[key] ?? ""}
+                  onChange={(e) => setSettingsForm((prev) => ({ ...prev, [key]: e.target.value }))}
+                  placeholder={adminSettings[key]?.masked ? `현재: ${adminSettings[key].masked}` : "비워두면 .env 사용"}
+                  className="font-mono text-xs"
+                />
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setSettingsOpen(false)}>취소</Button>
+            <Button size="sm" onClick={handleSaveSettings} disabled={settingsSaving}>
+              {settingsSaving ? "저장 중..." : "저장"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ── 연동 가이드: 값 넣는 위치 ── */}
       <Card className="border-dashed">
@@ -961,6 +1071,9 @@ function IntegrationTab({ clientId, initialIntegrations, router }: { clientId: s
               <BookOpen className="h-4 w-4 shrink-0" />
               <span>연동 가이드 — 각 플랫폼 값은 어디서 넣나요?</span>
             </summary>
+            <p className="mt-3 text-xs text-muted-foreground border-l-2 border-muted pl-3">
+              <strong>원케이션 1세트:</strong> 아래 [연동 기본 설정]에서 키값을 저장해 두면 OAuth 시 프롬프트 없이 사용됩니다. .env에 넣어도 되고, 관리자 설정에 저장해도 됩니다.
+            </p>
             <div className="mt-3 pl-6 space-y-3 text-xs text-muted-foreground border-l-2 border-muted">
               {(Object.keys(INTEGRATION_GUIDES) as (keyof typeof INTEGRATION_GUIDES)[]).map((key) => {
                 const g = INTEGRATION_GUIDES[key];
@@ -1151,7 +1264,7 @@ function IntegrationTab({ clientId, initialIntegrations, router }: { clientId: s
                 <p className="text-xs text-muted-foreground">[Google OAuth] 후 URL의 googleRefreshToken 복사 → 여기 붙여넣기. Customer ID·Developer Token은 ads.google.com에서 확인</p>
                 <div className="space-y-2"><Label>Refresh Token</Label><Input type="password" value={googleRefreshToken} onChange={e => setGoogleRefreshToken(e.target.value)} placeholder="OAuth 리다이렉트 URL에서 복사" /></div>
                 <div className="space-y-2"><Label>Customer ID</Label><Input value={googleCustomerId} onChange={e => setGoogleCustomerId(e.target.value)} placeholder="123-456-7890" /></div>
-                <div className="space-y-2"><Label>Developer Token</Label><Input type="password" value={googleDeveloperToken} onChange={e => setGoogleDeveloperToken(e.target.value)} placeholder="API 센터에서 발급" /></div>
+                <div className="space-y-2"><Label>Developer Token (선택)</Label><Input type="password" value={googleDeveloperToken} onChange={e => setGoogleDeveloperToken(e.target.value)} placeholder=".env에 GOOGLE_DEVELOPER_TOKEN 있으면 비워도 됨" /></div>
               </div>
             )}
 

@@ -2,22 +2,37 @@
  * Google Ads API 래퍼
  * - 인증: OAuth 2.0 (Google Cloud Console)
  * - SDK: googleapis (REST)
+ * - 설정: getAdminConfig()(DB 우선) → process.env
  */
 import { google } from "googleapis";
 import { DataIntegration } from "@/lib/types/database";
 import type { MetricRow } from "./sync-engine";
+import { getAdminConfig } from "@/lib/admin-config";
 
 interface GoogleAdsCredentials {
   refreshToken: string;
   customerId: string;       // Google Ads CID (e.g. "123-456-7890")
-  developerToken: string;
+  developerToken?: string;  // 없으면 관리자 설정(DB/env) 사용 (원케이션 1세트)
 }
 
-function getOAuth2Client() {
+/** Developer Token: 연동에 저장된 값 → 관리자 설정(DB/env) */
+async function getDeveloperToken(credentials: GoogleAdsCredentials): Promise<string> {
+  const fromCreds = credentials.developerToken?.trim();
+  if (fromCreds) return fromCreds;
+  const config = await getAdminConfig();
+  if (config.GOOGLE_DEVELOPER_TOKEN) return config.GOOGLE_DEVELOPER_TOKEN;
+  const fromEnv = process.env.GOOGLE_DEVELOPER_TOKEN?.trim();
+  if (fromEnv) return fromEnv;
+  throw new Error("Google Ads Developer Token이 없습니다. 연동에 입력하거나 관리자 설정/.env에 넣으세요.");
+}
+
+async function getOAuth2Client() {
+  const config = await getAdminConfig();
+  const baseUrl = config.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_APP_URL || "";
   return new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/google/callback`,
+    config.GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID,
+    config.GOOGLE_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET,
+    `${baseUrl}/api/auth/google/callback`,
   );
 }
 
@@ -25,7 +40,7 @@ function getOAuth2Client() {
  * refresh_token으로 access_token 갱신
  */
 async function getAccessToken(refreshToken: string): Promise<string> {
-  const oauth2 = getOAuth2Client();
+  const oauth2 = await getOAuth2Client();
   oauth2.setCredentials({ refresh_token: refreshToken });
   const { credentials } = await oauth2.refreshAccessToken();
   return credentials.access_token!;
@@ -37,6 +52,7 @@ async function getAccessToken(refreshToken: string): Promise<string> {
 export async function testGoogleAdsConnection(credentials: GoogleAdsCredentials): Promise<boolean> {
   try {
     const accessToken = await getAccessToken(credentials.refreshToken);
+    const devToken = await getDeveloperToken(credentials);
     const cid = credentials.customerId.replace(/-/g, "");
 
     const res = await fetch(
@@ -44,7 +60,7 @@ export async function testGoogleAdsConnection(credentials: GoogleAdsCredentials)
       {
         headers: {
           Authorization: `Bearer ${accessToken}`,
-          "developer-token": credentials.developerToken,
+          "developer-token": devToken,
         },
       },
     );
@@ -78,13 +94,14 @@ async function queryGoogleAds(
     WHERE segments.date BETWEEN '${dateFrom}' AND '${dateTo}'
   `;
 
+  const devToken = await getDeveloperToken(credentials);
   const res = await fetch(
     `https://googleads.googleapis.com/v17/customers/${cid}/googleAds:searchStream`,
     {
       method: "POST",
       headers: {
         Authorization: `Bearer ${accessToken}`,
-        "developer-token": credentials.developerToken,
+        "developer-token": devToken,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ query }),

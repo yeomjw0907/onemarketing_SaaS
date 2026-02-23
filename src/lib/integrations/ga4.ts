@@ -2,21 +2,25 @@
  * GA4 Data API 래퍼
  * - 인증: OAuth 2.0 (Google Cloud Console)
  * - SDK: googleapis
+ * - 설정: getAdminConfig()(DB 우선) → process.env
  */
 import { google } from "googleapis";
 import { DataIntegration } from "@/lib/types/database";
 import type { MetricRow } from "./sync-engine";
+import { getAdminConfig } from "@/lib/admin-config";
 
 interface GA4Credentials {
   refreshToken: string;
   propertyId: string;   // GA4 Property ID (e.g. "properties/123456789")
 }
 
-function getOAuth2Client() {
+async function getOAuth2Client() {
+  const config = await getAdminConfig();
+  const baseUrl = config.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_APP_URL || "";
   return new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/google/callback`,
+    config.GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID,
+    config.GOOGLE_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET,
+    `${baseUrl}/api/auth/google/callback`,
   );
 }
 
@@ -24,7 +28,7 @@ function getOAuth2Client() {
  * refresh_token으로 access_token 갱신
  */
 async function getAccessToken(refreshToken: string): Promise<string> {
-  const oauth2 = getOAuth2Client();
+  const oauth2 = await getOAuth2Client();
   oauth2.setCredentials({ refresh_token: refreshToken });
   const { credentials } = await oauth2.refreshAccessToken();
   return credentials.access_token!;

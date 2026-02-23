@@ -4,6 +4,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { exchangeLongLivedToken } from "@/lib/integrations/meta";
+import { getAdminConfig } from "@/lib/admin-config";
 
 export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get("code");
@@ -20,9 +21,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "code 파라미터 누락" }, { status: 400 });
   }
 
-  const appId = process.env.META_APP_ID!;
-  const appSecret = process.env.META_APP_SECRET!;
-  const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/meta/callback`;
+  const config = await getAdminConfig();
+  const appId = config.META_APP_ID;
+  const appSecret = config.META_APP_SECRET;
+  const redirectUri = `${config.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_APP_URL}/api/auth/meta/callback`;
 
   try {
     // 1. authorization code → short-lived access_token

@@ -4,6 +4,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { google } from "googleapis";
+import { getAdminConfig } from "@/lib/admin-config";
 
 export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get("code");
@@ -20,11 +21,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "code 파라미터 누락" }, { status: 400 });
   }
 
+  const config = await getAdminConfig();
+  const baseUrl = config.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_APP_URL || "";
+
   try {
     const oauth2Client = new google.auth.OAuth2(
-      process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET,
-      `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/google/callback`,
+      config.GOOGLE_CLIENT_ID,
+      config.GOOGLE_CLIENT_SECRET,
+      `${baseUrl}/api/auth/google/callback`,
     );
 
     // authorization code → tokens
