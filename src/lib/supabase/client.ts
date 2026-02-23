@@ -1,6 +1,8 @@
 import { createBrowserClient } from "@supabase/ssr";
 
 // ── 환경변수 로드 (trim으로 공백/개행 제거) ──
+// next.config.mjs에서 loadEnvConfig로 프로젝트 루트 .env.local을 명시 로드하므로,
+// 다른 폴더에서 dev 실행해도 클라이언트 번들에 값이 들어감
 const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").trim();
 const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "").trim();
 

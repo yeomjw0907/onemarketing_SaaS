@@ -19,7 +19,6 @@ import {
   BarChart3,
   PanelLeftClose,
   PanelRight,
-  Settings,
   User,
   Megaphone,
   Link2,
@@ -234,37 +233,12 @@ export function ClientSidebar({ enabledModules, clientName }: ClientSidebarProps
           </Link>
         </div>
 
-        {/* 환경설정 */}
+        {/* 계정 */}
         <div className="mt-4 pt-3 border-t border-border/40">
           <p className={cn("px-3 mb-1.5 text-[10px] text-muted-foreground font-medium uppercase tracking-wider", isCollapsed && "md:hidden")}>
-            환경설정
+            계정
           </p>
           <ul className="space-y-0.5">
-            <li>
-              <Link
-                href="/settings"
-                onClick={handleNav("/settings")}
-                onMouseEnter={() => handlePrefetch("/settings")}
-                prefetch={true}
-                className={cn(
-                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all",
-                  isCollapsed && "md:justify-center md:px-2",
-                  pathname === "/settings" || pathname.startsWith("/settings/")
-                    ? "bg-primary/8 text-primary shadow-sm"
-                    : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
-                  isPending && "pointer-events-none opacity-60"
-                )}
-                title={isCollapsed ? "환경설정" : undefined}
-              >
-                <div className={cn(
-                  "h-7 w-7 shrink-0 rounded-lg flex items-center justify-center transition-colors",
-                  pathname === "/settings" || pathname.startsWith("/settings/") ? "bg-primary/10" : "bg-muted/50"
-                )}>
-                  <Settings className={cn("h-3.5 w-3.5", pathname === "/settings" || pathname.startsWith("/settings/") ? "text-primary" : "text-slate-600")} />
-                </div>
-                <span className={cn("truncate block", isCollapsed ? "md:hidden" : "md:block")}>환경설정</span>
-              </Link>
-            </li>
             <li>
               <Link
                 href="/mypage"

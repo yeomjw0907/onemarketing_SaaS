@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { requireClient } from "@/lib/auth";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { User } from "lucide-react";
+import { MypageContent } from "./mypage-content";
 
 export const metadata: Metadata = {
   title: "마이페이지 | Onecation",
@@ -20,19 +20,7 @@ export default async function MypagePage() {
         <p className="text-muted-foreground text-sm mt-1">내 정보를 확인하고 관리합니다.</p>
       </div>
 
-      <Card className="w-full">
-        <CardHeader>
-          <CardTitle className="text-base">계정 정보</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <p className="text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">클라이언트:</span> {session.client?.name ?? "-"}
-          </p>
-          <p className="text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">이메일:</span> {session.user?.email ?? "-"}
-          </p>
-        </CardContent>
-      </Card>
+      <MypageContent email={session.email} client={session.client} />
     </div>
   );
 }

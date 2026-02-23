@@ -56,6 +56,17 @@ npm run dev
 
 http://localhost:3000 에서 접속합니다.
 
+### 5. Windows에서 `EPERM: operation not permitted, open '.next\trace'` 발생 시
+
+OneDrive/백신 등이 `.next` 폴더를 잠그는 경우 발생합니다.
+
+```bash
+# .next 삭제 후 다시 실행 (한 번에)
+npm run dev:safe
+```
+
+또는 `npm run clean` 실행 후 `npm run dev`를 다시 실행해도 됩니다. 자세한 내용은 `docs/11-Windows-EPERM-트러블슈팅.md` 참고.
+
 ## 로그인
 
 - **Admin**: ID = `admin`, Password = `admin1234!`
