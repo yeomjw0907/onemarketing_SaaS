@@ -1,6 +1,6 @@
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
-export type UserRole = "admin" | "client";
+export type UserRole = "admin" | "client" | "pending" | "rejected";
 export type PeriodType = "weekly" | "monthly";
 export type ActionStatus = "planned" | "in_progress" | "done" | "hold";
 export type ProjectType = "website" | "landing" | "promotion";
@@ -19,6 +19,7 @@ export interface EnabledModules {
   reports: boolean;
   assets: boolean;
   support: boolean;
+  timeline: boolean;
 }
 
 export interface ValidationRule {
@@ -27,6 +28,14 @@ export interface ValidationRule {
   max?: number;
   required?: boolean;
 }
+
+/** 실행 현황 카테고리별 목표 (진척도 표시용) */
+export interface ExecutionTargetEntry {
+  period: "monthly" | "weekly";
+  target: number;
+}
+
+export type ExecutionTargets = Record<string, ExecutionTargetEntry>;
 
 export interface Client {
   id: string;
@@ -41,6 +50,8 @@ export interface Client {
   enabled_services: Record<string, boolean>;
   /** 서비스 키별 바로가기 URL (관리자 설정) */
   service_urls?: Record<string, string>;
+  /** 카테고리별 기간당 목표 건수 (진척도용). 예: { "landing_page": { period: "monthly", target: 25 } } */
+  execution_targets?: ExecutionTargets;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -52,6 +63,8 @@ export interface Profile {
   client_id: string | null;
   display_name: string;
   email: string;
+  company_name: string | null;
+  phone: string | null;
   must_change_password: boolean;
   created_at: string;
 }
@@ -89,6 +102,7 @@ export interface Metric {
 export interface Action {
   id: string;
   client_id: string;
+  project_id: string | null;
   category: string;
   title: string;
   description: string | null;
@@ -130,6 +144,7 @@ export interface CalendarEvent {
   status: EventStatus;
   visibility: Visibility;
   related_action_ids: string[];
+  project_id: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;

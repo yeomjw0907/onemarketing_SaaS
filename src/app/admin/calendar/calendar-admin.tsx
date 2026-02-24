@@ -18,6 +18,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { formatDateTime, cn } from "@/lib/utils";
+import { toast } from "sonner";
 import { Plus, ChevronLeft, ChevronRight, Pencil, X, CalendarDays } from "lucide-react";
 
 interface Props {
@@ -60,6 +61,7 @@ export function CalendarAdmin({ initialEvents, clients }: Props) {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
+  const [draggingEventId, setDraggingEventId] = useState<string | null>(null);
 
   // 편집 폼
   const [clientId, setClientId] = useState("");
@@ -149,6 +151,48 @@ export function CalendarAdmin({ initialEvents, clients }: Props) {
     setSelectedEvent(ev);
   };
 
+  // 드래그로 일정 이동 (관리자 전용)
+  const handleEventDragStart = (e: React.DragEvent, ev: any) => {
+    setDraggingEventId(ev.id);
+    e.dataTransfer.setData("eventId", ev.id);
+    e.dataTransfer.effectAllowed = "move";
+  };
+  const handleEventDragEnd = () => setDraggingEventId(null);
+  const handleDayDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  };
+  const handleDayDrop = useCallback(
+    async (dateStr: string, e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setDraggingEventId(null);
+      const eventId = e.dataTransfer.getData("eventId");
+      if (!eventId) return;
+      const ev = filteredEvents.find((x: any) => x.id === eventId);
+      if (!ev) return;
+      const start = new Date(ev.start_at);
+      const end = ev.end_at ? new Date(ev.end_at) : start;
+      const spanMs = end.getTime() - start.getTime();
+      const newStart = new Date(dateStr + "T00:00:00");
+      const newEnd = new Date(newStart.getTime() + spanMs);
+      const { error } = await supabase
+        .from("calendar_events")
+        .update({
+          start_at: newStart.toISOString(),
+          end_at: ev.end_at ? newEnd.toISOString() : null,
+        })
+        .eq("id", eventId);
+      if (error) {
+        toast.error("일정 이동에 실패했습니다.");
+        return;
+      }
+      toast.success("일정이 이동되었습니다.");
+      router.refresh();
+    },
+    [filteredEvents, router, supabase]
+  );
+
   // 이벤트 추가/수정
   const openCreate = (dateStr?: string) => {
     setEditing(null);
@@ -178,7 +222,10 @@ export function CalendarAdmin({ initialEvents, clients }: Props) {
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        setLoading(false);
+        return;
+      }
       const payload = {
         title,
         description: description || null,
@@ -188,15 +235,25 @@ export function CalendarAdmin({ initialEvents, clients }: Props) {
         status,
       };
       if (editing) {
-        await supabase.from("calendar_events").update(payload).eq("id", editing.id);
+        const { error } = await supabase.from("calendar_events").update(payload).eq("id", editing.id);
+        if (error) {
+          toast.error("저장에 실패했습니다.");
+          return;
+        }
+        toast.success("일정이 수정되었습니다.");
       } else {
-        await supabase.from("calendar_events").insert({
+        const { error } = await supabase.from("calendar_events").insert({
           ...payload,
           client_id: clientId,
           visibility: "visible",
           created_by: user.id,
           related_action_ids: [],
         });
+        if (error) {
+          toast.error("저장에 실패했습니다.");
+          return;
+        }
+        toast.success("일정이 추가되었습니다.");
       }
       setEditDialogOpen(false);
       router.refresh();
@@ -297,6 +354,12 @@ export function CalendarAdmin({ initialEvents, clients }: Props) {
                     "hover:bg-muted/30",
                   )}
                   onClick={() => handleDateClick(dateStr)}
+                  onDragOver={handleDayDragOver}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleDayDrop(dateStr, e);
+                  }}
                 >
                   {/* 날짜 숫자 */}
                   <div className="flex items-center justify-between mb-0.5">
@@ -318,20 +381,24 @@ export function CalendarAdmin({ initialEvents, clients }: Props) {
                     )}
                   </div>
 
-                  {/* 이벤트 목록 */}
+                  {/* 이벤트 목록 (드래그로 다른 날로 이동 가능) */}
                   <div className="space-y-0.5">
                     {dayEvents.slice(0, 3).map((ev: any) => {
                       const cIdx = clientColorMap[ev.client_id] ?? 0;
                       return (
                         <div
                           key={ev.id}
+                          draggable
+                          onDragStart={(e) => handleEventDragStart(e, ev)}
+                          onDragEnd={handleEventDragEnd}
                           className={cn(
-                            "text-[10px] md:text-[11px] leading-tight px-1.5 py-0.5 rounded-md border truncate cursor-pointer",
+                            "text-[10px] md:text-[11px] leading-tight px-1.5 py-0.5 rounded-md border truncate cursor-grab active:cursor-grabbing",
                             CLIENT_LIGHT_COLORS[cIdx],
                             ev.status === "done" && "line-through opacity-60",
+                            draggingEventId === ev.id && "opacity-50",
                           )}
                           onClick={(e) => handleEventClick(ev, e)}
-                          title={`[${clientNameMap[ev.client_id]}] ${ev.title}`}
+                          title={`[${clientNameMap[ev.client_id]}] ${ev.title} (드래그하여 날짜 이동)`}
                         >
                           <span className="hidden md:inline font-medium">
                             {clientNameMap[ev.client_id]?.slice(0, 4)}

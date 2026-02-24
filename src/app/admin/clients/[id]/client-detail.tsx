@@ -7,6 +7,7 @@ import {
   Client, EnabledModules, KpiDefinition, ActionStatus, PeriodType,
   EventStatus, ProjectType, ProjectStage, ReportType, AssetType,
   DataIntegration, IntegrationPlatform, IntegrationStatus,
+  ExecutionTargets, ExecutionTargetEntry,
 } from "@/lib/types/database";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -31,15 +32,16 @@ import {
   ArrowLeft, Plus, Pencil, Save, Upload, KeyRound, Power, Check, X,
   Unplug, RefreshCw, Trash2, Zap, TestTube2, ExternalLink,
   LayoutDashboard, CalendarDays, FolderKanban, FileText, Image, MessageCircle,
-  GripVertical, BarChart2, BookOpen, Settings,
+  GripVertical, BarChart2, BookOpen, Settings, History,
 } from "lucide-react";
-import { SERVICE_CATALOG, ALL_SERVICE_KEYS, defaultEnabledServices } from "@/lib/service-catalog";
+import { SERVICE_CATALOG, ALL_SERVICE_KEYS, defaultEnabledServices, findServiceItem } from "@/lib/service-catalog";
 import { ServiceIcon } from "@/components/service-icon";
 
 // ── 모듈 라벨 ──
 const moduleLabels: Record<keyof EnabledModules, string> = {
   overview: "개요", execution: "실행 현황", calendar: "캘린더",
   projects: "프로젝트", reports: "리포트", assets: "자료실", support: "문의하기",
+  timeline: "타임라인",
 };
 
 // ── KPI 표시명 ↔ Metric Key 매핑 (선택용) ──
@@ -159,6 +161,7 @@ export function ClientDetail({
           <TabsTrigger value="kpis">KPI 정의</TabsTrigger>
           <TabsTrigger value="metrics">성과 지표</TabsTrigger>
           <TabsTrigger value="actions">실행 항목</TabsTrigger>
+          <TabsTrigger value="executionTargets">실행 목표</TabsTrigger>
           <TabsTrigger value="calendar">캘린더</TabsTrigger>
           <TabsTrigger value="projects">프로젝트</TabsTrigger>
           <TabsTrigger value="reports">리포트</TabsTrigger>
@@ -172,13 +175,14 @@ export function ClientDetail({
         <TabsContent value="kpis"><KpiTab clientId={client.id} initialKpis={initialKpis} supabase={supabase} router={router} /></TabsContent>
         <TabsContent value="metrics"><MetricTab clientId={client.id} initialMetrics={initialMetrics} kpiDefs={initialKpis} supabase={supabase} router={router} /></TabsContent>
         <TabsContent value="actions"><ActionTab clientId={client.id} initialActions={initialActions} supabase={supabase} router={router} /></TabsContent>
-        <TabsContent value="calendar"><CalendarTab clientId={client.id} initialEvents={initialEvents} supabase={supabase} router={router} /></TabsContent>
+        <TabsContent value="executionTargets"><ExecutionTargetsTab clientId={client.id} initialTargets={(client.execution_targets || {}) as ExecutionTargets} supabase={supabase} router={router} /></TabsContent>
+        <TabsContent value="calendar"><CalendarTab clientId={client.id} initialEvents={initialEvents} projects={initialProjects} supabase={supabase} router={router} /></TabsContent>
         <TabsContent value="projects"><ProjectTab clientId={client.id} initialProjects={initialProjects} supabase={supabase} router={router} /></TabsContent>
         <TabsContent value="reports"><ReportTab clientId={client.id} initialReports={initialReports} supabase={supabase} router={router} /></TabsContent>
         <TabsContent value="assets"><AssetTab clientId={client.id} initialAssets={initialAssets} supabase={supabase} router={router} /></TabsContent>
         <TabsContent value="integrations"><IntegrationTab clientId={client.id} initialIntegrations={initialIntegrations} router={router} /></TabsContent>
         <TabsContent value="services"><ServiceTab clientId={client.id} initialServices={(client.enabled_services || {}) as Record<string, boolean>} initialServiceUrls={(client.service_urls || {}) as Record<string, string>} supabase={supabase} router={router} /></TabsContent>
-        <TabsContent value="modules"><ModuleTab clientId={client.id} initialModules={client.enabled_modules as EnabledModules} supabase={supabase} router={router} /></TabsContent>
+        <TabsContent value="modules"><ModuleTab clientId={client.id} initialModules={{ overview: true, execution: true, calendar: true, projects: true, reports: true, assets: true, support: true, timeline: true, ...(client.enabled_modules || {}) } as EnabledModules} supabase={supabase} router={router} /></TabsContent>
       </Tabs>
 
       {/* ── 비밀번호 리셋 다이얼로그 ── */}
@@ -434,31 +438,249 @@ function ActionTab({ clientId, initialActions, router }: { clientId: string; ini
 }
 
 // ╔══════════════════════════════════════════════╗
+// ║  실행 목표 탭 (카테고리별 기간당 목표 건수)      ║
+// ╚══════════════════════════════════════════════╝
+function ExecutionTargetsTab({
+  clientId,
+  initialTargets,
+  supabase,
+  router,
+}: {
+  clientId: string;
+  initialTargets: ExecutionTargets;
+  supabase: any;
+  router: any;
+}) {
+  const [targets, setTargets] = useState<ExecutionTargets>(() => ({ ...(initialTargets || {}) }));
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [categoryKey, setCategoryKey] = useState("");
+  const [period, setPeriod] = useState<"monthly" | "weekly">("monthly");
+  const [targetCount, setTargetCount] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const openAdd = () => {
+    setEditingKey(null);
+    setCategoryKey("");
+    setPeriod("monthly");
+    setTargetCount("");
+    setError("");
+    setDialogOpen(true);
+  };
+  const openEdit = (key: string, entry: ExecutionTargetEntry) => {
+    setEditingKey(key);
+    setCategoryKey(key);
+    setPeriod(entry.period);
+    setTargetCount(String(entry.target));
+    setError("");
+    setDialogOpen(true);
+  };
+
+  const handleSave = async () => {
+    const key = (editingKey || categoryKey).trim();
+    const num = parseInt(targetCount, 10);
+    if (!key) {
+      setError("카테고리를 선택하세요.");
+      return;
+    }
+    if (isNaN(num) || num < 1) {
+      setError("목표 건수는 1 이상 숫자로 입력하세요.");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      const next: ExecutionTargets = { ...targets };
+      if (editingKey && editingKey !== key) delete next[editingKey];
+      next[key] = { period, target: num };
+      const { error: err } = await supabase
+        .from("clients")
+        .update({ execution_targets: next })
+        .eq("id", clientId);
+      if (err) {
+        setError(err.message);
+        setLoading(false);
+        return;
+      }
+      setTargets(next);
+      setDialogOpen(false);
+      router.refresh();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const entries = Object.entries(targets).filter(
+    ([_, v]) => v && typeof v.target === "number" && v.target > 0
+  );
+
+  return (
+    <>
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className="text-lg font-semibold">실행 목표</h3>
+          <p className="text-sm text-muted-foreground">
+            카테고리별 기간당 목표 건수를 설정하면 포털 실행 현황에서 진척도로 표시됩니다.
+          </p>
+        </div>
+        <Button size="sm" onClick={openAdd}>
+          <Plus className="h-4 w-4 mr-1" /> 목표 추가
+        </Button>
+      </div>
+      {error && <p className="text-sm text-destructive mb-2">{error}</p>}
+      <Card>
+        <CardContent className="p-0 overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>카테고리</TableHead>
+                <TableHead>기간</TableHead>
+                <TableHead>목표 건수</TableHead>
+                <TableHead className="text-right">수정 / 삭제</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {entries.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                    등록된 목표가 없습니다. 목표 추가로 카테고리별 월/주 목표 건수를 설정하세요.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                entries.map(([key, entry]) => (
+                  <TableRow key={key}>
+                    <TableCell className="font-medium">
+                      {findServiceItem(key)?.label ?? key.replace(/_/g, " ")}
+                    </TableCell>
+                    <TableCell>{entry.period === "weekly" ? "이번 주" : "이번 달"}</TableCell>
+                    <TableCell>{entry.target}건</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => openEdit(key, entry)} aria-label="수정">
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            const next = { ...targets };
+                            delete next[key];
+                            setTargets(next);
+                            supabase.from("clients").update({ execution_targets: next }).eq("id", clientId).then(() => router.refresh());
+                          }}
+                          aria-label="삭제"
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingKey ? "목표 수정" : "목표 추가"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>카테고리 (서비스)</Label>
+              <Select
+                value={categoryKey}
+                onValueChange={setCategoryKey}
+                disabled={!!editingKey}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ALL_SERVICE_KEYS.map((k) => {
+                    const item = findServiceItem(k);
+                    return (
+                      <SelectItem key={k} value={k}>
+                        {item?.label ?? k.replace(/_/g, " ")}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>기간</Label>
+              <Select value={period} onValueChange={(v) => setPeriod(v as "monthly" | "weekly")}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="monthly">이번 달 (월별)</SelectItem>
+                  <SelectItem value="weekly">이번 주 (주별)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>목표 건수</Label>
+              <Input
+                type="number"
+                min={1}
+                value={targetCount}
+                onChange={(e) => setTargetCount(e.target.value)}
+                placeholder="예: 25"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>취소</Button>
+            <Button onClick={handleSave} disabled={loading || !categoryKey || !targetCount}>
+              {loading ? "저장 중..." : "저장"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+// ╔══════════════════════════════════════════════╗
 // ║  캘린더 탭                                     ║
 // ╚══════════════════════════════════════════════╝
-function CalendarTab({ clientId, initialEvents, supabase, router }: { clientId: string; initialEvents: any[]; supabase: any; router: any }) {
-  const [dialogOpen, setDialogOpen] = useState(false); const [editing, setEditing] = useState<any>(null); const [loading, setLoading] = useState(false);
-  const [title, setTitle] = useState(""); const [description, setDescription] = useState(""); const [startAt, setStartAt] = useState(""); const [endAt, setEndAt] = useState(""); const [eventType, setEventType] = useState("task"); const [status, setStatus] = useState<EventStatus>("planned");
-  const openCreate = () => { setEditing(null); setTitle(""); setDescription(""); setStartAt(""); setEndAt(""); setEventType("task"); setStatus("planned"); setDialogOpen(true); };
-  const openEdit = (ev: any) => { setEditing(ev); setTitle(ev.title); setDescription(ev.description || ""); setStartAt(ev.start_at?.slice(0, 16) || ""); setEndAt(ev.end_at?.slice(0, 16) || ""); setEventType(ev.event_type); setStatus(ev.status); setDialogOpen(true); };
-  const handleSave = async () => { setLoading(true); const { data: { user } } = await supabase.auth.getUser(); if (!user) return;
-    const payload = { title, description: description || null, start_at: new Date(startAt).toISOString(), end_at: endAt ? new Date(endAt).toISOString() : null, event_type: eventType, status, related_action_ids: [] };
-    if (editing) { await supabase.from("calendar_events").update(payload).eq("id", editing.id); }
-    else { await supabase.from("calendar_events").insert({ ...payload, client_id: clientId, visibility: "visible", created_by: user.id }); }
+function CalendarTab({ clientId, initialEvents, projects, supabase, router }: { clientId: string; initialEvents: any[]; projects: { id: string; title: string }[]; supabase: any; router: any }) {
+  const [dialogOpen, setDialogOpen] = useState(false); const [editing, setEditing] = useState<any>(null); const [loading, setLoading] = useState(false); const [error, setError] = useState("");
+  const [title, setTitle] = useState(""); const [description, setDescription] = useState(""); const [startDate, setStartDate] = useState(""); const [endDate, setEndDate] = useState(""); const [eventType, setEventType] = useState("task"); const [status, setStatus] = useState<EventStatus>("planned"); const [projectId, setProjectId] = useState("");
+  const toDateOnly = (iso: string | undefined) => (iso ? iso.slice(0, 10) : "");
+  const openCreate = () => { setEditing(null); setTitle(""); setDescription(""); setStartDate(""); setEndDate(""); setEventType("task"); setStatus("planned"); setProjectId(""); setError(""); setDialogOpen(true); };
+  const openEdit = (ev: any) => { setEditing(ev); setTitle(ev.title); setDescription(ev.description || ""); setStartDate(toDateOnly(ev.start_at)); setEndDate(toDateOnly(ev.end_at)); setEventType(ev.event_type); setStatus(ev.status); setProjectId(ev.project_id ?? ""); setError(""); setDialogOpen(true); };
+  const handleSave = async () => { setLoading(true); setError(""); const { data: { user } } = await supabase.auth.getUser(); if (!user) { setLoading(false); return; }
+    const start_at = startDate ? new Date(startDate + "T00:00:00").toISOString() : "";
+    const end_at = (endDate && endDate.trim()) ? new Date(endDate.trim() + "T23:59:59.999").toISOString() : null;
+    const basePayload = { title, description: description || null, start_at, end_at, event_type: eventType, status, project_id: projectId && projectId.trim() ? projectId.trim() : null };
+    if (editing) {
+      const { error: err } = await supabase.from("calendar_events").update(basePayload).eq("id", editing.id);
+      if (err) { setError(err.message || "저장에 실패했습니다."); setLoading(false); return; }
+    } else {
+      const { error: err } = await supabase.from("calendar_events").insert({ ...basePayload, related_action_ids: [], client_id: clientId, visibility: "visible", created_by: user.id });
+      if (err) { setError(err.message || "저장에 실패했습니다."); setLoading(false); return; }
+    }
     setDialogOpen(false); router.refresh(); setLoading(false); };
-  return (<>
+  return (<> 
     <div className="flex items-center justify-between mb-4"><h3 className="text-lg font-semibold">캘린더</h3><Button size="sm" onClick={openCreate}><Plus className="h-4 w-4 mr-1" /> 추가</Button></div>
     <Card><CardContent className="p-0 overflow-x-auto"><Table><TableHeader><TableRow><TableHead>제목</TableHead><TableHead>시작</TableHead><TableHead>종료</TableHead><TableHead>상태</TableHead><TableHead className="text-right">수정</TableHead></TableRow></TableHeader><TableBody>
       {initialEvents.length === 0 ? <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">없음</TableCell></TableRow> : initialEvents.map((ev: any) => (
-        <TableRow key={ev.id}><TableCell className="font-medium">{ev.title}</TableCell><TableCell className="text-sm">{formatDateTime(ev.start_at)}</TableCell><TableCell className="text-sm">{ev.end_at ? formatDateTime(ev.end_at) : "-"}</TableCell><TableCell><StatusBadge status={ev.status} /></TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" onClick={() => openEdit(ev)} aria-label="일정 수정"><Pencil className="h-4 w-4" /></Button></TableCell></TableRow>
+        <TableRow key={ev.id}><TableCell className="font-medium">{ev.title}</TableCell><TableCell className="text-sm">{formatDate(ev.start_at)}</TableCell><TableCell className="text-sm">{ev.end_at ? formatDate(ev.end_at) : "-"}</TableCell><TableCell><StatusBadge status={ev.status} /></TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" onClick={() => openEdit(ev)} aria-label="일정 수정"><Pencil className="h-4 w-4" /></Button></TableCell></TableRow>
       ))}</TableBody></Table></CardContent></Card>
     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}><DialogContent className="max-w-md"><DialogHeader><DialogTitle>{editing ? "수정" : "추가"}</DialogTitle></DialogHeader><div className="space-y-4">
+      {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="space-y-2"><Label>제목</Label><Input value={title} onChange={e => setTitle(e.target.value)} /></div>
       <div className="space-y-2"><Label>설명</Label><Textarea value={description} onChange={e => setDescription(e.target.value)} /></div>
-      <div className="grid grid-cols-2 gap-4"><div className="space-y-2"><Label>시작</Label><Input type="datetime-local" value={startAt} onChange={e => setStartAt(e.target.value)} /></div><div className="space-y-2"><Label>종료</Label><Input type="datetime-local" value={endAt} onChange={e => setEndAt(e.target.value)} /></div></div>
+      <div className="grid grid-cols-2 gap-4"><div className="space-y-2"><Label>시작일</Label><Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} /></div><div className="space-y-2"><Label>종료일</Label><Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} /></div></div>
       <div className="grid grid-cols-2 gap-4"><div className="space-y-2"><Label>일정 타입</Label><Select value={eventType} onValueChange={setEventType}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="task">작업</SelectItem><SelectItem value="meeting">미팅</SelectItem><SelectItem value="deadline">마감일</SelectItem><SelectItem value="milestone">마일스톤</SelectItem><SelectItem value="other">기타</SelectItem></SelectContent></Select></div>
         <div className="space-y-2"><Label>상태</Label><Select value={status} onValueChange={v => setStatus(v as EventStatus)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="planned">계획됨</SelectItem><SelectItem value="done">완료</SelectItem><SelectItem value="hold">보류</SelectItem></SelectContent></Select></div></div>
-    </div><DialogFooter><Button variant="outline" onClick={() => setDialogOpen(false)}>취소</Button><Button onClick={handleSave} disabled={loading || !title || !startAt}>{loading ? "저장 중..." : "저장"}</Button></DialogFooter></DialogContent></Dialog>
+      <div className="space-y-2"><Label>연결 프로젝트</Label><Select value={projectId || "_none"} onValueChange={v => setProjectId(v === "_none" ? "" : v)}><SelectTrigger><SelectValue placeholder="선택 안 함" /></SelectTrigger><SelectContent><SelectItem value="_none">선택 안 함</SelectItem>{projects.map(p => (<SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>))}</SelectContent></Select></div>
+    </div><DialogFooter><Button variant="outline" onClick={() => setDialogOpen(false)}>취소</Button><Button onClick={handleSave} disabled={loading || !title || !startDate}>{loading ? "저장 중..." : "저장"}</Button></DialogFooter></DialogContent></Dialog>
   </>);
 }
 
@@ -1306,6 +1528,7 @@ const moduleIcons: Record<keyof EnabledModules, typeof LayoutDashboard> = {
   reports: FileText,
   assets: Image,
   support: MessageCircle,
+  timeline: History,
 };
 
 // ╔══════════════════════════════════════════════╗

@@ -23,14 +23,20 @@ const TiptapEditor = dynamic(
   { ssr: false, loading: () => <div className="border rounded-lg p-6 text-center text-muted-foreground">에디터 로딩 중...</div> }
 );
 
+interface ProjectOption {
+  id: string;
+  title: string;
+}
+
 interface Props {
   clientId: string;
   clientName: string;
   enabledServiceKeys: string[];
+  projects: ProjectOption[];
   action: Action | null;
 }
 
-export function ActionEditor({ clientId, clientName, enabledServiceKeys, action }: Props) {
+export function ActionEditor({ clientId, clientName, enabledServiceKeys, projects, action }: Props) {
   const router = useRouter();
   const supabase = createClient();
   const isEdit = !!action;
@@ -38,6 +44,7 @@ export function ActionEditor({ clientId, clientName, enabledServiceKeys, action 
   const [title, setTitle] = useState(action?.title ?? "");
   const [content, setContent] = useState(action?.description ?? "");
   const [status, setStatus] = useState<ActionStatus>(action?.status ?? "planned");
+  const [projectId, setProjectId] = useState<string>(action?.project_id ?? "");
   const [startDate, setStartDate] = useState(action?.action_date?.slice(0, 10) ?? new Date().toISOString().split("T")[0]);
   const [useEndDate, setUseEndDate] = useState(!!action?.end_date);
   const [endDate, setEndDate] = useState(action?.end_date?.slice(0, 10) ?? "");
@@ -71,6 +78,7 @@ export function ActionEditor({ clientId, clientName, enabledServiceKeys, action 
         action_date: startDate,
         end_date: useEndDate && endDate ? endDate : null,
         category: categoryValue,
+        project_id: projectId && projectId.trim() ? projectId.trim() : null,
       };
       if (isEdit && action) {
         await supabase.from("actions").update(payload).eq("id", action.id);
@@ -116,6 +124,19 @@ export function ActionEditor({ clientId, clientName, enabledServiceKeys, action 
           <div className="space-y-2">
             <Label>제목 *</Label>
             <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="실행 항목 제목" className="text-lg" />
+          </div>
+
+          <div className="space-y-2">
+            <Label>연결 프로젝트</Label>
+            <Select value={projectId || "none"} onValueChange={(v) => setProjectId(v === "none" ? "" : v)}>
+              <SelectTrigger><SelectValue placeholder="선택 안 함" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">선택 안 함</SelectItem>
+                {projects.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -14,8 +15,16 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [registeredMessage, setRegisteredMessage] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
+
+  useEffect(() => {
+    if (searchParams.get("registered") === "1") setRegisteredMessage(true);
+  }, [searchParams]);
+
+  const rejected = searchParams.get("rejected") === "1";
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,18 +64,27 @@ export default function LoginPage() {
 
         if (profile?.role === "admin") {
           router.push("/admin");
+        } else if (profile?.role === "pending") {
+          router.push("/pending");
+        } else         if (profile?.role === "rejected") {
+          router.push("/login?rejected=1");
+          setLoading(false);
+          return;
         } else {
           router.push("/overview");
         }
         router.refresh();
+        // 성공 시 setLoading(false) 하지 않음 — 오버레이가 페이지 전환 완료까지 유지되어
+        // 목적지 로드 중 1~2초 경직 구간을 로딩 화면으로 덮음
+        return;
       }
+      setLoading(false);
     } catch (err) {
       const message =
         err instanceof TypeError && (err as Error).message?.includes("fetch")
           ? "서버에 연결할 수 없습니다. 네트워크를 확인하고, .env.local 설정 후 개발 서버를 재시작해 주세요."
           : "로그인 중 오류가 발생했습니다.";
       setError(message);
-    } finally {
       setLoading(false);
     }
   };
@@ -131,6 +149,16 @@ export default function LoginPage() {
                 autoComplete="current-password"
               />
             </div>
+            {registeredMessage && (
+              <p className="text-sm text-green-600 text-center bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg py-2 px-3">
+                가입이 완료되었습니다. 관리자 승인 후 로그인하여 이용할 수 있습니다.
+              </p>
+            )}
+            {rejected && (
+              <p className="text-sm text-destructive text-center bg-destructive/10 border border-destructive/20 rounded-lg py-2 px-3">
+                가입이 거절되었습니다. 문의가 필요하시면 관리자에게 연락해 주세요.
+              </p>
+            )}
             {error && (
               <p className="text-sm text-destructive text-center">{error}</p>
             )}
@@ -145,6 +173,12 @@ export default function LoginPage() {
               )}
             </Button>
           </form>
+          <p className="text-center text-sm text-muted-foreground mt-4">
+            계정이 없으신가요?{" "}
+            <Link href="/signup" className="text-primary hover:underline">
+              회원가입
+            </Link>
+          </p>
         </CardContent>
       </Card>
     </div>

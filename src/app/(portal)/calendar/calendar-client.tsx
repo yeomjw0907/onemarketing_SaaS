@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { CalendarEvent } from "@/lib/types/database";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,7 +17,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { formatDate, formatDateTime } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
+import { findServiceItem } from "@/lib/service-catalog";
 import {
   ChevronLeft,
   ChevronRight,
@@ -27,6 +29,8 @@ import {
   endOfMonth,
   startOfWeek,
   endOfWeek,
+  startOfDay,
+  endOfDay,
   eachDayOfInterval,
   format,
   isSameMonth,
@@ -35,22 +39,40 @@ import {
   subMonths,
   addWeeks,
   subWeeks,
+  differenceInCalendarDays,
   startOfWeek as sowFn,
   endOfWeek as eowFn,
 } from "date-fns";
 import { ko } from "date-fns/locale";
 
+export type RelatedAction = {
+  id: string;
+  title: string;
+  status: string;
+  action_date: string;
+  category: string | null;
+};
+
 interface CalendarClientProps {
   events: CalendarEvent[];
+  relatedActions?: RelatedAction[];
+  projectIdToTitle?: Record<string, string>;
   recentDone: Pick<CalendarEvent, "id" | "title" | "start_at" | "status">[];
   upcomingPlanned: Pick<CalendarEvent, "id" | "title" | "start_at" | "status">[];
+  initialSelectedEventId?: string;
 }
 
-export function CalendarClient({ events, recentDone, upcomingPlanned }: CalendarClientProps) {
+export function CalendarClient({ events, relatedActions = [], projectIdToTitle = {}, recentDone, upcomingPlanned, initialSelectedEventId }: CalendarClientProps) {
   const router = useRouter();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [view, setView] = useState<"month" | "week" | "list">("month");
+
+  useEffect(() => {
+    if (!initialSelectedEventId || events.length === 0) return;
+    const event = events.find((e) => e.id === initialSelectedEventId);
+    if (event) setSelectedEvent(event);
+  }, [initialSelectedEventId, events]);
 
   // Month view days
   const monthDays = useMemo(() => {
@@ -66,8 +88,64 @@ export function CalendarClient({ events, recentDone, upcomingPlanned }: Calendar
     return eachDayOfInterval({ start, end });
   }, [currentDate]);
 
+  // Chunk days into weeks (7 days each)
+  const weeks = useMemo(() => {
+    const days = view === "month" ? monthDays : weekDays;
+    const result: Date[][] = [];
+    for (let i = 0; i < days.length; i += 7) {
+      result.push(days.slice(i, i + 7));
+    }
+    return result;
+  }, [view, monthDays, weekDays]);
+
+  type EventSegment = {
+    event: CalendarEvent;
+    startCol: number;
+    endCol: number;
+    continuesLeft: boolean;
+    continuesRight: boolean;
+    lane: number;
+  };
+
+  const getWeekSegments = (weekDaysSlice: Date[]): EventSegment[] => {
+    const weekStart = startOfDay(weekDaysSlice[0]!);
+    const weekEnd = endOfDay(weekDaysSlice[weekDaysSlice.length - 1]!);
+    const segments: { event: CalendarEvent; startCol: number; endCol: number; continuesLeft: boolean; continuesRight: boolean }[] = [];
+    for (const e of events) {
+      const eventStart = startOfDay(new Date(e.start_at));
+      const eventEnd = e.end_at ? endOfDay(new Date(e.end_at)) : eventStart;
+      if (eventEnd < weekStart || eventStart > weekEnd) continue;
+      const startCol = Math.max(0, differenceInCalendarDays(eventStart, weekStart));
+      const endCol = Math.min(6, differenceInCalendarDays(eventEnd, weekStart));
+      segments.push({
+        event: e,
+        startCol,
+        endCol,
+        continuesLeft: eventStart < weekStart,
+        continuesRight: eventEnd > weekEnd,
+      });
+    }
+    segments.sort((a, b) => a.startCol - b.startCol || (b.endCol - b.startCol) - (a.endCol - a.startCol));
+    const laneEnds: number[] = [];
+    const assigned: EventSegment[] = segments.map((seg) => {
+      let lane = 0;
+      while (laneEnds[lane] !== undefined && laneEnds[lane]! > seg.startCol) lane++;
+      laneEnds[lane] = seg.endCol + 1;
+      return { ...seg, lane };
+    });
+    return assigned;
+  };
+
+  const MAX_LANES = 3;
+
   const getEventsForDay = (day: Date) => {
-    return events.filter((e) => isSameDay(new Date(e.start_at), day));
+    const dayStart = startOfDay(day).getTime();
+    const dayEnd = endOfDay(day).getTime();
+    return events.filter((e) => {
+      const start = new Date(e.start_at).getTime();
+      const end = e.end_at ? new Date(e.end_at).getTime() : start;
+      return start <= dayEnd && end >= dayStart;
+    });
   };
 
   const statusColor = (status: string) => {
@@ -119,6 +197,14 @@ export function CalendarClient({ events, recentDone, upcomingPlanned }: Calendar
                 >
                   <ChevronRight className="h-4 w-4" />
                 </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setCurrentDate(new Date())}
+                  className="text-xs"
+                >
+                  오늘
+                </Button>
               </div>
               <Tabs value={view} onValueChange={(v) => setView(v as any)}>
                 <TabsList>
@@ -148,7 +234,8 @@ export function CalendarClient({ events, recentDone, upcomingPlanned }: Calendar
                         <div>
                           <p className="text-sm font-medium">{event.title}</p>
                           <p className="text-xs text-muted-foreground">
-                            {formatDateTime(event.start_at)}
+                            {formatDate(event.start_at)}
+                            {event.end_at && ` ~ ${formatDate(event.end_at)}`}
                           </p>
                         </div>
                       </div>
@@ -167,44 +254,72 @@ export function CalendarClient({ events, recentDone, upcomingPlanned }: Calendar
                     </div>
                   ))}
                 </div>
-                {/* Calendar grid */}
-                <div className="grid grid-cols-7 gap-px bg-border rounded-lg overflow-hidden">
-                  {(view === "month" ? monthDays : weekDays).map((day) => {
-                    const dayEvents = getEventsForDay(day);
-                    const isCurrentMonth = isSameMonth(day, currentDate);
-                    const isToday = isSameDay(day, new Date());
+                {/* Week rows with multi-day bars */}
+                <div className="space-y-px bg-border rounded-lg overflow-hidden">
+                  {weeks.map((weekDaysSlice, weekIdx) => {
+                    const segs = getWeekSegments(weekDaysSlice);
                     return (
                       <div
-                        key={day.toISOString()}
-                        className={`min-h-[100px] bg-card p-1.5 ${
-                          !isCurrentMonth && view === "month" ? "opacity-40" : ""
-                        }`}
+                        key={weekIdx}
+                        className="grid grid-cols-7 gap-px"
+                        style={{
+                          gridTemplateRows: `auto repeat(${MAX_LANES}, minmax(22px, 1fr))`,
+                        }}
                       >
-                        <div
-                          className={`text-xs font-medium mb-1 w-6 h-6 flex items-center justify-center rounded-full ${
-                            isToday ? "bg-primary text-primary-foreground" : ""
-                          }`}
-                        >
-                          {format(day, "d")}
-                        </div>
-                        <div className="space-y-0.5">
-                          {dayEvents.slice(0, 3).map((event) => (
-                            <button
-                              key={event.id}
-                              onClick={() => setSelectedEvent(event)}
-                              className={`w-full text-left text-[10px] leading-tight px-1 py-0.5 rounded truncate ${statusColor(
-                                event.status
-                              )} text-white`}
+                        {weekDaysSlice.map((day, colIdx) => {
+                          const isCurrentMonth = isSameMonth(day, currentDate);
+                          const isToday = isSameDay(day, new Date());
+                          return (
+                            <div
+                              key={day.toISOString()}
+                              data-date={format(day, "yyyy-MM-dd")}
+                              className={`min-h-[28px] bg-card flex flex-col items-center justify-start p-0.5 ${
+                                !isCurrentMonth && view === "month" ? "opacity-40" : ""
+                              }`}
+                              style={{ gridRow: 1, gridColumn: colIdx + 1 }}
                             >
-                              {event.title}
-                            </button>
-                          ))}
-                          {dayEvents.length > 3 && (
-                            <span className="text-[10px] text-muted-foreground">
-                              +{dayEvents.length - 3}
+                              <span
+                                className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full ${
+                                  isToday ? "bg-primary text-primary-foreground" : ""
+                                }`}
+                              >
+                                {format(day, "d")}
+                              </span>
+                            </div>
+                          );
+                        })}
+                        {Array.from({ length: MAX_LANES }, (_, laneIdx) =>
+                          weekDaysSlice.map((day, colIdx) => (
+                            <div
+                              key={`lane-${laneIdx}-${colIdx}`}
+                              data-date={format(day, "yyyy-MM-dd")}
+                              className="bg-card/50 min-h-[22px]"
+                              style={{ gridRow: laneIdx + 2, gridColumn: colIdx + 1 }}
+                            />
+                          ))
+                        )}
+                        {segs.map((seg) => (
+                          <button
+                            key={`${seg.event.id}-${weekIdx}-${seg.startCol}`}
+                            type="button"
+                            onClick={() => setSelectedEvent(seg.event)}
+                            className={`flex items-stretch rounded min-h-[20px] w-full text-left ${statusColor(
+                              seg.event.status
+                            )} text-white ${
+                              seg.continuesLeft ? "rounded-l-none" : ""
+                            } ${seg.continuesRight ? "rounded-r-none" : ""} ${
+                              initialSelectedEventId === seg.event.id ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""
+                            }`}
+                            style={{
+                              gridRow: seg.lane + 2,
+                              gridColumn: `${seg.startCol + 1} / ${seg.endCol + 2}`,
+                            }}
+                          >
+                            <span className="flex-1 text-[10px] leading-tight px-1 py-0.5 truncate min-w-0">
+                              {seg.event.title}
                             </span>
-                          )}
-                        </div>
+                          </button>
+                        ))}
                       </div>
                     );
                   })}
@@ -266,28 +381,102 @@ export function CalendarClient({ events, recentDone, upcomingPlanned }: Calendar
               <DialogHeader>
                 <DialogTitle>{selectedEvent.title}</DialogTitle>
                 <DialogDescription>
-                  {formatDateTime(selectedEvent.start_at)}
-                  {selectedEvent.end_at && ` ~ ${formatDateTime(selectedEvent.end_at)}`}
+                  {formatDate(selectedEvent.start_at)}
+                  {selectedEvent.end_at && ` ~ ${formatDate(selectedEvent.end_at)}`}
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-3">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <StatusBadge status={selectedEvent.status} />
                   <Badge variant="outline">{selectedEvent.event_type}</Badge>
+                  {selectedEvent.related_action_ids &&
+                    selectedEvent.related_action_ids.length > 0 && (() => {
+                      const keys = new Set(
+                        (selectedEvent.related_action_ids as string[])
+                          .flatMap((id) => {
+                            const a = relatedActions.find((x) => x.id === id);
+                            return (a?.category ?? "").split(",").map((c: string) => c.trim()).filter(Boolean);
+                          })
+                      );
+                      return Array.from(keys).map((k) => (
+                        <Badge key={k} variant="secondary" className="text-xs font-normal">
+                          {k === "general" ? "일반" : (findServiceItem(k)?.label ?? k.replace(/_/g, " "))}
+                        </Badge>
+                      ));
+                    })()}
                 </div>
                 {selectedEvent.description && (
                   <p className="text-sm whitespace-pre-wrap">{selectedEvent.description}</p>
                 )}
-              </div>
-              <DialogFooter>
-                {selectedEvent.related_action_ids &&
-                  selectedEvent.related_action_ids.length > 0 && (
-                    <Button onClick={() => navigateRelatedWork(selectedEvent)}>
+                {selectedEvent.project_id && (
+                  <div className="border-t pt-3 mt-3">
+                    <p className="text-xs font-semibold text-muted-foreground mb-2">관련 프로젝트</p>
+                    <Link
+                      href={`/projects/${selectedEvent.project_id}`}
+                      className="flex items-center gap-2 py-1.5 px-2 rounded-md hover:bg-muted text-sm font-medium"
+                    >
+                      <ExternalLink className="h-4 w-4 shrink-0" />
+                      {projectIdToTitle[selectedEvent.project_id] ?? "프로젝트 보기"}
+                    </Link>
+                  </div>
+                )}
+                {selectedEvent.related_action_ids && selectedEvent.related_action_ids.length > 0 && (
+                  <div className="border-t pt-3 mt-3">
+                    <p className="text-xs font-semibold text-muted-foreground mb-2">관련 실행 현황</p>
+                    <ul className="space-y-1.5 max-h-48 overflow-y-auto">
+                      {(selectedEvent.related_action_ids as string[])
+                        .map((id) => relatedActions.find((a) => a.id === id))
+                        .filter(Boolean)
+                        .map((action) => {
+                          const categoryKeys = (action!.category ?? "")
+                            .split(",")
+                            .map((c: string) => c.trim())
+                            .filter(Boolean);
+                          const categoryLabels = categoryKeys.map((k: string) =>
+                            k === "general" ? "일반" : (findServiceItem(k)?.label ?? k.replace(/_/g, " "))
+                          );
+                          return (
+                            <li key={action!.id}>
+                              <Link
+                                href={`/execution/actions/${action!.id}`}
+                                className="flex flex-col gap-1 py-1.5 px-2 rounded-md hover:bg-muted text-sm"
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="truncate font-medium">{action!.title}</span>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <StatusBadge status={action!.status} />
+                                    <span className="text-xs text-muted-foreground">
+                                      {formatDate(action!.action_date)}
+                                    </span>
+                                  </div>
+                                </div>
+                                {categoryLabels.length > 0 && (
+                                  <div className="flex flex-wrap gap-1">
+                                    {categoryLabels.map((label, i) => (
+                                      <Badge key={i} variant="secondary" className="text-[10px] font-normal">
+                                        {label}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                )}
+                              </Link>
+                            </li>
+                          );
+                        })}
+                    </ul>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-2 w-full"
+                      onClick={() => navigateRelatedWork(selectedEvent)}
+                    >
                       <ExternalLink className="h-4 w-4 mr-2" />
-                      관련 실행 내역 보기
+                      실행 현황에서 전체 보기
                     </Button>
-                  )}
-              </DialogFooter>
+                  </div>
+                )}
+              </div>
+              <DialogFooter />
             </>
           )}
         </DialogContent>

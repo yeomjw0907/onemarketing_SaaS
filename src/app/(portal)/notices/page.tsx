@@ -26,12 +26,12 @@ export default async function NoticesPage() {
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="table w-full min-w-[400px] text-sm" style={{ tableLayout: "fixed" }}>
               <thead>
                 <tr className="border-b bg-muted/40">
-                  <th className="text-left font-medium py-3 px-4 w-14 text-muted-foreground">번호</th>
+                  <th className="text-left font-medium py-3 px-4 w-16 shrink-0 text-muted-foreground whitespace-nowrap">번호</th>
                   <th className="text-left font-medium py-3 px-4 text-muted-foreground">제목</th>
-                  <th className="text-left font-medium py-3 px-4 w-28 text-muted-foreground">등록일</th>
+                  <th className="text-left font-medium py-3 px-4 w-28 shrink-0 text-muted-foreground">등록일</th>
                 </tr>
               </thead>
               <tbody>

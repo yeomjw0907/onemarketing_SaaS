@@ -11,7 +11,7 @@ export default async function PortalLayout({
   children: React.ReactNode;
 }) {
   const session = await requireClient();
-  const enabledModules: EnabledModules = session.client?.enabled_modules || {
+  const defaultModules: EnabledModules = {
     overview: true,
     execution: true,
     calendar: true,
@@ -19,6 +19,11 @@ export default async function PortalLayout({
     reports: true,
     assets: true,
     support: true,
+    timeline: true,
+  };
+  const enabledModules: EnabledModules = {
+    ...defaultModules,
+    ...session.client?.enabled_modules,
   };
 
   return (

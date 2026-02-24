@@ -8,9 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import { MessageCircle, ChevronRight, ExternalLink, ShoppingCart } from "lucide-react";
+import { MessageCircle, ChevronRight, ExternalLink } from "lucide-react";
 import Link from "next/link";
-import { ADDON_ITEMS_FLAT } from "@/lib/addon-catalog";
 
 interface Props {
   enabledServices: Record<string, boolean>;
@@ -138,43 +137,6 @@ export function ServiceCatalogView({ enabledServices, serviceUrls = {} }: Props)
             </div>
           </div>
         )}
-
-        {/* 추가 서비스 신청 (부가 서비스 스토어) */}
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              추가 서비스 신청
-            </h3>
-            <Link
-              href="/addon"
-              className="text-xs font-medium text-primary hover:underline flex items-center gap-1"
-            >
-              부가 서비스 스토어 전체보기 <ChevronRight className="h-3.5 w-3.5" />
-            </Link>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {ADDON_ITEMS_FLAT.slice(0, 6).map((item) => (
-              <Link
-                key={item.key}
-                href="/addon"
-                className="flex items-center gap-4 p-4 rounded-2xl bg-muted/30 border border-border/60 text-left transition-all hover:bg-muted/50 hover:border-border hover:shadow-sm group"
-              >
-                <div className="h-9 w-9 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
-                  <ShoppingCart className="h-4 w-4" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
-                    {item.label}
-                  </span>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    ₩{item.priceWon.toLocaleString()} ({item.priceNote})
-                  </p>
-                </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors shrink-0" />
-              </Link>
-            ))}
-          </div>
-        </div>
 
         {activeItems.length === 0 && inactiveItems.length === 0 && (
           <div className="text-center py-12 text-muted-foreground">

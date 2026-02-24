@@ -12,16 +12,24 @@ export interface CategoryOption {
   color: string;
 }
 
+export interface CategoryProgress {
+  current: number;
+  target: number;
+  periodLabel: string;
+}
+
 interface Props {
   categories: CategoryOption[];
   currentCategory: string | null;
   idsFilter?: string | null;
+  progressByCategory?: Record<string, CategoryProgress>;
 }
 
 export function ExecutionCategoryFilter({
   categories,
   currentCategory,
   idsFilter,
+  progressByCategory,
 }: Props) {
   const isAll = !currentCategory;
 
@@ -47,6 +55,7 @@ export function ExecutionCategoryFilter({
       </Link>
       {categories.map((cat) => {
         const isSelected = currentCategory === cat.key;
+        const progress = progressByCategory?.[cat.key];
         return (
           <Link
             key={cat.key}
@@ -69,7 +78,14 @@ export function ExecutionCategoryFilter({
               size="sm"
               className="shrink-0"
             />
-            <span>{cat.label}</span>
+            <span className="flex items-center gap-1.5">
+              <span>{cat.label}</span>
+              {progress && (
+                <span className="text-xs font-normal text-muted-foreground whitespace-nowrap">
+                  {progress.current}/{progress.target} ({progress.periodLabel})
+                </span>
+              )}
+            </span>
           </Link>
         );
       })}

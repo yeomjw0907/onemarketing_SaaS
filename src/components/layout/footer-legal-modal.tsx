@@ -13,6 +13,7 @@ const LEGAL_ITEMS: { key: LegalDocKey; label: string }[] = [
   { key: "privacy", label: "개인정보 처리방침" },
   { key: "terms", label: "이용약관" },
   { key: "service", label: "서비스 이용약관" },
+  { key: "marketing", label: "마케팅 정보 수신 동의" },
 ];
 
 export function FooterLegalLinks() {

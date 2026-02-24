@@ -8,6 +8,7 @@ import { useMobileSidebar } from "@/components/layout/mobile-sidebar-wrapper";
 import {
   LayoutDashboard,
   Users,
+  UserPlus,
   CalendarDays,
   FolderKanban,
   FileText,
@@ -21,6 +22,7 @@ import {
 
 const adminMenu = [
   { label: "대시보드", href: "/admin", icon: LayoutDashboard },
+  { label: "가입 대기", href: "/admin/signups", icon: UserPlus },
   { label: "클라이언트", href: "/admin/clients", icon: Users },
   { label: "캘린더", href: "/admin/calendar", icon: CalendarDays },
   { label: "프로젝트", href: "/admin/projects", icon: FolderKanban },

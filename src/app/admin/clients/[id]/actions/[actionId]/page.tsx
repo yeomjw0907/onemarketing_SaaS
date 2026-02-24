@@ -29,12 +29,19 @@ export default async function EditActionPage({ params }: Props) {
 
   const enabledServices = (client.enabled_services || {}) as Record<string, boolean>;
   const enabledServiceKeys = Object.keys(enabledServices).filter((k) => enabledServices[k]);
+  const { data: projects } = await supabase
+    .from("projects")
+    .select("id, title")
+    .eq("client_id", id)
+    .eq("visibility", "visible")
+    .order("title", { ascending: true });
 
   return (
     <ActionEditor
       clientId={client.id}
       clientName={client.name}
       enabledServiceKeys={enabledServiceKeys.length > 0 ? enabledServiceKeys : ["general"]}
+      projects={projects ?? []}
       action={action as any}
     />
   );

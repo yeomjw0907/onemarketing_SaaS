@@ -46,29 +46,28 @@ export default async function ExecutionPage({ searchParams }: Props) {
     }
   }
 
-  // Filter by category if provided
-  if (resolvedParams.category) {
-    query = query.eq("category", resolvedParams.category);
-  }
+  // Do not filter by category in DB; we filter in memory to support comma-separated categories
+  const { data: rawActions } = await query;
 
-  const { data: actions } = await query;
-
-  // Get unique categories for filter
-  const { data: allActions } = await supabase
-    .from("actions")
-    .select("category")
-    .eq("client_id", clientId)
-    .eq("visibility", "visible");
-
+  // Build category tabs from actions only: split comma-separated categories, then unique set
   const categoryKeys = Array.from(
-    new Set((allActions || []).map((a: { category: string }) => a.category).filter(Boolean))
-  ) as string[];
+    new Set(
+      (rawActions || []).flatMap((a) =>
+        (a.category ?? "")
+          .split(",")
+          .map((c: string) => c.trim())
+          .filter(Boolean)
+      )
+    )
+  ).sort();
 
   const categoriesWithInfo = categoryKeys.map((key) => {
     const item = findServiceItem(key);
+    const label =
+      key === "general" ? "일반" : (item?.label ?? key.replace(/_/g, " "));
     return {
       key,
-      label: item?.label ?? key.replace(/_/g, " "),
+      label,
       iconKey: item?.iconKey ?? "report",
       color: item?.color ?? "#64748b",
     };
@@ -78,10 +77,71 @@ export default async function ExecutionPage({ searchParams }: Props) {
     categoriesWithInfo.map((c) => [c.key, c.label])
   );
 
+  // Filter by category in memory (supports comma-separated category on each action)
+  const actions =
+    resolvedParams.category && categoryKeys.includes(resolvedParams.category)
+      ? (rawActions || []).filter((action) => {
+          const parts = (action.category ?? "")
+            .split(",")
+            .map((c: string) => c.trim())
+            .filter(Boolean);
+          return parts.includes(resolvedParams.category!);
+        })
+      : rawActions ?? [];
+
   const currentCategory =
     resolvedParams.category && categoryKeys.includes(resolvedParams.category)
       ? resolvedParams.category
       : null;
+
+  // 진척도: 목표가 있는 카테고리만 현재/목표 계산 (이번 달 또는 이번 주)
+  const executionTargets = session.client?.execution_targets ?? {};
+  const now = new Date();
+  const progressByCategory: Record<
+    string,
+    { current: number; target: number; periodLabel: string }
+  > = {};
+  for (const key of categoryKeys) {
+    const entry = executionTargets[key];
+    if (!entry || typeof entry.target !== "number" || entry.target <= 0)
+      continue;
+    const period = entry.period === "weekly" ? "weekly" : "monthly";
+    let periodStart: string;
+    let periodEnd: string;
+    let periodLabel: string;
+    if (period === "monthly") {
+      const y = now.getFullYear();
+      const m = now.getMonth();
+      periodStart = `${y}-${String(m + 1).padStart(2, "0")}-01`;
+      const lastDay = new Date(y, m + 1, 0).getDate();
+      periodEnd = `${y}-${String(m + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+      periodLabel = "이번 달";
+    } else {
+      const day = now.getDay();
+      const diff = day === 0 ? -6 : 1 - day;
+      const mon = new Date(now);
+      mon.setDate(now.getDate() + diff);
+      const sun = new Date(mon);
+      sun.setDate(mon.getDate() + 6);
+      periodStart = mon.toISOString().slice(0, 10);
+      periodEnd = sun.toISOString().slice(0, 10);
+      periodLabel = "이번 주";
+    }
+    const current = (rawActions || []).filter((a) => {
+      const date = (a.action_date ?? "").toString().slice(0, 10);
+      if (date < periodStart || date > periodEnd) return false;
+      const parts = (a.category ?? "")
+        .split(",")
+        .map((c: string) => c.trim())
+        .filter(Boolean);
+      return parts.includes(key);
+    }).length;
+    progressByCategory[key] = {
+      current,
+      target: entry.target,
+      periodLabel,
+    };
+  }
 
   return (
     <div className="space-y-6">
@@ -97,6 +157,7 @@ export default async function ExecutionPage({ searchParams }: Props) {
           categories={categoriesWithInfo}
           currentCategory={currentCategory}
           idsFilter={resolvedParams.ids ?? null}
+          progressByCategory={Object.keys(progressByCategory).length > 0 ? progressByCategory : undefined}
         />
       )}
 
@@ -113,32 +174,39 @@ export default async function ExecutionPage({ searchParams }: Props) {
         <div className="space-y-3">
           {actions.map((action) => (
             <Card key={action.id} className="transition-subtle hover:shadow-md">
-              <CardContent className="py-4 px-6">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <Link
-                      href={`/execution/actions/${action.id}`}
-                      className="text-base font-medium hover:underline"
-                    >
-                      {stripHtml(action.title) || action.title}
-                    </Link>
-                    {action.description && (
-                      <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                        {stripHtml(action.description)}
-                      </p>
-                    )}
-                    <div className="flex items-center gap-3 mt-2">
-                      <Badge variant="outline" className="text-xs">
-                        {categoryLabelByKey[action.category] ?? action.category}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">
-                        {formatDate(action.action_date)}
+              <Link href={`/execution/actions/${action.id}`} className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg">
+                <CardContent className="py-4 px-6 cursor-pointer">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <span className="text-base font-medium">
+                        {stripHtml(action.title) || action.title}
                       </span>
+                      {action.description && (
+                        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                          {stripHtml(action.description)}
+                        </p>
+                      )}
+                      <div className="flex items-center gap-2 flex-wrap mt-2">
+                        {((action.category ?? "")
+                          .split(",")
+                          .map((c: string) => c.trim())
+                          .filter(Boolean).length
+                          ? (action.category ?? "").split(",").map((c: string) => c.trim()).filter(Boolean)
+                          : ["general"]
+                        ).map((k: string) => (
+                          <Badge key={k} variant="outline" className="text-xs">
+                            {categoryLabelByKey[k] ?? (k === "general" ? "일반" : k.replace(/_/g, " "))}
+                          </Badge>
+                        ))}
+                        <span className="text-xs text-muted-foreground">
+                          {formatDate(action.action_date)}
+                        </span>
+                      </div>
                     </div>
+                    <StatusBadge status={action.status} />
                   </div>
-                  <StatusBadge status={action.status} />
-                </div>
-              </CardContent>
+                </CardContent>
+              </Link>
             </Card>
           ))}
         </div>

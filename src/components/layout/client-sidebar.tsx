@@ -23,6 +23,7 @@ import {
   Megaphone,
   Link2,
   ShoppingCart,
+  History,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -40,6 +41,7 @@ const menuItems: SidebarItem[] = [
   { key: "calendar", label: "캘린더", href: "/calendar", icon: CalendarDays, color: "text-blue-600" },
   { key: "projects", label: "프로젝트", href: "/projects", icon: FolderKanban, color: "text-emerald-600" },
   { key: "reports", label: "리포트", href: "/reports", icon: FileText, color: "text-amber-600" },
+  { key: "timeline", label: "타임라인", href: "/timeline", icon: History, color: "text-sky-600" },
   { key: "assets", label: "자료실", href: "/assets", icon: Image, color: "text-rose-600" },
 ];
 

@@ -10,7 +10,12 @@ export const metadata: Metadata = {
   description: "마케팅 일정 관리",
 };
 
-export default async function CalendarPage() {
+interface Props {
+  searchParams: Promise<{ eventId?: string }>;
+}
+
+export default async function CalendarPage({ searchParams }: Props) {
+  const resolved = await searchParams;
   const session = await requireClient();
   if (!isModuleEnabled(session.client?.enabled_modules, "calendar")) {
     return <ModuleDisabled />;
@@ -26,6 +31,31 @@ export default async function CalendarPage() {
     .eq("client_id", clientId)
     .eq("visibility", "visible")
     .order("start_at", { ascending: true });
+
+  const relatedActionIds = Array.from(
+    new Set((events || []).flatMap((e) => e.related_action_ids || []))
+  ).filter(Boolean);
+  const projectIds = Array.from(
+    new Set((events || []).map((e) => e.project_id).filter(Boolean) as string[])
+  );
+  const [relatedActionsRes, projectsRes] = await Promise.all([
+    relatedActionIds.length > 0
+      ? supabase
+          .from("actions")
+          .select("id, title, status, action_date, category")
+          .eq("client_id", clientId)
+          .eq("visibility", "visible")
+          .in("id", relatedActionIds)
+      : Promise.resolve({ data: [] }),
+    projectIds.length > 0
+      ? supabase.from("projects").select("id, title").in("id", projectIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+  const relatedActions = relatedActionsRes.data || [];
+  const projectIdToTitle: Record<string, string> = {};
+  (projectsRes.data || []).forEach((p: { id: string; title: string }) => {
+    projectIdToTitle[p.id] = p.title;
+  });
 
   // Recent done (last 14 days)
   const twoWeeksAgo = new Date(Date.now() - 14 * 86400000).toISOString();
@@ -61,8 +91,11 @@ export default async function CalendarPage() {
       </div>
       <CalendarClient
         events={events || []}
+        relatedActions={relatedActions}
+        projectIdToTitle={projectIdToTitle}
         recentDone={recentDone || []}
         upcomingPlanned={upcomingPlanned || []}
+        initialSelectedEventId={resolved.eventId ?? undefined}
       />
     </div>
   );

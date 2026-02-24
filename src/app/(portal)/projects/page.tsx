@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
 import { FolderKanban } from "lucide-react";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "프로젝트 | Onecation",
@@ -48,8 +49,9 @@ export default async function ProjectsPage() {
       {projects && projects.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {projects.map((project) => (
-            <Card key={project.id} className="transition-subtle hover:shadow-md">
-              <CardContent className="py-5 px-6">
+            <Link key={project.id} href={`/projects/${project.id}`}>
+              <Card className="transition-subtle hover:shadow-md">
+                <CardContent className="py-5 px-6">
                 <div className="flex items-start justify-between gap-2 mb-3">
                   <div>
                     <h3 className="font-semibold">{project.title}</h3>
@@ -88,8 +90,9 @@ export default async function ProjectsPage() {
                     {project.memo}
                   </p>
                 )}
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </Link>
           ))}
         </div>
       ) : (

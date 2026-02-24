@@ -302,7 +302,11 @@ export default async function OverviewPage() {
       </div>
 
       {/* ─── 알림 히스토리 ─── */}
-      <CareHistoryTimeline notifications={notifications ?? []} />
+      <CareHistoryTimeline
+        notifications={notifications ?? []}
+        limit={5}
+        showViewAllLink={isModuleEnabled(modules, "timeline")}
+      />
 
       {/* ─── 로드맵 (캘린더 전체 너비, 세로로 길게) ─── */}
       {isModuleEnabled(modules, "calendar") && (
