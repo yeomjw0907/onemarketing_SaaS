@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { requireClient, isModuleEnabled } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { ModuleDisabled } from "@/components/module-guard";
@@ -13,6 +14,7 @@ import {
 import Link from "next/link";
 import { ServiceCatalogView } from "@/components/service-catalog-view";
 import { OverviewCharts } from "./overview-charts";
+import { OverviewUrlCleaner } from "./overview-url-cleaner";
 import { CalendarClient } from "@/app/(portal)/calendar/calendar-client";
 import { CareHistoryTimeline } from "@/components/dashboard/care-history-timeline";
 
@@ -143,6 +145,9 @@ export default async function OverviewPage() {
 
   return (
     <div className="space-y-8">
+      <Suspense fallback={null}>
+        <OverviewUrlCleaner />
+      </Suspense>
       {/* ─── 히어로 영역 ─── */}
       <div className="rounded-2xl bg-gradient-to-br from-primary/8 via-primary/4 to-transparent border border-primary/10 p-6 md:p-8">
         <p className="text-sm text-muted-foreground font-medium">안녕하세요</p>

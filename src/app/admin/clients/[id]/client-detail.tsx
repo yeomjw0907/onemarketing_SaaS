@@ -1014,6 +1014,13 @@ function IntegrationTab({ clientId, initialIntegrations, router }: { clientId: s
     })();
   }, [settingsOpen]);
 
+  // Meta OAuth 콜백 후 Facebook이 붙이는 #_=_ 해시 제거 (주소창 정리)
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.location.hash === "#_=_") {
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+    }
+  }, []);
+
   // Meta OAuth 콜백 후 저장 폼 (URL에 metaToken 있을 때)
   const [metaSaveDisplayName, setMetaSaveDisplayName] = useState("Meta 광고");
   const [metaSaveAdAccountId, setMetaSaveAdAccountId] = useState("");
@@ -1190,7 +1197,8 @@ function IntegrationTab({ clientId, initialIntegrations, router }: { clientId: s
   const startMetaOAuth = () => {
     const appId = oauthKeys?.metaAppId?.trim() || prompt("Meta App ID를 입력하세요 (또는 위 연동 기본 설정에서 저장):");
     if (!appId) return;
-    const base = oauthKeys?.nextPublicAppUrl?.trim() || window.location.origin;
+    // 항상 현재 접속한 사이트 주소 사용 (onemarketing.kr에서 누르면 콜백도 onemarketing.kr로 감)
+    const base = window.location.origin;
     const redirectUri = `${base}/api/auth/meta/callback`;
     const scope = "ads_read,ads_management";
     window.location.href = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${clientId}&scope=${scope}&response_type=code`;
@@ -1199,7 +1207,7 @@ function IntegrationTab({ clientId, initialIntegrations, router }: { clientId: s
   const startGoogleOAuth = () => {
     const clientIdVal = oauthKeys?.googleClientId?.trim() || prompt("Google OAuth Client ID를 입력하세요 (또는 위 연동 기본 설정에서 저장):");
     if (!clientIdVal) return;
-    const base = oauthKeys?.nextPublicAppUrl?.trim() || window.location.origin;
+    const base = window.location.origin;
     const redirectUri = `${base}/api/auth/google/callback`;
     const scope = "https://www.googleapis.com/auth/adwords.readonly https://www.googleapis.com/auth/analytics.readonly";
     window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientIdVal}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${clientId}&scope=${encodeURIComponent(scope)}&response_type=code&access_type=offline&prompt=consent`;

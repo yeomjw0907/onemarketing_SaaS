@@ -122,13 +122,16 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Admin route protection
+  // Admin route protection — 비관리자 리다이렉트 시 OAuth 토큰 등 민감 쿼리 제거 (overview로 가면 토큰 노출 방지)
   if (pathname.startsWith("/admin")) {
     if (profile.role !== "admin") {
       const url = request.nextUrl.clone();
       if (profile.role === "pending") url.pathname = "/pending";
       else if (profile.role === "rejected") url.pathname = "/login?rejected=1";
       else url.pathname = "/overview";
+      url.searchParams.delete("metaToken");
+      url.searchParams.delete("metaExpiresIn");
+      url.searchParams.delete("tab");
       return NextResponse.redirect(url);
     }
   }

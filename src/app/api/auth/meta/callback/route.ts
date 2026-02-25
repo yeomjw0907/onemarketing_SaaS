@@ -24,7 +24,9 @@ export async function GET(req: NextRequest) {
   const config = await getAdminConfig();
   const appId = config.META_APP_ID;
   const appSecret = config.META_APP_SECRET;
-  const redirectUri = `${config.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_APP_URL}/api/auth/meta/callback`;
+  // 토큰 교환 시 redirect_uri는 인증 요청과 동일해야 함. 요청 온 호스트 기준으로 사용 (env가 localhost여도 프로덕션 요청이면 맞음)
+  const requestOrigin = new URL(req.url).origin;
+  const redirectUri = `${requestOrigin}/api/auth/meta/callback`;
 
   try {
     // 1. authorization code → short-lived access_token
