@@ -18,40 +18,19 @@ export async function getSession(): Promise<SessionUser | null> {
 
   if (!user) return null;
 
-  // #region agent log
-  await fetch("http://127.0.0.1:7810/ingest/2774bd9c-1201-4e20-b252-2831d892fdf5", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "f446e0" },
-    body: JSON.stringify({
-      sessionId: "f446e0",
-      location: "auth.ts:getSession-before-profile",
-      message: "getSession before profile fetch",
-      data: { userId: user.id },
-      timestamp: Date.now(),
-      hypothesisId: "H1",
-    }),
-  }).catch(() => {});
-  // #endregion
-  const { data: profile, error: profileError } = await supabase
+  // 스키마 캐시에 company_name/phone 미반영 시 select("*") 오류 방지 — 필요한 컬럼만 명시
+  const { data: profileRow } = await supabase
     .from("profiles")
-    .select("*")
+    .select("user_id, role, client_id, display_name, email, must_change_password, created_at")
     .eq("user_id", user.id)
     .single();
-  // #region agent log
-  await fetch("http://127.0.0.1:7810/ingest/2774bd9c-1201-4e20-b252-2831d892fdf5", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "f446e0" },
-    body: JSON.stringify({
-      sessionId: "f446e0",
-      location: "auth.ts:getSession-after-profile",
-      message: "getSession after profile fetch",
-      data: { hasProfile: !!profile, errorMsg: profileError?.message ?? null, code: profileError?.code ?? null },
-      timestamp: Date.now(),
-      hypothesisId: "H1",
-    }),
-  }).catch(() => {});
-  // #endregion
-  if (!profile) return null;
+  if (!profileRow) return null;
+
+  const profile: Profile = {
+    ...profileRow,
+    company_name: null,
+    phone: null,
+  };
 
   let client: Client | null = null;
   if (profile.client_id) {

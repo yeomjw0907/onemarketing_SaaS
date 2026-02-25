@@ -7,20 +7,7 @@ import { PendingActions } from "./pending-actions";
 
 export default async function PendingPage() {
   const session = await requireAuth();
-  // #region agent log
-  await fetch("http://127.0.0.1:7810/ingest/2774bd9c-1201-4e20-b252-2831d892fdf5", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "f446e0" },
-    body: JSON.stringify({
-      sessionId: "f446e0",
-      location: "pending/page.tsx:after-requireAuth",
-      message: "Pending page after requireAuth",
-      data: { role: session?.profile?.role, profileKeys: session?.profile ? Object.keys(session.profile) : [] },
-      timestamp: Date.now(),
-      hypothesisId: "H4",
-    }),
-  }).catch(() => {});
-  // #endregion
+
   if (session.profile.role === "client") redirect("/overview");
   if (session.profile.role === "admin") redirect("/admin");
   if (session.profile.role === "rejected") redirect("/login?rejected=1");

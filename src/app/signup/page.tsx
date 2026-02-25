@@ -182,37 +182,18 @@ export default function SignupPage() {
         return;
       }
 
-      // #region agent log
-      fetch("http://127.0.0.1:7810/ingest/2774bd9c-1201-4e20-b252-2831d892fdf5", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "f446e0" },
-        body: JSON.stringify({
-          sessionId: "f446e0",
-          location: "signup/page.tsx:before-redirect",
-          message: "Signup success, before router.push",
-          data: { hasUser: !!authData.user },
-          timestamp: Date.now(),
-          hypothesisId: "H2",
-        }),
-      }).catch(() => {});
-      // #endregion
+      // Supabase 대시보드 Authentication > Users에서 담당자/전화번호/회사명 확인 가능하도록 메타데이터 저장
+      await supabase.auth.updateUser({
+        data: {
+          display_name: name,
+          company_name: company || null,
+          phone: phone.trim() || null,
+        },
+      });
+
       router.push("/login?registered=1");
       router.refresh();
     } catch (err) {
-      // #region agent log
-      fetch("http://127.0.0.1:7810/ingest/2774bd9c-1201-4e20-b252-2831d892fdf5", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "f446e0" },
-        body: JSON.stringify({
-          sessionId: "f446e0",
-          location: "signup/page.tsx:catch",
-          message: "Signup catch",
-          data: { errMsg: err instanceof Error ? err.message : String(err) },
-          timestamp: Date.now(),
-          hypothesisId: "H2",
-        }),
-      }).catch(() => {});
-      // #endregion
       setError("회원가입 중 오류가 발생했습니다.");
       setLoading(false);
     }

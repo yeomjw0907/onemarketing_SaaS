@@ -31,27 +31,13 @@ export async function updateSession(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
 
-  // 프로필 조회 헬퍼 (must_change_password 컬럼 없어도 안전)
+  // 프로필 조회 헬퍼 — role만 필요하므로 컬럼 명시(스키마 캐시 미반영 시 select("*") 오류 방지)
   async function getProfile(userId: string) {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("profiles")
-      .select("*")
+      .select("role")
       .eq("user_id", userId)
       .single();
-    // #region agent log
-    fetch("http://127.0.0.1:7810/ingest/2774bd9c-1201-4e20-b252-2831d892fdf5", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "f446e0" },
-      body: JSON.stringify({
-        sessionId: "f446e0",
-        location: "middleware.ts:getProfile",
-        message: "getProfile result",
-        data: { pathname, hasData: !!data, errorMsg: error?.message ?? null, code: error?.code ?? null },
-        timestamp: Date.now(),
-        hypothesisId: "H3",
-      }),
-    }).catch(() => {});
-    // #endregion
     return data as { role?: string; must_change_password?: boolean } | null;
   }
 
@@ -71,25 +57,31 @@ export async function updateSession(request: NextRequest) {
   if (pathname === "/login" || pathname === "/") {
     if (user) {
       const profile = await getProfile(user.id);
-
-      if (profile?.role === "admin") {
+      // 프로필이 없으면 /overview로 보내지 않음 — 서버의 getSession()이 null을 반환해 리다이렉트 루프 발생 방지
+      if (!profile) {
+        return supabaseResponse;
+      }
+      if (profile.role === "admin") {
         const url = request.nextUrl.clone();
         url.pathname = "/admin";
         return NextResponse.redirect(url);
       }
-      if (profile?.role === "pending") {
+      if (profile.role === "pending") {
         const url = request.nextUrl.clone();
         url.pathname = "/pending";
         return NextResponse.redirect(url);
       }
-      if (profile?.role === "rejected") {
+      if (profile.role === "rejected") {
         const url = request.nextUrl.clone();
         url.pathname = "/login?rejected=1";
         return NextResponse.redirect(url);
       }
-      const url = request.nextUrl.clone();
-      url.pathname = "/overview";
-      return NextResponse.redirect(url);
+      if (profile.role === "client") {
+        const url = request.nextUrl.clone();
+        url.pathname = "/overview";
+        return NextResponse.redirect(url);
+      }
+      return supabaseResponse;
     }
     if (pathname === "/") {
       const url = request.nextUrl.clone();
@@ -123,24 +115,42 @@ export async function updateSession(request: NextRequest) {
 
   const profile = await getProfile(user.id);
 
+  // 프로필 없음 — 서버 getSession()이 null이 되어 /login으로 리다이렉트되므로, 미들웨어에서도 /login으로 보냄 (루프 방지)
+  if (!profile) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    return NextResponse.redirect(url);
+  }
+
   // Admin route protection
   if (pathname.startsWith("/admin")) {
-    if (profile?.role !== "admin") {
+    if (profile.role !== "admin") {
       const url = request.nextUrl.clone();
-      if (profile?.role === "pending") url.pathname = "/pending";
-      else if (profile?.role === "rejected") url.pathname = "/login?rejected=1";
+      if (profile.role === "pending") url.pathname = "/pending";
+      else if (profile.role === "rejected") url.pathname = "/login?rejected=1";
       else url.pathname = "/overview";
       return NextResponse.redirect(url);
     }
   }
 
+  // 클라이언트 전용 포털 경로: role이 client가 아니면 적절한 곳으로 리다이렉트 (루프 방지)
+  const isPortalRoute = ["/overview", "/execution", "/calendar", "/projects", "/reports", "/notices", "/services", "/mypage", "/timeline", "/settings", "/marketing", "/support", "/assets", "/addon"].some((p) => pathname === p || pathname.startsWith(p + "/"));
+  if (isPortalRoute && profile.role !== "client") {
+    const url = request.nextUrl.clone();
+    if (profile.role === "admin") url.pathname = "/admin";
+    else if (profile.role === "pending") url.pathname = "/pending";
+    else if (profile.role === "rejected") url.pathname = "/login?rejected=1";
+    else url.pathname = "/login";
+    return NextResponse.redirect(url);
+  }
+
   // Pending users only on /pending (and /login for logout)
-  if (profile?.role === "pending" && pathname !== "/pending" && pathname !== "/login") {
+  if (profile.role === "pending" && pathname !== "/pending" && pathname !== "/login") {
     const url = request.nextUrl.clone();
     url.pathname = "/pending";
     return NextResponse.redirect(url);
   }
-  if (profile?.role === "rejected" && pathname !== "/login") {
+  if (profile.role === "rejected" && pathname !== "/login") {
     const url = request.nextUrl.clone();
     url.pathname = "/login?rejected=1";
     return NextResponse.redirect(url);

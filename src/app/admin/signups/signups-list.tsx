@@ -108,17 +108,23 @@ export function SignupsList({ pending, clients }: { pending: PendingRow[]; clien
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <dl className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+              <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-3 text-sm">
+                <div>
+                  <dt className="text-muted-foreground">담당자</dt>
+                  <dd className="font-medium">{row.display_name || "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">회사/단체명</dt>
+                  <dd className="font-medium">{row.company_name || "—"}</dd>
+                </div>
                 <div>
                   <dt className="text-muted-foreground">이메일</dt>
-                  <dd className="font-medium">{row.email}</dd>
+                  <dd className="font-medium break-all">{row.email}</dd>
                 </div>
-                {row.phone && (
-                  <div>
-                    <dt className="text-muted-foreground">연락처</dt>
-                    <dd className="font-medium">{row.phone}</dd>
-                  </div>
-                )}
+                <div>
+                  <dt className="text-muted-foreground">전화번호</dt>
+                  <dd className="font-medium">{row.phone || "—"}</dd>
+                </div>
               </dl>
               <div className="flex flex-wrap items-end gap-2 pt-2 border-t">
                 <div className="flex-1 min-w-[200px] space-y-1">

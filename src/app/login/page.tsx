@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-export default function LoginPage() {
+function LoginForm() {
   const [idOrEmail, setIdOrEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -115,6 +115,7 @@ export default function LoginPage() {
         </div>
       )}
 
+      <div className="relative z-10 w-full max-w-sm">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground text-lg font-bold">
@@ -175,12 +176,47 @@ export default function LoginPage() {
           </form>
           <p className="text-center text-sm text-muted-foreground mt-4">
             계정이 없으신가요?{" "}
-            <Link href="/signup" className="text-primary hover:underline">
+            <Link
+              href="/signup"
+              className="inline-block py-1.5 px-1 -my-1 -mx-1 rounded text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 cursor-pointer"
+            >
               회원가입
             </Link>
           </p>
         </CardContent>
       </Card>
+      </div>
     </div>
+  );
+}
+
+function LoginFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-sm">
+        <CardHeader className="text-center">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground text-lg font-bold">
+            O
+          </div>
+          <CardTitle className="text-xl">Onecation Portal</CardTitle>
+          <CardDescription>클라이언트 포털에 로그인하세요</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4 animate-pulse">
+            <div className="h-10 bg-muted rounded" />
+            <div className="h-10 bg-muted rounded" />
+            <div className="h-10 bg-muted rounded" />
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginFallback />}>
+      <LoginForm />
+    </Suspense>
   );
 }

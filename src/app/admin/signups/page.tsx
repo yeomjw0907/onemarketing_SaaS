@@ -28,7 +28,7 @@ export default async function AdminSignupsPage() {
       <div>
         <h1 className="text-2xl font-bold">가입 대기</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          회원가입 신청을 승인하거나 거절할 수 있습니다.
+          담당자, 회사명, 이메일, 전화번호를 한눈에 확인하고 승인·거절할 수 있습니다.
         </p>
       </div>
       <SignupsList pending={pending ?? []} clients={clients ?? []} />
