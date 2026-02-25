@@ -11,6 +11,14 @@ export const metadata: Metadata = {
   icons: { icon: "/logo-light.png" },
 };
 
+/** 모바일에서 100% 스케일로 맞추기 (줌 인된 것처럼 보이는 현상 방지) */
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: "cover",
+} as const;
+
 export default function RootLayout({
   children,
 }: {
