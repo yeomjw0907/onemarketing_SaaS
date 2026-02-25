@@ -65,7 +65,7 @@ export function ReportEditor({ clientId, clientName }: Props) {
         }
       }
 
-      const { error: insertErr } = await supabase.from("reports").insert({
+      const { data: insertedReport, error: insertErr } = await supabase.from("reports").insert({
         client_id: clientId,
         report_type: reportType,
         title,
@@ -74,7 +74,7 @@ export function ReportEditor({ clientId, clientName }: Props) {
         published_at: publishedAt,
         visibility: "visible",
         created_by: user.id,
-      });
+      }).select("id").single();
 
       if (insertErr) {
         setError("저장 실패: " + insertErr.message);
@@ -82,7 +82,6 @@ export function ReportEditor({ clientId, clientName }: Props) {
         return;
       }
 
-      // 알림톡 발송
       if (sendNotification) {
         try {
           await fetch("/api/admin/notifications/send", {
@@ -92,8 +91,9 @@ export function ReportEditor({ clientId, clientName }: Props) {
               type: "report_published",
               clientId,
               data: {
+                reportId: insertedReport?.id,
                 reportTitle: title,
-                reportUrl: `${window.location.origin}/reports`,
+                reportSummary: content || null,
               },
             }),
           });

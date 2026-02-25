@@ -30,15 +30,16 @@ export interface SendResult {
 
 // ── 템플릿 ID 상수 ──
 export const TEMPLATE_IDS = {
+  WELCOME: "TPL_welcome",                           // 가입 승인 완료 (웰컴)
   REPORT_PUBLISHED: "TPL_report_published",        // 보고서 발행 알림
   ACTION_STATUS_CHANGED: "TPL_action_status",       // 실행항목 상태 변경 알림
   EVENT_REMINDER: "TPL_event_reminder",             // 일정 리마인더
   PASSWORD_RESET: "TPL_password_reset",             // 비밀번호 리셋 안내
-  // 월/수/목 주간 알림 (카카오 채널에 템플릿 등록 필요)
   MON_REVIEW: "TPL_mon_review",                     // 지난주 성과 리뷰
   WED_BUDGET: "TPL_wed_budget",                     // 예산 페이싱
   THU_PROPOSAL: "TPL_thu_proposal",                 // 다음 주 제안 + 승인
-  ADDON_ORDER_TO_ADMIN: "TPL_addon_order_admin",     // 부가서비스 주문 접수 (관리자 수신)
+  ADDON_ORDER_TO_ADMIN: "TPL_addon_order_admin",    // 부가서비스 주문 접수 (관리자 수신)
+  ADDON_ORDER_TO_CLIENT: "TPL_addon_order_client",  // 부가서비스 주문 접수 확인 (고객 수신)
 } as const;
 
 // ── 솔라피 인증 헤더 생성 ──
@@ -60,6 +61,21 @@ function getSolapiAuthHeader(): string {
   return `HMAC-SHA256 apiKey=${apiKey}, date=${date}, salt=${salt}, signature=${signature}`;
 }
 
+// ── 전화번호 정규화 (숫자만, 10~11자리) ──
+function normalizePhone(to: string): string {
+  const digits = to.replace(/\D/g, "");
+  return digits;
+}
+
+function isValidPhone(digits: string): boolean {
+  return digits.length >= 10 && digits.length <= 11 && /^0[0-9]+$/.test(digits);
+}
+
+/** 카카오 템플릿에서 URL 변수는 `https://#{링크}` 형태로 쓰므로, 링크 값은 프로토콜 제외해 보냄 */
+function stripProtocol(url: string): string {
+  return url.replace(/^https?:\/\//i, "").trim() || url;
+}
+
 // ── 단건 알림톡 발송 ──
 export async function sendAlimtalk(message: AlimtalkMessage): Promise<SendResult> {
   const pfId = process.env.SOLAPI_PFID;
@@ -69,14 +85,23 @@ export async function sendAlimtalk(message: AlimtalkMessage): Promise<SendResult
     return { success: false, error: "SOLAPI_PFID가 설정되지 않았습니다." };
   }
 
+  const phoneDigits = normalizePhone(message.to);
+  if (!isValidPhone(phoneDigits)) {
+    return { success: false, error: "유효한 수신 전화번호가 아닙니다. (010 등 10~11자리)" };
+  }
+
+  if (!message.templateId?.trim()) {
+    return { success: false, error: "알림톡 템플릿 ID가 없습니다." };
+  }
+
   try {
     const body = {
       message: {
-        to: message.to.replace(/-/g, ""),
+        to: phoneDigits,
         from: senderNumber || "",
         kakaoOptions: {
           pfId,
-          templateId: message.templateId,
+          templateId: message.templateId.trim(),
           variables: message.variables,
         },
       },
@@ -93,10 +118,12 @@ export async function sendAlimtalk(message: AlimtalkMessage): Promise<SendResult
 
     const data = await res.json();
 
-    if (!res.ok || data.statusCode) {
+    // 솔라피: statusCode "2000" = 정상 접수(성공), 그 외는 오류
+    const isSuccess = res.ok && (data.statusCode === "2000" || data.statusCode === 2000 || !data.statusCode);
+    if (!isSuccess) {
       return {
         success: false,
-        error: data.errorMessage || data.message || `HTTP ${res.status}`,
+        error: data.errorMessage || data.statusMessage || data.message || `HTTP ${res.status}`,
       };
     }
 
@@ -122,63 +149,98 @@ export async function sendAlimtalkBulk(messages: AlimtalkMessage[]): Promise<Sen
   return results;
 }
 
+// ── 편의 함수: 가입 승인 완료 (웰컴) ──
+export async function notifyWelcome(params: {
+  phoneNumber: string;
+  clientName: string;
+  dashboardUrl: string;
+}): Promise<SendResult> {
+  return sendAlimtalk({
+    to: params.phoneNumber,
+    templateId: TEMPLATE_IDS.WELCOME,
+    variables: {
+      "#{고객명}": params.clientName,
+      "#{링크}": stripProtocol(params.dashboardUrl),
+    },
+  });
+}
+
 // ── 편의 함수: 보고서 발행 알림 ──
 export async function notifyReportPublished(params: {
   phoneNumber: string;
   clientName: string;
   reportTitle: string;
   reportUrl: string;
+  brief?: string;
 }): Promise<SendResult> {
+  const variables: Record<string, string> = {
+    "#{고객명}": params.clientName,
+    "#{리포트제목}": params.reportTitle,
+    "#{링크}": stripProtocol(params.reportUrl),
+  };
+  if (params.brief) {
+    variables["#{브리프}"] = params.brief;
+  }
   return sendAlimtalk({
     to: params.phoneNumber,
     templateId: TEMPLATE_IDS.REPORT_PUBLISHED,
-    variables: {
-      "#{고객명}": params.clientName,
-      "#{리포트제목}": params.reportTitle,
-      "#{링크}": params.reportUrl,
-    },
+    variables,
   });
 }
 
-// ── 편의 함수: 액션 상태 변경 알림 ──
+// ── 편의 함수: 액션 상태 변경 알림 (실행 현황 매직링크 포함) ──
 export async function notifyActionStatusChanged(params: {
   phoneNumber: string;
   clientName: string;
   actionTitle: string;
   oldStatus: string;
   newStatus: string;
+  /** 실행 현황 매직링크 URL (포털 토큰) */
+  viewUrl?: string;
 }): Promise<SendResult> {
   const statusLabel: Record<string, string> = {
     planned: "계획됨", in_progress: "진행중", done: "완료", hold: "보류",
   };
 
+  const variables: Record<string, string> = {
+    "#{고객명}": params.clientName,
+    "#{작업명}": params.actionTitle,
+    "#{이전상태}": statusLabel[params.oldStatus] || params.oldStatus,
+    "#{현재상태}": statusLabel[params.newStatus] || params.newStatus,
+  };
+  variables["#{링크}"] = params.viewUrl
+    ? stripProtocol(params.viewUrl)
+    : stripProtocol(`${process.env.NEXT_PUBLIC_APP_URL ?? ""}/execution`);
+
   return sendAlimtalk({
     to: params.phoneNumber,
     templateId: TEMPLATE_IDS.ACTION_STATUS_CHANGED,
-    variables: {
-      "#{고객명}": params.clientName,
-      "#{작업명}": params.actionTitle,
-      "#{이전상태}": statusLabel[params.oldStatus] || params.oldStatus,
-      "#{현재상태}": statusLabel[params.newStatus] || params.newStatus,
-    },
+    variables,
   });
 }
 
-// ── 편의 함수: 일정 리마인더 ──
+// ── 편의 함수: 일정 리마인더 (타임라인 매직링크 포함) ──
 export async function notifyEventReminder(params: {
   phoneNumber: string;
   clientName: string;
   eventTitle: string;
   eventDate: string;
+  /** 일정(타임라인) 매직링크 URL (포털 토큰) */
+  viewUrl?: string;
 }): Promise<SendResult> {
+  const variables: Record<string, string> = {
+    "#{고객명}": params.clientName,
+    "#{일정명}": params.eventTitle,
+    "#{날짜}": params.eventDate,
+  };
+  variables["#{링크}"] = params.viewUrl
+    ? stripProtocol(params.viewUrl)
+    : stripProtocol(`${process.env.NEXT_PUBLIC_APP_URL ?? ""}/timeline`);
+
   return sendAlimtalk({
     to: params.phoneNumber,
     templateId: TEMPLATE_IDS.EVENT_REMINDER,
-    variables: {
-      "#{고객명}": params.clientName,
-      "#{일정명}": params.eventTitle,
-      "#{날짜}": params.eventDate,
-    },
+    variables,
   });
 }
 
@@ -195,7 +257,7 @@ export async function notifyMonReview(params: {
     variables: {
       "#{고객명}": params.clientName,
       "#{요약}": params.summary,
-      "#{자세히보기}": params.viewUrl,
+      "#{자세히보기}": stripProtocol(params.viewUrl),
     },
   });
 }
@@ -212,7 +274,7 @@ export async function notifyWedBudget(params: {
     variables: {
       "#{고객명}": params.clientName,
       "#{요약}": params.summary,
-      "#{자세히보기}": params.viewUrl,
+      "#{자세히보기}": stripProtocol(params.viewUrl),
     },
   });
 }
@@ -230,8 +292,8 @@ export async function notifyThuProposal(params: {
     variables: {
       "#{고객명}": params.clientName,
       "#{요약}": params.summary,
-      "#{자세히보기}": params.viewUrl,
-      "#{승인하기}": params.approveUrl,
+      "#{자세히보기}": stripProtocol(params.viewUrl),
+      "#{승인하기}": stripProtocol(params.approveUrl),
     },
   });
 }
@@ -253,7 +315,28 @@ export async function notifyAddonOrderToAdmin(params: {
       "#{고객명}": params.clientName,
       "#{서비스명}": params.addonLabel,
       "#{금액}": `₩${params.priceWon.toLocaleString()}`,
-      "#{링크}": link,
+      "#{링크}": stripProtocol(link),
+    },
+  });
+}
+
+// ── 부가서비스 주문 접수 확인 (고객 수신) ──
+export async function notifyAddonOrderToClient(params: {
+  phoneNumber: string;
+  clientName: string;
+  addonLabel: string;
+  priceWon: number;
+  orderDetailUrl?: string;
+}): Promise<SendResult> {
+  const link = params.orderDetailUrl ?? `${process.env.NEXT_PUBLIC_APP_URL || ""}/overview`;
+  return sendAlimtalk({
+    to: params.phoneNumber,
+    templateId: TEMPLATE_IDS.ADDON_ORDER_TO_CLIENT,
+    variables: {
+      "#{고객명}": params.clientName,
+      "#{서비스명}": params.addonLabel,
+      "#{금액}": `₩${params.priceWon.toLocaleString()}`,
+      "#{링크}": stripProtocol(link),
     },
   });
 }

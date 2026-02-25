@@ -1,7 +1,11 @@
 /**
- * 월/수/목 알림톡용 메트릭 스냅샷 및 AI 요약 문구 생성
- * - 숫자는 코드로 계산, AI는 문장만 생성 (할루시네이션 방지)
- * - 목요일 제안은 안전 장치 적용 (예산 20% 이내, 무리한 증액 금지)
+ * 알림톡용 AI 요약 문구 생성
+ *
+ * [프롬프트 일관성 원칙]
+ * 1. 모든 프롬프트는 "서비스: 원마케팅" + "역할:" 으로 시작
+ * 2. 공통 제약: 50자 이내, 수치 변조 금지, 한국어, 존댓말 X (간결체)
+ * 3. 톤은 페르소나별로 달라지되, 출력 형식("한 줄 OOO:")은 동일
+ * 4. 숫자는 코드로 계산, AI는 문장만 생성 (할루시네이션 방지)
  */
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -9,6 +13,14 @@ import { getMetricSummary } from "./report-generator";
 import type { NotificationReportType } from "@/lib/types/database";
 
 const MODEL_NAME = "gemini-1.5-flash";
+
+const COMMON_RULES = `공통 규칙 (반드시 지킬 것):
+- 서비스명: 원마케팅. 답변에 서비스명을 넣지 말 것.
+- 50자 이내 한국어 한 줄로 답변. 줄바꿈 금지.
+- 데이터 수치를 임의로 바꾸거나 만들지 말 것.
+- 존댓말 대신 간결체(~함, ~됨, ~임) 사용.
+- 따옴표, 큰따옴표로 감싸지 말 것.
+- 데이터가 비어 있거나 0이면 "확인이 필요합니다"로 마무리.`;
 
 /** 지난주(월~일) 날짜 구간 */
 function getLastWeekRange(): { dateFrom: string; dateTo: string } {
@@ -127,8 +139,11 @@ export async function getAiMessageForReport(
 
   if (reportType === "MON_REVIEW") {
     const prompt = `역할: 긍정적인 마케팅 분석가.
-아래는 지난주 마케팅 성과 데이터(코드로 계산된 수치)입니다. 이 데이터를 바탕으로 50자 이내로 칭찬·격려하는 한 줄 요약을 작성해 주세요. 이모지 1개 포함 가능.
-수치를 임의로 바꾸지 마세요. 데이터가 비어 있으면 "지난주 성과를 확인해 주세요."로 답하세요.
+톤: 칭찬·격려 톤. 이모지 1개 포함 가능.
+
+${COMMON_RULES}
+
+아래는 지난주 마케팅 성과 데이터(코드로 계산된 수치)입니다.
 
 데이터: ${dataText}
 
@@ -139,8 +154,11 @@ export async function getAiMessageForReport(
 
   if (reportType === "WED_BUDGET") {
     const prompt = `역할: 냉철한 예산 관리자.
-아래는 현재 월 예산 소진 관련 데이터입니다. 감정을 배제하고, 예산 소진 속도가 적절한지 50자 이내로 건조하게 브리핑해 주세요.
-수치를 임의로 바꾸지 마세요.
+톤: 감정 배제, 건조하게 팩트만. 이모지 사용 금지.
+
+${COMMON_RULES}
+
+아래는 현재 월 예산 소진 관련 데이터입니다. 예산 소진 속도가 적절한지 판단해 주세요.
 
 데이터: ${dataText}
 
@@ -151,12 +169,16 @@ export async function getAiMessageForReport(
 
   if (reportType === "THU_PROPOSAL") {
     const prompt = `역할: 신중한 전략가.
-아래 데이터를 바탕으로 주말·다음 주를 대비한 "안전한" 운영 제안을 1가지만, 50자 이내로 작성해 주세요.
+톤: 신중하고 안전한 제안. 이모지 사용 금지.
 
-제약 사항 (반드시 지킬 것):
+${COMMON_RULES}
+
+추가 제약 사항:
 - 새로운 예산 증액 제안 금지. 기존 예산의 20% 이내 소폭 조정만 언급 가능.
 - "예산 2배", "대폭 증액" 등 무리한 제안 금지.
-- 현재 효율이 좋은 소재 유지, 소재 교체·최적화 관점의 제안만.
+- 현재 효율이 좋은 소재 유지, 소재 교체·최적화 관점의 제안 1가지만.
+
+아래 데이터를 바탕으로 주말·다음 주를 대비한 운영 제안을 작성해 주세요.
 
 데이터: ${dataText}
 
@@ -166,6 +188,46 @@ export async function getAiMessageForReport(
   }
 
   return getFallbackMessage(reportType);
+}
+
+/**
+ * 보고서 발행 알림톡용 AI 브리프 (한 줄 요약)
+ * 페르소나: 간결한 보고서 요약가 — 감정 최소, 핵심 한 줄, 50자 이내
+ */
+export async function getReportBrief(
+  title: string,
+  summary: string | null
+): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  const text = summary || title;
+
+  if (!apiKey || !text.trim()) {
+    return text.slice(0, 50);
+  }
+
+  try {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+
+    const prompt = `역할: 간결한 보고서 요약가.
+톤: 감정 최소, 사실 중심. 이모지 사용 금지.
+
+${COMMON_RULES}
+
+아래는 마케팅 보고서의 제목과 본문입니다. 핵심 내용을 한 줄로 요약해 주세요.
+본문이 없으면 제목만으로 요약.
+
+제목: ${title}
+본문: ${(summary || "").slice(0, 500)}
+
+한 줄 요약:`;
+
+    const result = await model.generateContent(prompt);
+    const brief = result.response.text()?.trim();
+    return brief || text.slice(0, 50);
+  } catch {
+    return text.slice(0, 50);
+  }
 }
 
 function getFallbackMessage(reportType: NotificationReportType): string {

@@ -159,6 +159,8 @@ export interface Report {
   file_path: string;
   published_at: string;
   visibility: Visibility;
+  view_token: string | null;
+  view_token_expires_at: string | null;
   created_by: string;
   created_at: string;
 }

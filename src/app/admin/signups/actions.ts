@@ -2,6 +2,8 @@
 
 import { createServiceClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { notifyWelcome } from "@/lib/notifications/alimtalk";
+import { createPortalToken } from "@/lib/notifications/create-portal-token";
 
 const DEFAULT_ENABLED_MODULES = {
   overview: true,
@@ -67,6 +69,19 @@ export async function approveSignup(
 
   if (updateErr) {
     return { ok: false, error: updateErr.message || "승인 처리에 실패했습니다." };
+  }
+
+  if (profile.phone && targetClientId) {
+    try {
+      const { url: dashboardUrl } = await createPortalToken(supabase, targetClientId, "overview");
+      await notifyWelcome({
+        phoneNumber: profile.phone,
+        clientName: profile.display_name || profile.company_name || "고객",
+        dashboardUrl,
+      });
+    } catch {
+      // 알림톡 실패해도 승인은 성공 처리
+    }
   }
 
   revalidatePath("/admin/signups");

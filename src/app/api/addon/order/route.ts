@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getAddonItemByKey } from "@/lib/addon-catalog";
-import { notifyAddonOrderToAdmin } from "@/lib/notifications/alimtalk";
+import { notifyAddonOrderToAdmin, notifyAddonOrderToClient } from "@/lib/notifications/alimtalk";
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
@@ -68,6 +68,23 @@ export async function POST(req: NextRequest) {
         priceWon: item.priceWon,
         orderId: order.id,
         adminOrdersUrl: baseUrl ? `${baseUrl}/admin/addon-orders` : undefined,
+      });
+    } catch {
+      // 알림톡 실패해도 주문은 성공 처리
+    }
+  }
+
+  const clientPhone = (session.profile?.phone ?? session.client?.contact_phone ?? "").trim();
+  if (clientPhone && order?.id && clientId) {
+    try {
+      const { createPortalToken } = await import("@/lib/notifications/create-portal-token");
+      const { url: orderDetailUrl } = await createPortalToken(supabase, clientId, "overview");
+      await notifyAddonOrderToClient({
+        phoneNumber: clientPhone,
+        clientName: session.client?.name ?? "고객",
+        addonLabel: item.label,
+        priceWon: item.priceWon,
+        orderDetailUrl,
       });
     } catch {
       // 알림톡 실패해도 주문은 성공 처리

@@ -18,18 +18,17 @@ export async function getSession(): Promise<SessionUser | null> {
 
   if (!user) return null;
 
-  // 스키마 캐시에 company_name/phone 미반영 시 select("*") 오류 방지 — 필요한 컬럼만 명시
   const { data: profileRow } = await supabase
     .from("profiles")
-    .select("user_id, role, client_id, display_name, email, must_change_password, created_at")
+    .select("user_id, role, client_id, display_name, email, company_name, phone, must_change_password, created_at")
     .eq("user_id", user.id)
     .single();
   if (!profileRow) return null;
 
   const profile: Profile = {
     ...profileRow,
-    company_name: null,
-    phone: null,
+    company_name: profileRow.company_name ?? null,
+    phone: profileRow.phone ?? null,
   };
 
   let client: Client | null = null;

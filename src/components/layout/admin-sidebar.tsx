@@ -73,12 +73,14 @@ export function AdminSidebar() {
           onClick={handleNav("/admin")}
           aria-label="관리자 대시보드"
         >
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-bold">
-            O
-          </div>
+          <img
+            src="/logo-light.png"
+            alt="ONEmarketing"
+            className={cn("h-7 w-auto object-contain", isCollapsed ? "md:h-6" : "md:h-7")}
+          />
           <span
             className={cn(
-              "text-lg font-semibold text-foreground truncate",
+              "text-sm font-semibold text-foreground truncate",
               isCollapsed ? "md:hidden" : "md:block"
             )}
           >
@@ -147,7 +149,7 @@ export function AdminSidebar() {
       {!isPending && (
         <div className={cn("border-t px-4 py-3 shrink-0", isCollapsed ? "md:px-2 md:flex md:justify-center" : "")}>
           <p className={cn("text-xs text-muted-foreground truncate", isCollapsed ? "md:hidden" : "md:block")}>
-            Onecation 관리 콘솔
+            ONEmarketing 관리 콘솔
           </p>
         </div>
       )}

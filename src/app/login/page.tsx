@@ -102,7 +102,7 @@ function LoginForm() {
             <div className="relative">
               <div className="h-14 w-14 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
               <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-lg font-bold text-primary">O</span>
+                <img src="/logo-light.png" alt="" className="h-6 w-auto object-contain opacity-90" aria-hidden />
               </div>
             </div>
             <p className="text-sm font-medium text-muted-foreground animate-pulse">
@@ -118,10 +118,10 @@ function LoginForm() {
       <div className="relative z-10 w-full max-w-sm">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground text-lg font-bold">
-            O
+          <div className="mx-auto mb-4 flex justify-center">
+            <img src="/logo-light.png" alt="ONEmarketing" className="h-10 w-auto object-contain" />
           </div>
-          <CardTitle className="text-xl">Onecation Portal</CardTitle>
+          <CardTitle className="text-xl">ONEmarketing Portal</CardTitle>
           <CardDescription>클라이언트 포털에 로그인하세요</CardDescription>
         </CardHeader>
         <CardContent>
@@ -195,10 +195,10 @@ function LoginFallback() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground text-lg font-bold">
-            O
+          <div className="mx-auto mb-4 flex justify-center">
+            <img src="/logo-light.png" alt="ONEmarketing" className="h-10 w-auto object-contain" />
           </div>
-          <CardTitle className="text-xl">Onecation Portal</CardTitle>
+          <CardTitle className="text-xl">ONEmarketing Portal</CardTitle>
           <CardDescription>클라이언트 포털에 로그인하세요</CardDescription>
         </CardHeader>
         <CardContent>

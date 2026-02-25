@@ -107,9 +107,12 @@ export function ClientSidebar({ enabledModules, clientName }: ClientSidebarProps
           )}
           onClick={handleNav("/overview")}
         >
-          <span className={cn("text-base font-bold text-foreground tracking-tight truncate block", isCollapsed ? "md:hidden" : "md:block")}>
-            Onecation
-          </span>
+          <img
+            src="/logo-light.png"
+            alt="ONEmarketing"
+            className={cn("h-7 w-auto object-contain", isCollapsed ? "md:h-6" : "md:h-7")}
+          />
+          <span className={cn("sr-only")}>ONEmarketing</span>
         </Link>
         <button
           type="button"
@@ -384,7 +387,7 @@ export function ClientSidebar({ enabledModules, clientName }: ClientSidebarProps
           </span>
         </button>
         <div className={cn("px-3 py-1.5", isCollapsed && "md:hidden")}>
-          <p className="text-[10px] text-muted-foreground/60">Powered by Onecation</p>
+          <p className="text-[10px] text-muted-foreground/60">Powered by ONEmarketing</p>
         </div>
       </div>
     </aside>

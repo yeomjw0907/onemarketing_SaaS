@@ -28,3 +28,9 @@ export function buildApproveUrl(approvalToken: string): string {
   const base = process.env.NEXT_PUBLIC_APP_URL ?? "";
   return `${base.replace(/\/$/, "")}/report/approve/${approvalToken}`;
 }
+
+/** 포털(오버뷰/실행/타임라인) 매직링크용 URL. /portal/v/[token] */
+export function buildPortalViewUrl(token: string): string {
+  const base = process.env.NEXT_PUBLIC_APP_URL ?? "";
+  return `${base.replace(/\/$/, "")}/portal/v/${token}`;
+}

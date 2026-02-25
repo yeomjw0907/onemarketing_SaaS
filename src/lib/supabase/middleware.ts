@@ -101,8 +101,12 @@ export async function updateSession(request: NextRequest) {
     return supabaseResponse;
   }
 
-  // 토큰 기반 리포트 보기/승인 — 로그인 없이 접근 (페이지 + API)
-  if (pathname.startsWith("/report/") || pathname.startsWith("/api/report/")) {
+  // 토큰 기반 리포트 보기/승인, 포털 매직링크 — 로그인 없이 접근 (페이지 + API)
+  if (
+    pathname.startsWith("/report/") ||
+    pathname.startsWith("/api/report/") ||
+    pathname.startsWith("/portal/")
+  ) {
     return supabaseResponse;
   }
 

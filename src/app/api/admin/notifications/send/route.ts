@@ -12,6 +12,13 @@ import {
   notifyEventReminder,
   sendAlimtalk,
 } from "@/lib/notifications/alimtalk";
+import { getReportBrief } from "@/lib/ai/notification-message";
+import {
+  generateSecureToken,
+  getViewTokenExpiresAt,
+  buildViewUrl,
+} from "@/lib/notifications/tokens";
+import { createPortalToken } from "@/lib/notifications/create-portal-token";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -45,38 +52,77 @@ export async function POST(req: NextRequest) {
     let result;
 
     switch (type) {
-      case "report_published":
+      case "report_published": {
+        const reportTitle = data?.reportTitle || "새 리포트";
+        const reportSummary = data?.reportSummary || null;
+        const reportId = data?.reportId as string | undefined;
+
+        let reportUrl = data?.reportUrl || `${process.env.NEXT_PUBLIC_APP_URL}/reports`;
+        let brief: string | undefined;
+
+        if (reportId) {
+          const viewToken = generateSecureToken();
+          const expiresAt = getViewTokenExpiresAt().toISOString();
+
+          await supabase
+            .from("reports")
+            .update({ view_token: viewToken, view_token_expires_at: expiresAt })
+            .eq("id", reportId);
+
+          reportUrl = buildViewUrl(viewToken);
+        }
+
+        try {
+          brief = await getReportBrief(reportTitle, reportSummary);
+        } catch {
+          brief = (reportSummary || reportTitle).slice(0, 50);
+        }
+
         result = await notifyReportPublished({
           phoneNumber: client.contact_phone,
           clientName: client.name,
-          reportTitle: data?.reportTitle || "새 리포트",
-          reportUrl: data?.reportUrl || `${process.env.NEXT_PUBLIC_APP_URL}/reports`,
+          reportTitle,
+          reportUrl,
+          brief,
         });
         break;
+      }
 
-      case "action_status":
+      case "action_status": {
+        const { url: viewUrl } = await createPortalToken(supabase, clientId, "execution");
         result = await notifyActionStatusChanged({
           phoneNumber: client.contact_phone,
           clientName: client.name,
           actionTitle: data?.actionTitle || "",
           oldStatus: data?.oldStatus || "",
           newStatus: data?.newStatus || "",
+          viewUrl,
         });
         break;
+      }
 
-      case "event_reminder":
+      case "event_reminder": {
+        const { url: viewUrl } = await createPortalToken(supabase, clientId, "timeline");
         result = await notifyEventReminder({
           phoneNumber: client.contact_phone,
           clientName: client.name,
           eventTitle: data?.eventTitle || "",
           eventDate: data?.eventDate || "",
+          viewUrl,
         });
         break;
+      }
 
       case "custom":
+        if (!data?.templateId?.trim()) {
+          return NextResponse.json(
+            { error: "custom 타입은 templateId가 필요합니다." },
+            { status: 400 },
+          );
+        }
         result = await sendAlimtalk({
           to: client.contact_phone,
-          templateId: data?.templateId || "",
+          templateId: data.templateId.trim(),
           variables: data?.variables || {},
         });
         break;

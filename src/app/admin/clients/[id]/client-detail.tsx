@@ -968,6 +968,7 @@ function IntegrationTab({ clientId, initialIntegrations, router }: { clientId: s
   const searchParams = useSearchParams();
   const metaTokenFromUrl = searchParams.get("metaToken");
   const metaExpiresInFromUrl = searchParams.get("metaExpiresIn");
+  const errorFromUrl = searchParams.get("error");
 
   const [integrations, setIntegrations] = useState<DataIntegration[]>(initialIntegrations);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -1236,8 +1237,37 @@ function IntegrationTab({ clientId, initialIntegrations, router }: { clientId: s
     }
   };
 
+  const clearOAuthErrorFromUrl = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("error");
+    const qs = url.searchParams.toString();
+    router.replace(qs ? `${url.pathname}?${qs}` : url.pathname, { scroll: false });
+  };
+
+  const oauthErrorLabel = errorFromUrl
+    ? (errorFromUrl === "access_denied" || errorFromUrl === "user_cancelled"
+        ? "사용자가 로그인을 취소했거나 권한을 거부했습니다."
+        : (() => {
+            try {
+              return decodeURIComponent(errorFromUrl);
+            } catch {
+              return errorFromUrl;
+            }
+          })())
+    : "";
+
   return (
     <div className="space-y-5">
+      {errorFromUrl && (
+        <Card className="border-destructive/50 bg-destructive/5">
+          <CardContent className="py-3 flex items-center justify-between gap-3">
+            <p className="text-sm text-destructive font-medium">{oauthErrorLabel}</p>
+            <Button variant="ghost" size="sm" onClick={clearOAuthErrorFromUrl} className="shrink-0 text-destructive hover:text-destructive">
+              <X className="h-4 w-4" />
+            </Button>
+          </CardContent>
+        </Card>
+      )}
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold">데이터 연동</h3>
