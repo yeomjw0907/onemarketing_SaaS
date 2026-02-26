@@ -55,7 +55,8 @@ export async function GET(req: NextRequest) {
     .from("clients")
     .select("id, name, contact_phone")
     .eq("is_active", true)
-    .not("contact_phone", "is", null);
+    .not("contact_phone", "is", null)
+    .neq("contact_phone", "");
 
   if (!clients || clients.length === 0) {
     return NextResponse.json({ message: "발송 대상 클라이언트 없음" });

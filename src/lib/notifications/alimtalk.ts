@@ -178,9 +178,6 @@ export async function notifyReportPublished(params: {
     "#{리포트제목}": params.reportTitle,
     "#{링크}": stripProtocol(params.reportUrl),
   };
-  if (params.brief) {
-    variables["#{브리프}"] = params.brief;
-  }
   return sendAlimtalk({
     to: params.phoneNumber,
     templateId: TEMPLATE_IDS.REPORT_PUBLISHED,

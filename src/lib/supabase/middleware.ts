@@ -127,7 +127,7 @@ export async function updateSession(request: NextRequest) {
   }
 
   // Admin route protection — 비관리자 리다이렉트 시 OAuth 토큰 등 민감 쿼리 제거 (overview로 가면 토큰 노출 방지)
-  if (pathname.startsWith("/admin")) {
+  if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin/")) {
     if (profile.role !== "admin") {
       const url = request.nextUrl.clone();
       if (profile.role === "pending") url.pathname = "/pending";
