@@ -186,18 +186,18 @@ function LoginForm() {
         </CardContent>
       </Card>
       {/* 홈페이지에 개인정보처리방침 링크 노출 (Google OAuth 검증 요건) */}
-      <footer className="absolute bottom-4 left-0 right-0 text-center">
+      <footer className="relative z-10 mt-8 w-full text-center">
         <p className="text-xs text-muted-foreground">
           <Link
             href="/privacy"
-            className="hover:text-foreground underline underline-offset-2"
+            className="inline-block py-2 px-1 hover:text-foreground underline underline-offset-2 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded"
           >
             개인정보 처리방침
           </Link>
-          {" · "}
+          <span className="mx-1" aria-hidden>·</span>
           <Link
             href="/terms"
-            className="hover:text-foreground underline underline-offset-2"
+            className="inline-block py-2 px-1 hover:text-foreground underline underline-offset-2 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded"
           >
             이용약관
           </Link>
