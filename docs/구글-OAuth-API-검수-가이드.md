@@ -170,6 +170,20 @@ Google 검증·OAuth 동의 화면에서 "테스트 계정" 또는 "검수자 �
 | 개인정보 처리방침 URL | 접근 가능한 URL |
 | 테스트 계정 또는 데모 영상 | 요구 시 제출 |
 
+### 7. Google 심사 메일 대응 후 최종 체크 (제출 전)
+
+Google에서 “도메인 소유 확인·개인정보처리방침·홈페이지 링크” 등 수정 요청을 받은 경우, 아래까지 모두 했는지 확인한 뒤 **해당 이메일에 직접 회신**해서 “수정 완료했습니다”라고 보내야 검토가 이어집니다.
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| **도메인 소유 확인** | ✅ 완료 후 Search Console/Cloud에서 확인 | HTML 메타태그 또는 DNS로 인증 |
+| **홈페이지 URL** | Cloud Console에 `https://www.onemarketing.kr` (또는 `/login`) | 홈과 개인정보처리방침 URL이 **서로 다르게** 설정 |
+| **개인정보처리방침 URL** | `https://www.onemarketing.kr/privacy` | 별도 페이지, Google 사용자 데이터 섹션 포함 |
+| **홈페이지에 개인정보처리방침 링크** | 로그인 페이지 하단에 “개인정보 처리방침” 링크 노출 | 클릭 시 `/privacy` 이동 확인 |
+| **개인정보처리방침 내용** | Data Accessed / Usage / Sharing / Storage / Retention·Deletion 명시 | 제9조(Google API 서비스) 반영됨 |
+| **Cloud Console 저장·제출** | OAuth 동의 화면·앱 정보 수정 후 **저장** 후 **검증 제출** | Verification Center에서 제출 상태 확인 |
+| **이메일 회신** | 수정 완료 후 Google에 보낸 심사 메일에 **답장**으로 “수정 반영했습니다” 전달 | 필수. 회신하지 않으면 검토 재개 안 함 |
+
 ### Google Ads API (Developer Token)
 
 | 항목 | 확인 |
