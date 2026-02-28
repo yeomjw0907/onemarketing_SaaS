@@ -9,6 +9,9 @@ export const metadata: Metadata = {
   title: "ONEmarketing Client Portal",
   description: "Marketing Agency Client Portal by ONEmarketing",
   icons: { icon: "/logo-light.png" },
+  verification: {
+    google: "j_QacCWx_Ql7M0qP-FyFILCofahutHtVZj-5eSvp-V4",
+  },
 };
 
 /** 모바일에서 100% 스케일로 맞추기 (줌 인된 것처럼 보이는 현상 방지) */

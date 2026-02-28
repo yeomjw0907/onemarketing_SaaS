@@ -185,6 +185,24 @@ function LoginForm() {
           </p>
         </CardContent>
       </Card>
+      {/* 홈페이지에 개인정보처리방침 링크 노출 (Google OAuth 검증 요건) */}
+      <footer className="absolute bottom-4 left-0 right-0 text-center">
+        <p className="text-xs text-muted-foreground">
+          <Link
+            href="/privacy"
+            className="hover:text-foreground underline underline-offset-2"
+          >
+            개인정보 처리방침
+          </Link>
+          {" · "}
+          <Link
+            href="/terms"
+            className="hover:text-foreground underline underline-offset-2"
+          >
+            이용약관
+          </Link>
+        </p>
+      </footer>
       </div>
     </div>
   );

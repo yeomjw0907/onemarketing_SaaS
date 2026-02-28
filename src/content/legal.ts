@@ -75,6 +75,34 @@ export const LEGAL_DOCS = {
 제8조 (방침의 변경)
 
 본 개인정보 처리방침은 법령·정책 또는 회사 정책의 변경에 따라 내용이 추가·삭제 또는 수정될 수 있으며, 변경 시 서비스 화면 또는 이메일 등을 통해 공지합니다. 시행일자 및 변경 내용은 방침 상단에 명시합니다.
+
+제9조 (Google API 서비스를 통한 사용자 데이터 처리)
+
+본 서비스는 Google API Services(Google Ads API, Google Analytics Data API 등)를 이용하며, Google API Services User Data Policy 및 Google APIs Terms of Service를 준수합니다. Google 사용자 데이터와 관련하여 아래와 같이 명시합니다.
+
+① 수집·접근하는 Google 사용자 데이터 (Data Accessed)
+  - Google 계정 기본 정보: 이메일 주소, 표시 이름(연동 시 Google OAuth를 통해 제공)
+  - Google Ads 데이터: 연동한 Google Ads 계정의 캠페인·광고그룹·키워드 등 성과 지표(노출수, 클릭수, 비용, 전환 등). 읽기 전용(https://www.googleapis.com/auth/adwords.readonly)으로만 접근합니다.
+  - Google Analytics(GA4) 데이터: 연동한 GA4 속성의 방문·이벤트·전환 등 집계 데이터. 읽기 전용(https://www.googleapis.com/auth/analytics.readonly)으로만 접근합니다.
+  - 위 데이터는 이용자가 서비스 내에서 Google 계정 연동을 진행하고 동의한 범위 내에서만 접근·수집됩니다.
+
+② 데이터 이용 목적 및 방식 (Data Usage)
+  - 수집한 Google 사용자 데이터는 연동한 계정 소유자(이용자)에게 대시보드·리포트에서 성과를 표시하는 목적으로만 사용됩니다.
+  - 캠페인·광고·계정 설정의 변경·집행·관리는 하지 않으며, 조회(읽기) 및 집계·표시에만 이용합니다.
+  - 데이터는 해당 연동을 수행한 이용자(또는 해당 클라이언트)만 열람할 수 있도록 제한됩니다.
+
+③ 제3자 제공·공유 (Data Sharing)
+  - 회사는 Google로부터 수집한 사용자 데이터를 제3자에게 판매·공유하지 않습니다.
+  - 법령에 따른 요청(수사·조사 등 정당한 절차)이 있는 경우, 법령이 정한 범위에서만 제공할 수 있습니다.
+
+④ 데이터 저장 및 보호 (Data Storage & Protection)
+  - Google 연동을 위한 OAuth 토큰·리프레시 토큰은 암호화하여 저장하며, 접근 권한이 제한된 시스템에서만 처리합니다.
+  - 수집된 성과 데이터는 서비스 제공(대시보드·리포트)에 필요한 기간 동안 저장되며, 접근 제어·암호화·접속 기록 관리 등 기술적·관리적 보안 조치를 적용합니다.
+
+⑤ 보유 기간 및 삭제 (Data Retention & Deletion)
+  - Google 연동 해지 시 해당 계정과 관련된 토큰 및 수집 데이터는 지체 없이 삭제됩니다.
+  - 이용자가 회원 탈퇴 또는 데이터 삭제를 요청한 경우, 개인정보 및 연동 데이터를 지체 없이 파기합니다.
+  - 데이터 삭제 요청 방법: 서비스 내 마이페이지에서 회원 탈퇴를 진행하거나, 개인정보 보호책임자(yeomjw0907@onecation.co.kr) 또는 데이터 삭제 안내 페이지(https://www.onemarketing.kr/data-deletion)를 통해 요청할 수 있습니다. 요청 접수 후 정해진 절차에 따라 삭제를 진행합니다.
     `.trim(),
   },
   terms: {
