@@ -184,6 +184,17 @@ Google에서 “도메인 소유 확인·개인정보처리방침·홈페이지 
 | **Cloud Console 저장·제출** | OAuth 동의 화면·앱 정보 수정 후 **저장** 후 **검증 제출** | Verification Center에서 제출 상태 확인 |
 | **이메일 회신** | 수정 완료 후 Google에 보낸 심사 메일에 **답장**으로 “수정 반영했습니다” 전달 | 필수. 회신하지 않으면 검토 재개 안 함 |
 
+**Cloud Console URL이 동일하다고 반려된 경우**
+
+Google에서 "The privacy policy URL you gave us is the same as your homepage URL"라고 한 경우, Cloud Console에서 **홈페이지 URL**과 **개인정보처리방침 URL**을 **서로 다른 값**으로 입력했는지 확인하세요.
+
+| 필드 | 올바른 값 | 잘못된 예 |
+|------|-----------|-----------|
+| **앱 홈페이지 (App Homepage)** | `https://www.onemarketing.kr` | 개인정보처리방침 URL을 넣으면 안 됨 |
+| **개인정보처리방침 (Privacy Policy)** | `https://www.onemarketing.kr/privacy` | 홈과 동일하면 반려됨 |
+
+두 URL이 서로 달라야 하며, 저장 후 검증을 다시 제출해야 합니다.
+
 ### Google Ads API (Developer Token)
 
 | 항목 | 확인 |

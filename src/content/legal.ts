@@ -9,6 +9,8 @@ export const LEGAL_DOCS = {
     content: `
 주식회사 98점7도(이하 "회사")는 이용자의 개인정보를 소중히 하며, 「개인정보 보호법」, 「정보통신망 이용촉진 및 정보보호 등에 관한 법률」 등 관련 법령을 준수합니다. 회사는 본 개인정보 처리방침을 통해 수집·이용·보관·파기하는 개인정보의 범위와 처리 방법, 이용자의 권리를 안내합니다.
 
+[Google API를 이용하는 경우] Google 사용자 데이터에 대한 접근·이용·공유·저장·보호·보유 및 삭제(Data Accessed, Data Usage, Data Sharing, Data Storage & Protection, Data Retention & Deletion)는 아래 제9조에 명시되어 있습니다.
+
 제1조 (개인정보의 수집·이용 목적 및 항목)
 
 ① 회사는 다음의 목적을 위하여 개인정보를 처리합니다.
@@ -78,28 +80,28 @@ export const LEGAL_DOCS = {
 
 제9조 (Google API 서비스를 통한 사용자 데이터 처리)
 
-본 서비스는 Google API Services(Google Ads API, Google Analytics Data API 등)를 이용하며, Google API Services User Data Policy 및 Google APIs Terms of Service를 준수합니다. Google 사용자 데이터와 관련하여 아래와 같이 명시합니다.
+본 서비스는 Google API Services(Google Ads API, Google Analytics Data API 등)를 이용하며, Google API Services User Data Policy 및 Google APIs Terms of Service를 준수합니다. Google 사용자 데이터와 관련하여 아래 5개 항목을 명시합니다.
 
-① 수집·접근하는 Google 사용자 데이터 (Data Accessed)
+■ Data Accessed (수집·접근하는 Google 사용자 데이터)
   - Google 계정 기본 정보: 이메일 주소, 표시 이름(연동 시 Google OAuth를 통해 제공)
   - Google Ads 데이터: 연동한 Google Ads 계정의 캠페인·광고그룹·키워드 등 성과 지표(노출수, 클릭수, 비용, 전환 등). 읽기 전용(https://www.googleapis.com/auth/adwords.readonly)으로만 접근합니다.
   - Google Analytics(GA4) 데이터: 연동한 GA4 속성의 방문·이벤트·전환 등 집계 데이터. 읽기 전용(https://www.googleapis.com/auth/analytics.readonly)으로만 접근합니다.
   - 위 데이터는 이용자가 서비스 내에서 Google 계정 연동을 진행하고 동의한 범위 내에서만 접근·수집됩니다.
 
-② 데이터 이용 목적 및 방식 (Data Usage)
+■ Data Usage (데이터 이용 목적 및 방식)
   - 수집한 Google 사용자 데이터는 연동한 계정 소유자(이용자)에게 대시보드·리포트에서 성과를 표시하는 목적으로만 사용됩니다.
   - 캠페인·광고·계정 설정의 변경·집행·관리는 하지 않으며, 조회(읽기) 및 집계·표시에만 이용합니다.
   - 데이터는 해당 연동을 수행한 이용자(또는 해당 클라이언트)만 열람할 수 있도록 제한됩니다.
 
-③ 제3자 제공·공유 (Data Sharing)
+■ Data Sharing (제3자 제공·공유)
   - 회사는 Google로부터 수집한 사용자 데이터를 제3자에게 판매·공유하지 않습니다.
   - 법령에 따른 요청(수사·조사 등 정당한 절차)이 있는 경우, 법령이 정한 범위에서만 제공할 수 있습니다.
 
-④ 데이터 저장 및 보호 (Data Storage & Protection)
+■ Data Storage & Protection (데이터 저장 및 보호)
   - Google 연동을 위한 OAuth 토큰·리프레시 토큰은 암호화하여 저장하며, 접근 권한이 제한된 시스템에서만 처리합니다.
   - 수집된 성과 데이터는 서비스 제공(대시보드·리포트)에 필요한 기간 동안 저장되며, 접근 제어·암호화·접속 기록 관리 등 기술적·관리적 보안 조치를 적용합니다.
 
-⑤ 보유 기간 및 삭제 (Data Retention & Deletion)
+■ Data Retention & Deletion (보유 기간 및 삭제)
   - Google 연동 해지 시 해당 계정과 관련된 토큰 및 수집 데이터는 지체 없이 삭제됩니다.
   - 이용자가 회원 탈퇴 또는 데이터 삭제를 요청한 경우, 개인정보 및 연동 데이터를 지체 없이 파기합니다.
   - 데이터 삭제 요청 방법: 서비스 내 마이페이지에서 회원 탈퇴를 진행하거나, 개인정보 보호책임자(yeomjw0907@onecation.co.kr) 또는 데이터 삭제 안내 페이지(https://www.onemarketing.kr/data-deletion)를 통해 요청할 수 있습니다. 요청 접수 후 정해진 절차에 따라 삭제를 진행합니다.

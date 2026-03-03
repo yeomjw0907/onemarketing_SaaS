@@ -41,6 +41,11 @@ export async function updateSession(request: NextRequest) {
     return data as { role?: string; must_change_password?: boolean } | null;
   }
 
+  // Public routes — 개인정보처리방침·이용약관·데이터삭제 안내 (로그인 없이 접근, Google 검증용)
+  if (pathname === "/privacy" || pathname === "/terms" || pathname === "/data-deletion") {
+    return supabaseResponse;
+  }
+
   // Public routes (회원가입은 로그인 없이 접근)
   if (pathname === "/signup") {
     if (user) {
