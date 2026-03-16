@@ -3,6 +3,8 @@ import { LandingHero } from "@/components/landing/LandingHero";
 import { LandingFeaturePrimary } from "@/components/landing/LandingFeaturePrimary";
 import { LandingFeatureCards } from "@/components/landing/LandingFeatureCards";
 import { LandingBenefits } from "@/components/landing/LandingBenefits";
+import { LandingComparison } from "@/components/landing/LandingComparison";
+import { LandingPricing } from "@/components/landing/LandingPricing";
 import { LandingFaq } from "@/components/landing/LandingFaq";
 import { LandingCta } from "@/components/landing/LandingCta";
 import { LandingFooter } from "@/components/landing/LandingFooter";
@@ -22,6 +24,8 @@ export default function Home() {
         <LandingFeaturePrimary />
         <LandingFeatureCards />
         <LandingBenefits />
+        <LandingComparison />
+        <LandingPricing />
         <LandingFaq />
         <LandingCta />
       </main>

@@ -7,6 +7,12 @@ import { fetchNaverMetrics } from "./naver";
 import { fetchMetaMetrics } from "./meta";
 import { fetchGoogleAdsMetrics } from "./google-ads";
 import { fetchGA4Metrics } from "./ga4";
+import { fetchKakaoMomentMetrics } from "./kakao-moment";
+import { fetchSearchConsoleMetrics } from "./google-search-console";
+import { fetchTikTokAdsMetrics } from "./tiktok-ads";
+import { fetchNaverGFAMetrics } from "./naver-gfa";
+import { fetchShopifyMetrics } from "./shopify";
+import { fetchCafe24Metrics } from "./cafe24";
 
 export interface MetricRow {
   client_id: string;
@@ -24,11 +30,17 @@ const PLATFORM_FETCHERS: Record<
   IntegrationPlatform,
   (integration: DataIntegration, dateFrom: string, dateTo: string) => Promise<MetricRow[]>
 > = {
-  naver_ads: fetchNaverMetrics,
-  naver_searchad: fetchNaverMetrics,
-  meta_ads: fetchMetaMetrics,
-  google_ads: fetchGoogleAdsMetrics,
-  google_analytics: fetchGA4Metrics,
+  naver_ads:             fetchNaverMetrics,
+  naver_searchad:        fetchNaverMetrics,
+  meta_ads:              fetchMetaMetrics,
+  google_ads:            fetchGoogleAdsMetrics,
+  google_analytics:      fetchGA4Metrics,
+  kakao_moment:          fetchKakaoMomentMetrics,
+  google_search_console: fetchSearchConsoleMetrics,
+  tiktok_ads:            fetchTikTokAdsMetrics,
+  naver_gfa:             fetchNaverGFAMetrics,
+  shopify:               fetchShopifyMetrics,
+  cafe24:                fetchCafe24Metrics,
 };
 
 /**

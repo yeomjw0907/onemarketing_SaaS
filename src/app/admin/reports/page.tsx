@@ -14,7 +14,7 @@ export default async function AdminReportsPage() {
 
   const { data: reports } = await supabase
     .from("reports")
-    .select("*, clients(name)")
+    .select("*, clients(name), report_comments(id, reaction)")
     .order("published_at", { ascending: false })
     .limit(200);
 

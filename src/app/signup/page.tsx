@@ -167,7 +167,7 @@ export default function SignupPage() {
 
       const { error: insertError } = await supabase.from("profiles").insert({
         user_id: authData.user.id,
-        role: "pending",
+        role: "admin",
         client_id: null,
         display_name: name,
         email: authData.user.email ?? trimmedEmail,
@@ -191,7 +191,7 @@ export default function SignupPage() {
         },
       });
 
-      router.push("/login?registered=1");
+      router.push("/onboarding");
       router.refresh();
     } catch (err) {
       setError("회원가입 중 오류가 발생했습니다.");
@@ -211,7 +211,7 @@ export default function SignupPage() {
           </div>
           <CardTitle className="text-xl">회원가입</CardTitle>
           <CardDescription>
-            가입 후 관리자 승인 시 포털을 이용할 수 있습니다.
+            에이전시 계정을 만들고 무료 체험을 시작하세요.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -429,7 +429,7 @@ export default function SignupPage() {
                   가입 처리 중...
                 </>
               ) : (
-                "가입 신청"
+                "시작하기"
               )}
             </Button>
           </form>

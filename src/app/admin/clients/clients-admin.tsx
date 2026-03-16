@@ -25,7 +25,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatDate, formatPhoneDisplay, formatPhoneInput, phoneToDigits } from "@/lib/utils";
-import { Plus, Pencil, ChevronRight, Search } from "lucide-react";
+import { Plus, Pencil, ChevronRight, Search, Mail, Copy, Check, Bell } from "lucide-react";
+import { KPI_TEMPLATES } from "@/lib/kpi-templates";
 
 interface Props {
   initialClients: Client[];
@@ -42,12 +43,24 @@ export function ClientsAdmin({ initialClients }: Props) {
   const [successMsg, setSuccessMsg] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
 
+  // 초대 모달 상태
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteClient, setInviteClient] = useState<Client | null>(null);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteUrl, setInviteUrl] = useState("");
+  const [inviteError, setInviteError] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [sendAlimtalk, setSendAlimtalk] = useState(true);
+  const [alimtalkResult, setAlimtalkResult] = useState<{ success: boolean; error?: string } | null>(null);
+
   // Form state
   const [name, setName] = useState("");
   const [loginEmail, setLoginEmail] = useState("");
   const [contactName, setContactName] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [contactEmail, setContactEmail] = useState("");
+  const [kpiTemplate, setKpiTemplate] = useState("ecommerce");
 
   const resetForm = () => {
     setName("");
@@ -55,6 +68,7 @@ export function ClientsAdmin({ initialClients }: Props) {
     setContactName("");
     setContactPhone("");
     setContactEmail("");
+    setKpiTemplate("ecommerce");
     setError("");
     setSuccessMsg("");
   };
@@ -63,6 +77,54 @@ export function ClientsAdmin({ initialClients }: Props) {
     setEditing(null);
     resetForm();
     setDialogOpen(true);
+  };
+
+  const openInvite = (client: Client, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setInviteClient(client);
+    setInviteEmail(client.contact_email || "");
+    setInviteUrl("");
+    setInviteError("");
+    setCopied(false);
+    setAlimtalkResult(null);
+    // 전화번호 있으면 알림톡 기본 활성
+    setSendAlimtalk(!!client.contact_phone);
+    setInviteOpen(true);
+  };
+
+  const handleInvite = async () => {
+    if (!inviteClient) return;
+    setInviteLoading(true);
+    setInviteError("");
+    setAlimtalkResult(null);
+    try {
+      const res = await fetch(`/api/admin/clients/${inviteClient.id}/invite`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          invitedEmail: inviteEmail,
+          sendAlimtalk: sendAlimtalk && !!inviteClient.contact_phone,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setInviteError(data.error || "초대 실패");
+        return;
+      }
+      setInviteUrl(data.inviteUrl);
+      if (data.alimtalk) setAlimtalkResult(data.alimtalk);
+    } catch {
+      setInviteError("오류가 발생했습니다.");
+    } finally {
+      setInviteLoading(false);
+    }
+  };
+
+  const handleCopyUrl = () => {
+    navigator.clipboard.writeText(inviteUrl).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
   };
 
   const openEdit = (client: Client) => {
@@ -117,6 +179,7 @@ export function ClientsAdmin({ initialClients }: Props) {
             contact_name: contactName,
             contact_phone: phoneToDigits(contactPhone) || undefined,
             contact_email: contactEmail,
+            kpi_template: kpiTemplate,
           }),
         });
 
@@ -225,6 +288,14 @@ export function ClientsAdmin({ initialClients }: Props) {
                         <Button
                           variant="ghost"
                           size="icon"
+                          onClick={(e) => openInvite(client, e)}
+                          title="포털 초대 링크 발송"
+                        >
+                          <Mail className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           onClick={(e) => { e.stopPropagation(); openEdit(client); }}
                           title="수정"
                         >
@@ -300,6 +371,97 @@ export function ClientsAdmin({ initialClients }: Props) {
         )}
       </div>
 
+      {/* 클라이언트 포털 초대 다이얼로그 */}
+      <Dialog open={inviteOpen} onOpenChange={(o) => { setInviteOpen(o); if (!o) setInviteUrl(""); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="h-4 w-4" /> 포털 초대 링크 발송
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              <strong>{inviteClient?.name}</strong> 담당자에게 클라이언트 포털 초대 링크를 발송합니다.
+            </p>
+            {!inviteUrl ? (
+              <>
+                <div className="space-y-2">
+                  <Label>초대할 이메일</Label>
+                  <Input
+                    type="email"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    placeholder="client@company.com"
+                    autoFocus
+                  />
+                </div>
+                {/* 알림톡 발송 옵션 */}
+                <label className={`flex items-center gap-2.5 rounded-lg border p-3 cursor-pointer transition-colors ${
+                  inviteClient?.contact_phone
+                    ? "hover:bg-muted/50"
+                    : "opacity-50 cursor-not-allowed"
+                }`}>
+                  <input
+                    type="checkbox"
+                    checked={sendAlimtalk}
+                    onChange={(e) => setSendAlimtalk(e.target.checked)}
+                    disabled={!inviteClient?.contact_phone}
+                    className="h-4 w-4 rounded"
+                  />
+                  <Bell className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">알림톡 발송</p>
+                    <p className="text-xs text-muted-foreground">
+                      {inviteClient?.contact_phone
+                        ? `담당자(${inviteClient.contact_phone}) 카카오 알림톡으로 초대 링크 전송`
+                        : "담당자 연락처가 없어 알림톡을 발송할 수 없습니다."}
+                    </p>
+                  </div>
+                </label>
+                {inviteError && (
+                  <p className="text-sm text-destructive">{inviteError}</p>
+                )}
+                <DialogFooter className="gap-2">
+                  <Button variant="outline" onClick={() => setInviteOpen(false)}>취소</Button>
+                  <Button onClick={handleInvite} disabled={inviteLoading || !inviteEmail}>
+                    {inviteLoading ? "생성 중..." : "초대 링크 생성"}
+                  </Button>
+                </DialogFooter>
+              </>
+            ) : (
+              <>
+                <div className="rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 p-3 text-sm text-green-800 dark:text-green-300">
+                  초대 링크가 생성되었습니다. 아래 링크를 복사해 담당자에게 전달하세요.
+                </div>
+                <div className="flex gap-2">
+                  <Input value={inviteUrl} readOnly className="text-xs" />
+                  <Button variant="outline" size="icon" onClick={handleCopyUrl} title="복사">
+                    {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">링크 유효기간: 7일</p>
+                {/* 알림톡 발송 결과 */}
+                {alimtalkResult && (
+                  <div className={`flex items-center gap-2 text-xs rounded-md p-2 ${
+                    alimtalkResult.success
+                      ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400"
+                      : "bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400"
+                  }`}>
+                    <Bell className="h-3.5 w-3.5 shrink-0" />
+                    {alimtalkResult.success
+                      ? "알림톡 발송 완료"
+                      : `알림톡 발송 실패: ${alimtalkResult.error ?? "오류"}`}
+                  </div>
+                )}
+                <DialogFooter>
+                  <Button onClick={() => { setInviteOpen(false); setInviteUrl(""); }}>닫기</Button>
+                </DialogFooter>
+              </>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* 클라이언트 추가/수정 다이얼로그 */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
@@ -317,18 +479,43 @@ export function ClientsAdmin({ initialClients }: Props) {
             </div>
 
             {!editing && (
-              <div className="space-y-2">
-                <Label>로그인 이메일 *</Label>
-                <Input
-                  value={loginEmail}
-                  onChange={(e) => setLoginEmail(e.target.value.trim())}
-                  placeholder="예: client@company.com"
-                  type="email"
-                />
-                <p className="text-xs text-muted-foreground">
-                  이 이메일로 로그인합니다. 초기 비밀번호: <strong>Admin123!</strong>
-                </p>
-              </div>
+              <>
+                <div className="space-y-2">
+                  <Label>로그인 이메일 *</Label>
+                  <Input
+                    value={loginEmail}
+                    onChange={(e) => setLoginEmail(e.target.value.trim())}
+                    placeholder="예: client@company.com"
+                    type="email"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    이 이메일로 로그인합니다. 초기 비밀번호: <strong>Admin123!</strong>
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label>업종 (KPI 자동 설정)</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {KPI_TEMPLATES.map((t) => (
+                      <button
+                        key={t.key}
+                        type="button"
+                        onClick={() => setKpiTemplate(t.key)}
+                        className={`flex items-center gap-2 rounded-lg border p-2.5 text-left text-sm transition-all ${
+                          kpiTemplate === t.key
+                            ? "border-primary bg-primary/5 font-medium"
+                            : "hover:border-border/80 text-muted-foreground"
+                        }`}
+                      >
+                        <span className="text-base">{t.icon}</span>
+                        <span className="truncate">{t.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    선택한 업종에 맞는 KPI가 자동으로 생성됩니다. 이후 수정 가능합니다.
+                  </p>
+                </div>
+              </>
             )}
 
             <div className="border-t pt-4 space-y-3">

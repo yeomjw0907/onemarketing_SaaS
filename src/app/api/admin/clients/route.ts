@@ -1,6 +1,7 @@
 import { requireAdmin } from "@/lib/auth";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { getTemplateByKey } from "@/lib/kpi-templates";
 
 const DEFAULT_PASSWORD = "Admin123!";
 
@@ -20,6 +21,7 @@ export async function POST(request: Request) {
       contact_name,
       contact_phone,
       contact_email,
+      kpi_template,
     } = body as {
       name: string;
       client_code?: string;
@@ -27,6 +29,7 @@ export async function POST(request: Request) {
       contact_name?: string;
       contact_phone?: string;
       contact_email?: string;
+      kpi_template?: string;
     };
 
     if (!name) {
@@ -99,6 +102,25 @@ export async function POST(request: Request) {
       await serviceClient.auth.admin.deleteUser(authData.user.id);
       await supabase.from("clients").delete().eq("id", client.id);
       return NextResponse.json({ error: `프로필 생성 실패: ${profileErr.message}` }, { status: 400 });
+    }
+
+    // 4) KPI 템플릿 자동 생성
+    if (kpi_template && kpi_template !== "custom") {
+      const template = getTemplateByKey(kpi_template);
+      if (template && template.kpis.length > 0) {
+        const kpiRows = template.kpis.map((k) => ({
+          client_id: client.id,
+          metric_key: k.metric_key,
+          metric_label: k.metric_label,
+          unit: k.unit,
+          show_on_overview: k.show_on_overview,
+          overview_order: k.overview_order,
+          chart_enabled: k.chart_enabled,
+          description: k.description,
+          validation_rule: k.validation_rule,
+        }));
+        await supabase.from("kpi_definitions").insert(kpiRows);
+      }
     }
 
     return NextResponse.json({

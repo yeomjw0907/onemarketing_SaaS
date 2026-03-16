@@ -14,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Save, Upload, Bell } from "lucide-react";
+import { ArrowLeft, Save, Upload, Bell, CheckCircle2, AlertCircle } from "lucide-react";
 
 // SSR 비활성화 — Tiptap은 브라우저에서만 동작
 const TiptapEditor = dynamic(
@@ -38,7 +38,8 @@ export function ReportEditor({ clientId, clientName }: Props) {
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [sendNotification, setSendNotification] = useState(false);
+  const [sendNotification, setSendNotification] = useState(true);
+  const [notifyResult, setNotifyResult] = useState<{ success: boolean; error?: string } | null>(null);
 
   const handleSave = async () => {
     if (!title) { setError("제목은 필수입니다."); return; }
@@ -84,7 +85,7 @@ export function ReportEditor({ clientId, clientName }: Props) {
 
       if (sendNotification) {
         try {
-          await fetch("/api/admin/notifications/send", {
+          const nRes = await fetch("/api/admin/notifications/send", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -97,9 +98,13 @@ export function ReportEditor({ clientId, clientName }: Props) {
               },
             }),
           });
+          const nData = await nRes.json();
+          setNotifyResult({ success: nData.success ?? nRes.ok, error: nData.error });
         } catch {
-          // 알림 실패는 무시 (리포트 저장은 완료)
+          setNotifyResult({ success: false, error: "네트워크 오류" });
         }
+        // 알림 결과를 잠깐 보여준 뒤 이동
+        await new Promise((r) => setTimeout(r, 1500));
       }
 
       router.push(`/admin/clients/${clientId}`);
@@ -210,6 +215,22 @@ export function ReportEditor({ clientId, clientName }: Props) {
 
       {error && (
         <p className="text-sm text-destructive bg-destructive/10 p-3 rounded-lg">{error}</p>
+      )}
+
+      {/* 알림톡 발송 결과 */}
+      {notifyResult && (
+        <div className={`flex items-center gap-2 text-sm p-3 rounded-lg ${
+          notifyResult.success
+            ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400"
+            : "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400"
+        }`}>
+          {notifyResult.success
+            ? <CheckCircle2 className="h-4 w-4 shrink-0" />
+            : <AlertCircle className="h-4 w-4 shrink-0" />}
+          {notifyResult.success
+            ? "알림톡 발송 완료 — 클라이언트에게 리포트 알림이 전송되었습니다."
+            : `알림톡 발송 실패: ${notifyResult.error ?? "오류"}. 리포트는 정상 저장되었습니다.`}
+        </div>
       )}
     </div>
   );

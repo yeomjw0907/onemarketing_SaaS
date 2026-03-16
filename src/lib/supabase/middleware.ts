@@ -44,10 +44,20 @@ export async function updateSession(request: NextRequest) {
     async function getProfile(userId: string) {
       const { data } = await supabase
         .from("profiles")
-        .select("role")
+        .select("role, agency_id, must_change_password")
         .eq("user_id", userId)
         .single();
-      return data as { role?: string; must_change_password?: boolean } | null;
+      return data as { role?: string; must_change_password?: boolean; agency_id?: string | null } | null;
+    }
+
+    // 에이전시 구독 상태 확인 헬퍼
+    async function getSubscriptionStatus(agencyId: string) {
+      const { data } = await supabase
+        .from("agency_subscriptions")
+        .select("status, current_period_end, trial_ends_at")
+        .eq("agency_id", agencyId)
+        .single();
+      return data as { status?: string; current_period_end?: string; trial_ends_at?: string } | null;
     }
 
     // Public routes (회원가입은 로그인 없이 접근)
@@ -104,11 +114,16 @@ export async function updateSession(request: NextRequest) {
       return supabaseResponse;
     }
 
-    // 토큰 기반 리포트 보기/승인, 포털 매직링크 — 로그인 없이 접근 (페이지 + API)
+    // 토큰 기반 리포트 보기/승인, 포털 매직링크, 클라이언트 초대, 결제 — 로그인 없이 접근
     if (
       pathname.startsWith("/report/") ||
       pathname.startsWith("/api/report/") ||
-      pathname.startsWith("/portal/")
+      pathname.startsWith("/portal/") ||
+      pathname.startsWith("/invite/") ||
+      pathname === "/api/payments/webhook" ||
+      pathname === "/api/payments/confirm" ||
+      pathname === "/api/agency/invite-client/consume" ||
+      pathname === "/api/agency/invite-client/accept"
     ) {
       return supabaseResponse;
     }
@@ -129,6 +144,35 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
+    // 온보딩 경로 — 로그인된 모든 유저가 접근 가능 (에이전시 설정 전 단계)
+    if (pathname.startsWith("/onboarding")) {
+      return supabaseResponse;
+    }
+
+    // admin 역할이지만 agency_id 없으면 온보딩으로 안내
+    if (
+      profile.role === "admin" &&
+      !profile.agency_id &&
+      !pathname.startsWith("/onboarding") &&
+      !pathname.startsWith("/api/")
+    ) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/onboarding";
+      return NextResponse.redirect(url);
+    }
+
+    // 비밀번호 변경 강제 — must_change_password가 true이면 /change-password로 리다이렉트
+    if (
+      profile.must_change_password &&
+      pathname !== "/change-password" &&
+      !pathname.startsWith("/api/") &&
+      pathname !== "/login"
+    ) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/change-password";
+      return NextResponse.redirect(url);
+    }
+
     // Admin route protection — 비관리자 리다이렉트 시 OAuth 토큰 등 민감 쿼리 제거 (overview로 가면 토큰 노출 방지)
     if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin/")) {
       if (profile.role !== "admin") {
@@ -140,6 +184,22 @@ export async function updateSession(request: NextRequest) {
         url.searchParams.delete("metaExpiresIn");
         url.searchParams.delete("tab");
         return NextResponse.redirect(url);
+      }
+
+      // 에이전시 구독 만료 체크 (admin 역할이지만 에이전시 오너인 경우)
+      // 결제 관련 페이지와 API는 항상 허용
+      if (
+        profile.agency_id &&
+        !pathname.startsWith("/admin/billing") &&
+        !pathname.startsWith("/api/payments/")
+      ) {
+        const sub = await getSubscriptionStatus(profile.agency_id);
+        if (sub && (sub.status === "expired" || sub.status === "cancelled")) {
+          const url = request.nextUrl.clone();
+          url.pathname = "/admin/billing";
+          url.searchParams.set("expired", "1");
+          return NextResponse.redirect(url);
+        }
       }
     }
 

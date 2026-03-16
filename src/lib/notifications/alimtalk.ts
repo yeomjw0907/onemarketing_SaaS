@@ -40,6 +40,9 @@ export const TEMPLATE_IDS = {
   THU_PROPOSAL: "TPL_thu_proposal",                 // 다음 주 제안 + 승인
   ADDON_ORDER_TO_ADMIN: "TPL_addon_order_admin",    // 부가서비스 주문 접수 (관리자 수신)
   ADDON_ORDER_TO_CLIENT: "TPL_addon_order_client",  // 부가서비스 주문 접수 확인 (고객 수신)
+  REPORT_FEEDBACK: "TPL_report_feedback",           // 클라이언트 리포트 피드백 (관리자 수신)
+  SUBSCRIPTION_EXPIRY: "TPL_subscription_expiry",   // 구독 만료 임박 안내 (에이전시 오너 수신)
+  CLIENT_INVITE: "TPL_client_invite",               // 포털 초대 링크 안내 (클라이언트 수신)
 } as const;
 
 // ── 솔라피 인증 헤더 생성 ──
@@ -291,6 +294,75 @@ export async function notifyThuProposal(params: {
       "#{요약}": params.summary,
       "#{자세히보기}": stripProtocol(params.viewUrl),
       "#{승인하기}": stripProtocol(params.approveUrl),
+    },
+  });
+}
+
+// ── 편의 함수: 리포트 피드백 알림 (관리자 수신) ──
+export async function notifyReportFeedback(params: {
+  to: string;
+  clientName: string;
+  reportTitle: string;
+  reaction: "approved" | "rejected" | null;
+  body: string;
+  reportUrl?: string;
+}): Promise<SendResult> {
+  const reactionLabel =
+    params.reaction === "approved" ? "승인" :
+    params.reaction === "rejected" ? "반려" : "의견";
+  const link = params.reportUrl
+    ? stripProtocol(params.reportUrl)
+    : stripProtocol(`${process.env.NEXT_PUBLIC_APP_URL ?? ""}/admin/reports`);
+
+  return sendAlimtalk({
+    to: params.to,
+    templateId: TEMPLATE_IDS.REPORT_FEEDBACK,
+    variables: {
+      "#{고객명}": params.clientName,
+      "#{리포트제목}": params.reportTitle,
+      "#{반응}": reactionLabel,
+      "#{내용}": params.body.slice(0, 100),
+      "#{링크}": link,
+    },
+  });
+}
+
+// ── 편의 함수: 구독 만료 임박 알림 (에이전시 오너 수신) ──
+export async function notifySubscriptionExpiry(params: {
+  phoneNumber: string;
+  agencyName: string;
+  expiryDate: string;   // "2026년 3월 20일" 형식
+  daysLeft: number;
+  billingUrl?: string;
+}): Promise<SendResult> {
+  const link = params.billingUrl
+    ? stripProtocol(params.billingUrl)
+    : stripProtocol(`${process.env.NEXT_PUBLIC_APP_URL ?? ""}/admin/billing`);
+
+  return sendAlimtalk({
+    to: params.phoneNumber,
+    templateId: TEMPLATE_IDS.SUBSCRIPTION_EXPIRY,
+    variables: {
+      "#{에이전시명}": params.agencyName,
+      "#{만료일}": params.expiryDate,
+      "#{잔여일수}": String(params.daysLeft),
+      "#{링크}": link,
+    },
+  });
+}
+
+// ── 편의 함수: 포털 초대 링크 안내 (클라이언트 수신) ──
+export async function notifyClientInvite(params: {
+  phoneNumber: string;
+  clientName: string;
+  inviteUrl: string;
+}): Promise<SendResult> {
+  return sendAlimtalk({
+    to: params.phoneNumber,
+    templateId: TEMPLATE_IDS.CLIENT_INVITE,
+    variables: {
+      "#{고객명}": params.clientName,
+      "#{링크}": stripProtocol(params.inviteUrl),
     },
   });
 }

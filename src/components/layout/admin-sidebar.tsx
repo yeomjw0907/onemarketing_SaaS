@@ -18,6 +18,7 @@ import {
   PanelLeftClose,
   PanelRight,
   ShoppingCart,
+  CreditCard,
 } from "lucide-react";
 
 const adminMenu = [
@@ -30,6 +31,7 @@ const adminMenu = [
   { label: "자료실", href: "/admin/assets", icon: Image },
   { label: "부가서비스 주문", href: "/admin/addon-orders", icon: ShoppingCart },
   { label: "알림 설정", href: "/admin/notifications", icon: Bell },
+  { label: "구독 관리", href: "/admin/billing", icon: CreditCard },
 ];
 
 export function AdminSidebar() {

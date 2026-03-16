@@ -933,21 +933,112 @@ const INTEGRATION_GUIDES: Record<string, { title: string; env?: string[]; steps:
       { name: "Property ID", where: "GA4 관리 → 속성 → 속성 설정 → 속성 ID → properties/숫자 형식으로 입력" },
     ],
   },
+  google_search_console: {
+    title: "Google Search Console (SEO)",
+    env: ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "NEXT_PUBLIC_APP_URL"],
+    steps: [
+      "Google OAuth 버튼으로 인증 후 Refresh Token 복사 (Google Ads·GA4와 동일한 OAuth 계정 사용 가능)",
+      "Site URL: Search Console에서 확인할 속성 URL (예: https://example.com/ 또는 sc-domain:example.com)",
+    ],
+    fields: [
+      { name: "Refresh Token", where: "Google OAuth 버튼으로 인증 후 URL의 googleRefreshToken 복사" },
+      { name: "Site URL", where: "Search Console → 속성 선택 → URL 그대로 복사 (https://... 또는 sc-domain:...)" },
+    ],
+  },
+  kakao_moment: {
+    title: "카카오모먼트 (Kakao Moment)",
+    env: [],
+    steps: [
+      "카카오 비즈니스(https://business.kakao.com) → 카카오모먼트 → API 설정에서 액세스 토큰 발급",
+      "광고 계정 ID: 카카오모먼트 대시보드 URL 또는 설정에서 확인",
+    ],
+    fields: [
+      { name: "Access Token", where: "카카오 비즈니스 → 카카오모먼트 → API 설정 → 액세스 토큰" },
+      { name: "Ad Account ID", where: "카카오모먼트 대시보드 상단 또는 URL에서 확인되는 광고 계정 ID (숫자)" },
+    ],
+  },
+  tiktok_ads: {
+    title: "TikTok Ads",
+    env: [],
+    steps: [
+      "TikTok Business Center(https://ads.tiktok.com) → Assets → Business Center → API → 앱 생성",
+      "또는 TikTok for Developers에서 앱 생성 후 Access Token 발급",
+      "Advertiser ID: TikTok Ads Manager 대시보드 우상단 계정 정보에서 확인",
+    ],
+    fields: [
+      { name: "Access Token", where: "TikTok for Developers → 앱 → Sandbox/Production Access Token" },
+      { name: "Advertiser ID", where: "TikTok Ads Manager → 계정 정보 → Advertiser ID (18자리 숫자)" },
+    ],
+  },
+  naver_gfa: {
+    title: "네이버 성과형디스플레이광고 (GFA)",
+    env: [],
+    steps: [
+      "네이버 광고(https://searchad.naver.com)와 다른 별도 플랫폼입니다",
+      "GFA API(https://gfaapi.naver.com) 사용을 위해 네이버 GFA 고객센터에 API 사용 신청 필요",
+      "발급된 API Key, Secret Key, Customer ID를 입력하세요",
+    ],
+    fields: [
+      { name: "API Key", where: "네이버 GFA API 승인 후 발급되는 API Key" },
+      { name: "Secret Key", where: "API Key와 함께 발급되는 Secret Key" },
+      { name: "Customer ID", where: "GFA 계정의 고객 ID" },
+    ],
+  },
+  shopify: {
+    title: "Shopify",
+    env: [],
+    steps: [
+      "Shopify 관리자 → 설정 → 앱 및 판매 채널 → 앱 개발 → 앱 만들기",
+      "또는 Custom App 생성 → Admin API 액세스 토큰 발급",
+      "Shop Domain: mystore.myshopify.com 형식으로 입력",
+    ],
+    fields: [
+      { name: "Access Token", where: "Shopify 관리자 → 앱 → Custom App → Admin API 액세스 토큰" },
+      { name: "Shop Domain", where: "Shopify 스토어 주소 (예: mystore.myshopify.com)" },
+    ],
+  },
+  cafe24: {
+    title: "카페24 (Cafe24)",
+    env: [],
+    steps: [
+      "카페24 개발자 센터(https://developers.cafe24.com) → 앱 등록 → OAuth 앱 생성",
+      "Mall ID: 카페24 쇼핑몰 ID (mystore.cafe24.com에서 mystore 부분)",
+      "앱 인증 후 Refresh Token 발급 필요 (OAuth 2.0 흐름)",
+    ],
+    fields: [
+      { name: "Mall ID", where: "카페24 쇼핑몰 주소에서 앞부분 (예: mystore)" },
+      { name: "Client ID", where: "카페24 개발자센터 → 앱 정보 → Client ID" },
+      { name: "Client Secret", where: "카페24 개발자센터 → 앱 정보 → Client Secret" },
+      { name: "Refresh Token", where: "OAuth 2.0 인증 완료 후 발급되는 Refresh Token" },
+    ],
+  },
 };
 
 const PLATFORM_OPTIONS: { value: IntegrationPlatform; label: string }[] = [
-  { value: "naver_ads", label: "네이버 검색광고" },
-  { value: "meta_ads", label: "Meta 광고 (Facebook/Instagram)" },
-  { value: "google_ads", label: "Google Ads" },
-  { value: "google_analytics", label: "Google Analytics (GA4)" },
+  { value: "meta_ads",              label: "Meta 광고 (Facebook/Instagram)" },
+  { value: "google_ads",            label: "Google Ads" },
+  { value: "google_analytics",      label: "Google Analytics (GA4)" },
+  { value: "google_search_console", label: "Google Search Console (SEO)" },
+  { value: "naver_ads",             label: "네이버 검색광고" },
+  { value: "naver_gfa",             label: "네이버 성과형디스플레이광고 (GFA)" },
+  { value: "kakao_moment",          label: "카카오모먼트" },
+  { value: "tiktok_ads",            label: "TikTok Ads" },
+  { value: "shopify",               label: "Shopify" },
+  { value: "cafe24",                label: "카페24" },
 ];
 
 const PLATFORM_LABEL: Record<string, string> = {
-  naver_ads: "네이버 검색광고",
-  naver_searchad: "네이버 검색광고",
-  meta_ads: "Meta Ads",
-  google_ads: "Google Ads",
-  google_analytics: "GA4",
+  meta_ads:              "Meta Ads",
+  google_ads:            "Google Ads",
+  google_analytics:      "GA4",
+  google_search_console: "Search Console",
+  naver_ads:             "네이버 검색광고",
+  naver_searchad:        "네이버 검색광고",
+  naver_gfa:             "네이버 GFA",
+  kakao_moment:          "카카오모먼트",
+  tiktok_ads:            "TikTok Ads",
+  shopify:               "Shopify",
+  cafe24:                "카페24",
 };
 
 const STATUS_LABEL: Record<IntegrationStatus, string> = {
@@ -1028,32 +1119,54 @@ function IntegrationTab({ clientId, initialIntegrations, router }: { clientId: s
   const [metaSaveLoading, setMetaSaveLoading] = useState(false);
 
   // 폼 상태
-  const [platform, setPlatform] = useState<IntegrationPlatform>("naver_ads");
+  const [platform, setPlatform] = useState<IntegrationPlatform>("meta_ads");
   const [displayName, setDisplayName] = useState("");
-  // 네이버
+  // 네이버 (검색광고 + GFA 공통)
   const [naverApiKey, setNaverApiKey] = useState("");
   const [naverSecretKey, setNaverSecretKey] = useState("");
   const [naverCustomerId, setNaverCustomerId] = useState("");
   // Meta
   const [metaAccessToken, setMetaAccessToken] = useState("");
   const [metaAdAccountId, setMetaAdAccountId] = useState("");
-  // Google
+  // Google (Ads + GA4 + Search Console 공통 refresh token)
   const [googleRefreshToken, setGoogleRefreshToken] = useState("");
   const [googleCustomerId, setGoogleCustomerId] = useState("");
   const [googleDeveloperToken, setGoogleDeveloperToken] = useState("");
   const [ga4PropertyId, setGA4PropertyId] = useState("");
+  const [gscSiteUrl, setGscSiteUrl] = useState("");
+  // Kakao
+  const [kakaoAccessToken, setKakaoAccessToken] = useState("");
+  const [kakaoAdAccountId, setKakaoAdAccountId] = useState("");
+  // TikTok
+  const [tiktokAccessToken, setTiktokAccessToken] = useState("");
+  const [tiktokAdvertiserId, setTiktokAdvertiserId] = useState("");
+  // Shopify
+  const [shopifyAccessToken, setShopifyAccessToken] = useState("");
+  const [shopifyDomain, setShopifyDomain] = useState("");
+  // 카페24
+  const [cafe24MallId, setCafe24MallId] = useState("");
+  const [cafe24ClientId, setCafe24ClientId] = useState("");
+  const [cafe24ClientSecret, setCafe24ClientSecret] = useState("");
+  const [cafe24RefreshToken, setCafe24RefreshToken] = useState("");
+  // KPI 자동생성
+  const [autoKpi, setAutoKpi] = useState(true);
 
   const resetForm = () => {
-    setPlatform("naver_ads"); setDisplayName(""); setTestResult(null);
+    setPlatform("meta_ads"); setDisplayName(""); setTestResult(null); setAutoKpi(true);
     setNaverApiKey(""); setNaverSecretKey(""); setNaverCustomerId("");
     setMetaAccessToken(""); setMetaAdAccountId("");
-    setGoogleRefreshToken(""); setGoogleCustomerId(""); setGoogleDeveloperToken(""); setGA4PropertyId("");
+    setGoogleRefreshToken(""); setGoogleCustomerId(""); setGoogleDeveloperToken(""); setGA4PropertyId(""); setGscSiteUrl("");
+    setKakaoAccessToken(""); setKakaoAdAccountId("");
+    setTiktokAccessToken(""); setTiktokAdvertiserId("");
+    setShopifyAccessToken(""); setShopifyDomain("");
+    setCafe24MallId(""); setCafe24ClientId(""); setCafe24ClientSecret(""); setCafe24RefreshToken("");
   };
 
   const buildCredentials = (): Record<string, string> => {
     switch (platform) {
       case "naver_ads":
       case "naver_searchad":
+      case "naver_gfa":
         return { apiKey: naverApiKey, secretKey: naverSecretKey, customerId: naverCustomerId };
       case "meta_ads":
         return { accessToken: metaAccessToken, adAccountId: metaAdAccountId };
@@ -1061,6 +1174,16 @@ function IntegrationTab({ clientId, initialIntegrations, router }: { clientId: s
         return { refreshToken: googleRefreshToken, customerId: googleCustomerId, developerToken: googleDeveloperToken };
       case "google_analytics":
         return { refreshToken: googleRefreshToken, propertyId: ga4PropertyId };
+      case "google_search_console":
+        return { refreshToken: googleRefreshToken, siteUrl: gscSiteUrl };
+      case "kakao_moment":
+        return { accessToken: kakaoAccessToken, adAccountId: kakaoAdAccountId };
+      case "tiktok_ads":
+        return { accessToken: tiktokAccessToken, advertiserId: tiktokAdvertiserId };
+      case "shopify":
+        return { accessToken: shopifyAccessToken, shopDomain: shopifyDomain };
+      case "cafe24":
+        return { mallId: cafe24MallId, clientId: cafe24ClientId, clientSecret: cafe24ClientSecret, refreshToken: cafe24RefreshToken };
       default:
         return {};
     }
@@ -1099,10 +1222,17 @@ function IntegrationTab({ clientId, initialIntegrations, router }: { clientId: s
         }),
       });
       if (res.ok) {
+        // KPI 자동생성
+        if (autoKpi) {
+          await fetch("/api/admin/kpis/auto-generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ clientId, platform }),
+          });
+        }
         setDialogOpen(false);
         resetForm();
         router.refresh();
-        // 목록 새로고침
         const listRes = await fetch(`/api/admin/integrations?clientId=${clientId}`);
         if (listRes.ok) setIntegrations(await listRes.json());
       }
@@ -1177,6 +1307,9 @@ function IntegrationTab({ clientId, initialIntegrations, router }: { clientId: s
           credentials: {
             accessToken: metaTokenFromUrl,
             adAccountId: metaSaveAdAccountId.trim().startsWith("act_") ? metaSaveAdAccountId.trim() : `act_${metaSaveAdAccountId.trim()}`,
+            tokenExpiresAt: metaExpiresInFromUrl
+              ? new Date(Date.now() + Number(metaExpiresInFromUrl) * 1000).toISOString()
+              : undefined,
           },
         }),
       });
@@ -1421,6 +1554,17 @@ function IntegrationTab({ clientId, initialIntegrations, router }: { clientId: s
                   {integ.error_message && (
                     <p className="text-xs text-destructive mt-1 truncate">{integ.error_message}</p>
                   )}
+                  {integ.platform === "meta_ads" && (() => {
+                    const creds = integ.credentials as { tokenExpiresAt?: string } | null;
+                    if (!creds?.tokenExpiresAt) return null;
+                    const daysLeft = Math.ceil((new Date(creds.tokenExpiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                    if (daysLeft > 14) return null;
+                    return (
+                      <p className={`text-xs mt-1 font-medium ${daysLeft <= 0 ? "text-destructive" : "text-amber-600"}`}>
+                        ⚠ Meta 액세스 토큰 {daysLeft <= 0 ? "만료됨 — 재인증 필요" : `${daysLeft}일 후 만료 — 재인증 권장`}
+                      </p>
+                    );
+                  })()}
                 </div>
                 <div className="flex gap-1">
                   <Button
@@ -1540,6 +1684,79 @@ function IntegrationTab({ clientId, initialIntegrations, router }: { clientId: s
                 <div className="space-y-2"><Label>Property ID</Label><Input value={ga4PropertyId} onChange={e => setGA4PropertyId(e.target.value)} placeholder="properties/123456789" /></div>
               </div>
             )}
+
+            {/* Google Search Console */}
+            {platform === "google_search_console" && (
+              <div className="space-y-3 p-3 border rounded-lg bg-muted/30">
+                <p className="text-xs font-semibold text-muted-foreground">Google Search Console 인증</p>
+                <p className="text-xs text-muted-foreground">Refresh Token은 [Google OAuth]로 발급 (GA4·Google Ads와 동일 계정 사용 가능)</p>
+                <div className="space-y-2"><Label>Refresh Token</Label><Input type="password" value={googleRefreshToken} onChange={e => setGoogleRefreshToken(e.target.value)} placeholder="Google OAuth 후 URL에서 복사" /></div>
+                <div className="space-y-2"><Label>Site URL</Label><Input value={gscSiteUrl} onChange={e => setGscSiteUrl(e.target.value)} placeholder="https://example.com/ 또는 sc-domain:example.com" /></div>
+              </div>
+            )}
+
+            {/* 네이버 GFA */}
+            {platform === "naver_gfa" && (
+              <div className="space-y-3 p-3 border rounded-lg bg-muted/30">
+                <p className="text-xs font-semibold text-muted-foreground">네이버 GFA (성과형디스플레이광고) 인증</p>
+                <div className="space-y-2"><Label>API Key</Label><Input value={naverApiKey} onChange={e => setNaverApiKey(e.target.value)} placeholder="GFA API Key" /></div>
+                <div className="space-y-2"><Label>Secret Key</Label><Input type="password" value={naverSecretKey} onChange={e => setNaverSecretKey(e.target.value)} placeholder="GFA Secret Key" /></div>
+                <div className="space-y-2"><Label>Customer ID</Label><Input value={naverCustomerId} onChange={e => setNaverCustomerId(e.target.value)} placeholder="고객 ID (숫자)" /></div>
+              </div>
+            )}
+
+            {/* 카카오모먼트 */}
+            {platform === "kakao_moment" && (
+              <div className="space-y-3 p-3 border rounded-lg bg-muted/30">
+                <p className="text-xs font-semibold text-muted-foreground">카카오모먼트 인증</p>
+                <div className="space-y-2"><Label>Access Token</Label><Input type="password" value={kakaoAccessToken} onChange={e => setKakaoAccessToken(e.target.value)} placeholder="카카오 비즈니스 → API 설정 → 액세스 토큰" /></div>
+                <div className="space-y-2"><Label>Ad Account ID</Label><Input value={kakaoAdAccountId} onChange={e => setKakaoAdAccountId(e.target.value)} placeholder="광고 계정 ID (숫자)" /></div>
+              </div>
+            )}
+
+            {/* TikTok Ads */}
+            {platform === "tiktok_ads" && (
+              <div className="space-y-3 p-3 border rounded-lg bg-muted/30">
+                <p className="text-xs font-semibold text-muted-foreground">TikTok Ads 인증</p>
+                <div className="space-y-2"><Label>Access Token</Label><Input type="password" value={tiktokAccessToken} onChange={e => setTiktokAccessToken(e.target.value)} placeholder="TikTok for Developers → Access Token" /></div>
+                <div className="space-y-2"><Label>Advertiser ID</Label><Input value={tiktokAdvertiserId} onChange={e => setTiktokAdvertiserId(e.target.value)} placeholder="18자리 숫자 (Ads Manager → 계정 정보)" /></div>
+              </div>
+            )}
+
+            {/* Shopify */}
+            {platform === "shopify" && (
+              <div className="space-y-3 p-3 border rounded-lg bg-muted/30">
+                <p className="text-xs font-semibold text-muted-foreground">Shopify 인증</p>
+                <div className="space-y-2"><Label>Shop Domain</Label><Input value={shopifyDomain} onChange={e => setShopifyDomain(e.target.value)} placeholder="mystore.myshopify.com" /></div>
+                <div className="space-y-2"><Label>Admin API Access Token</Label><Input type="password" value={shopifyAccessToken} onChange={e => setShopifyAccessToken(e.target.value)} placeholder="shpat_xxxx (앱 → Admin API 액세스 토큰)" /></div>
+              </div>
+            )}
+
+            {/* 카페24 */}
+            {platform === "cafe24" && (
+              <div className="space-y-3 p-3 border rounded-lg bg-muted/30">
+                <p className="text-xs font-semibold text-muted-foreground">카페24 인증</p>
+                <div className="space-y-2"><Label>Mall ID</Label><Input value={cafe24MallId} onChange={e => setCafe24MallId(e.target.value)} placeholder="mystore (쇼핑몰 주소 앞부분)" /></div>
+                <div className="space-y-2"><Label>Client ID</Label><Input value={cafe24ClientId} onChange={e => setCafe24ClientId(e.target.value)} placeholder="카페24 개발자센터 → Client ID" /></div>
+                <div className="space-y-2"><Label>Client Secret</Label><Input type="password" value={cafe24ClientSecret} onChange={e => setCafe24ClientSecret(e.target.value)} placeholder="카페24 개발자센터 → Client Secret" /></div>
+                <div className="space-y-2"><Label>Refresh Token</Label><Input type="password" value={cafe24RefreshToken} onChange={e => setCafe24RefreshToken(e.target.value)} placeholder="OAuth 인증 후 발급된 Refresh Token" /></div>
+              </div>
+            )}
+
+            {/* KPI 자동 생성 옵션 */}
+            <div className="flex items-center gap-2 p-3 rounded-lg border bg-green-50 dark:bg-green-950/20">
+              <input
+                type="checkbox"
+                id="autoKpi"
+                checked={autoKpi}
+                onChange={e => setAutoKpi(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300"
+              />
+              <label htmlFor="autoKpi" className="text-sm cursor-pointer">
+                <span className="font-medium">KPI 자동 생성</span>
+                <span className="text-muted-foreground ml-1.5 text-xs">— 이 플랫폼의 기본 KPI 세트를 자동으로 추가합니다</span>
+              </label>
+            </div>
 
             {testResult && <p className="text-sm">{testResult}</p>}
           </div>

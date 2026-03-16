@@ -16,7 +16,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { formatDate } from "@/lib/utils";
-import { Plus } from "lucide-react";
+import { Plus, MessageSquare, ThumbsUp, ThumbsDown } from "lucide-react";
 
 interface Props {
   initialReports: any[];
@@ -69,16 +69,33 @@ export function ReportsAdmin({ initialReports, clients }: Props) {
           <TableHeader><TableRow>
             <TableHead>클라이언트</TableHead><TableHead>제목</TableHead>
             <TableHead>유형</TableHead><TableHead>발행일</TableHead>
+            <TableHead>피드백</TableHead>
           </TableRow></TableHeader>
           <TableBody>
             {filteredReports.length === 0 ? (
-              <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">없음</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">없음</TableCell></TableRow>
             ) : filteredReports.map((r: any) => (
-              <TableRow key={r.id} className="cursor-pointer hover:bg-muted/50" onClick={() => router.push(`/admin/clients/${r.client_id}`)}>
+              <TableRow key={r.id} className="cursor-pointer hover:bg-muted/50" onClick={() => router.push(`/admin/reports/${r.id}`)}>
                 <TableCell>{r.clients?.name || "-"}</TableCell>
                 <TableCell className="font-medium">{r.title}</TableCell>
                 <TableCell><Badge variant="outline">{r.report_type === "weekly" ? "주간" : "월간"}</Badge></TableCell>
                 <TableCell className="text-sm">{formatDate(r.published_at)}</TableCell>
+                <TableCell>
+                  {(() => {
+                    const comments = (r.report_comments as any[]) ?? [];
+                    const approved = comments.filter((c: any) => c.reaction === "approved").length;
+                    const rejected = comments.filter((c: any) => c.reaction === "rejected").length;
+                    const total = comments.length;
+                    if (total === 0) return <span className="text-xs text-muted-foreground">—</span>;
+                    return (
+                      <div className="flex items-center gap-2 text-xs">
+                        {approved > 0 && <span className="flex items-center gap-0.5 text-emerald-600"><ThumbsUp className="h-3 w-3" />{approved}</span>}
+                        {rejected > 0 && <span className="flex items-center gap-0.5 text-red-600"><ThumbsDown className="h-3 w-3" />{rejected}</span>}
+                        {total > 0 && approved === 0 && rejected === 0 && <span className="flex items-center gap-0.5 text-muted-foreground"><MessageSquare className="h-3 w-3" />{total}</span>}
+                      </div>
+                    );
+                  })()}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>

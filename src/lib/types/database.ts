@@ -80,6 +80,9 @@ export interface KpiDefinition {
   chart_enabled: boolean;
   description: string | null;
   validation_rule: ValidationRule | null;
+  computation: KpiComputation | null;
+  format: KpiFormat;
+  higher_is_better: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -202,8 +205,33 @@ export interface AuditLog {
   created_at: string;
 }
 
-// ── 외부 데이터 연동 (META, GA, 네이버 등) ──
-export type IntegrationPlatform = "meta_ads" | "google_analytics" | "google_ads" | "naver_ads" | "naver_searchad";
+// ── KPI computation 타입 ──
+export type KpiFormat = "number" | "currency" | "percentage" | "duration" | "decimal";
+
+export interface KpiMetricSource {
+  platform: "*" | IntegrationPlatform;
+  metric: string;
+}
+
+export type KpiComputation =
+  | { type: "sum";   sources: KpiMetricSource[] }
+  | { type: "avg";   sources: KpiMetricSource[] }
+  | { type: "ratio"; numerator: KpiMetricSource[]; denominator: KpiMetricSource[] };
+
+// ── 외부 데이터 연동 ──
+export type IntegrationPlatform =
+  | "meta_ads"
+  | "google_analytics"
+  | "google_ads"
+  | "naver_ads"
+  | "naver_searchad"
+  | "kakao_moment"
+  | "google_search_console"
+  | "tiktok_ads"
+  | "naver_gfa"
+  | "shopify"
+  | "cafe24";
+
 export type IntegrationStatus = "active" | "inactive" | "error";
 
 export interface DataIntegration {
@@ -276,6 +304,77 @@ export interface Notification {
   approval_used_at: string | null;
   approval_status: ApprovalStatus;
   sent_at: string;
+}
+
+export type ReportReaction = "approved" | "rejected" | null;
+
+export interface ReportComment {
+  id: string;
+  report_id: string;
+  client_id: string;
+  author_id: string;
+  author_name: string;
+  body: string;
+  reaction: ReportReaction;
+  created_at: string;
+  updated_at: string;
+}
+
+// ── 에이전시 / 구독 ──────────────────────────────────────────
+
+export type SubscriptionStatus = "trialing" | "active" | "past_due" | "cancelled" | "expired";
+export type BillingCycle = "monthly" | "yearly";
+
+export interface Agency {
+  id: string;
+  name: string;
+  owner_user_id: string | null;
+  logo_url: string | null;
+  website: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SubscriptionPlan {
+  id: string;
+  plan_key: string;
+  name: string;
+  price_won: number;
+  price_won_yearly: number | null;
+  max_clients: number | null;
+  max_alimtalk_per_month: number | null;
+  features: string[];
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface AgencySubscription {
+  id: string;
+  agency_id: string;
+  plan_key: string;
+  status: SubscriptionStatus;
+  billing_cycle: BillingCycle;
+  trial_ends_at: string | null;
+  current_period_start: string;
+  current_period_end: string;
+  toss_customer_key: string | null;
+  toss_billing_key: string | null;
+  cancelled_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ClientInviteToken {
+  id: string;
+  token: string;
+  agency_id: string;
+  client_id: string;
+  invited_email: string;
+  invited_by: string;
+  expires_at: string;
+  used_at: string | null;
+  created_at: string;
 }
 
 // Supabase Database type
