@@ -65,20 +65,26 @@ export async function getMetricsSnapshotForClient(
     const summaries = await getMetricSummary(supabase, clientId, dateFrom, dateTo);
     let totalCost = 0;
     let totalClicks = 0;
+    let totalImpressions = 0;
     let totalConversions = 0;
     for (const s of summaries) {
-      const cost = (s.metrics as Record<string, { total: number }>).cost ?? (s.metrics as Record<string, { total: number }>).spend;
-      const clicks = (s.metrics as Record<string, { total: number }>).clicks;
-      const conversions = (s.metrics as Record<string, { total: number }>).conversions;
+      const m = s.metrics as Record<string, { total: number }>;
+      const cost = m.cost ?? m.spend;
       if (cost) totalCost += cost.total;
-      if (clicks) totalClicks += clicks.total;
-      if (conversions) totalConversions += conversions.total;
+      if (m.clicks) totalClicks += m.clicks.total;
+      if (m.impressions) totalImpressions += m.impressions.total;
+      if (m.conversions) totalConversions += m.conversions.total;
     }
+    const spend = Math.round(totalCost);
+    const cpc = totalClicks > 0 ? Math.round(totalCost / totalClicks) : undefined;
+    const ctr = totalImpressions > 0 ? +(totalClicks / totalImpressions * 100).toFixed(1) : undefined;
     return {
-      roas: 0,
-      spend: Math.round(totalCost),
-      clicks: totalClicks,
-      conversions: totalConversions,
+      ...(spend > 0 && { spend }),
+      ...(totalClicks > 0 && { clicks: totalClicks }),
+      ...(totalImpressions > 0 && { impressions: totalImpressions }),
+      ...(totalConversions > 0 && { conversions: totalConversions }),
+      ...(cpc !== undefined && { cpc }),
+      ...(ctr !== undefined && { ctr }),
       period: `${dateFrom} ~ ${dateTo}`,
     };
   }
@@ -114,7 +120,6 @@ export async function getMetricsSnapshotForClient(
     return {
       lastWeekSpend: Math.round(totalCost),
       lastWeekConversions: totalConversions,
-      proposal: "소재 유지 또는 소폭 최적화",
     };
   }
 

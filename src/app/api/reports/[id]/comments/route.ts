@@ -99,7 +99,7 @@ export async function POST(
       reaction: (reaction as "approved" | "rejected" | null) ?? null,
       body: text.trim(),
       reportUrl: `${appUrl}/admin/reports/${reportId}`,
-    }).catch(() => {/* 알림 실패는 무시 */});
+    }).catch((e) => console.error("[feedback notify]", e));
   }
 
   return NextResponse.json({ comment }, { status: 201 });
