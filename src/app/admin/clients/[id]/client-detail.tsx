@@ -187,7 +187,7 @@ export function ClientDetail({
         <TabsContent value="assets"><AssetTab clientId={client.id} initialAssets={initialAssets} supabase={supabase} router={router} /></TabsContent>
         <TabsContent value="integrations"><IntegrationTab clientId={client.id} initialIntegrations={initialIntegrations} router={router} /></TabsContent>
         <TabsContent value="services"><ServiceTab clientId={client.id} initialServices={(client.enabled_services || {}) as Record<string, boolean>} initialServiceUrls={(client.service_urls || {}) as Record<string, string>} supabase={supabase} router={router} /></TabsContent>
-        <TabsContent value="modules"><ModuleTab clientId={client.id} initialModules={{ overview: true, execution: true, calendar: true, projects: true, reports: true, assets: true, support: true, timeline: true, ...(client.enabled_modules || {}) } as EnabledModules} supabase={supabase} router={router} /></TabsContent>
+        <TabsContent value="modules"><ModuleTab clientId={client.id} initialModules={{ ...(client.enabled_modules || {}), overview: true, execution: true, calendar: true, projects: true, reports: true, assets: true, support: true, timeline: true } as EnabledModules} supabase={supabase} router={router} /></TabsContent>
       </Tabs>
 
       {/* ── 비밀번호 리셋 다이얼로그 ── */}

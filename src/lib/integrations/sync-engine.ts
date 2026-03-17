@@ -116,8 +116,8 @@ export async function syncIntegration(
     }
 
     return { success: true, recordCount: metrics.length };
-  } catch (err: any) {
-    const errorMsg = err?.message || String(err);
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
 
     // 연동 에러 상태
     await supabase

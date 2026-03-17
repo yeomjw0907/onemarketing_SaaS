@@ -15,6 +15,17 @@ interface NaverGFACredentials {
   customerId: string;
 }
 
+interface NaverGFAStatEntry {
+  date?: string;
+  impressions?: number;
+  clicks?: number;
+  cost?: number;
+  conversions?: number;
+  ctr?: number;
+  cpc?: number;
+  [key: string]: unknown;
+}
+
 /**
  * HMAC-SHA256 서명 생성
  * 메시지 형식: "{timestamp}.GET.{path}"
@@ -40,7 +51,7 @@ async function naverGFARequest(
   method: string,
   path: string,
   params?: Record<string, string>,
-): Promise<any> {
+): Promise<unknown> {
   const timestamp = String(Date.now());
   const signature = generateGFASignature(timestamp, method, path, credentials.secretKey);
 
@@ -116,7 +127,7 @@ async function getNaverGFAStats(
   credentials: NaverGFACredentials,
   dateFrom: string,
   dateTo: string,
-): Promise<any[]> {
+): Promise<NaverGFAStatEntry[]> {
   const data = await naverGFARequest(
     credentials,
     "GET",
@@ -128,7 +139,9 @@ async function getNaverGFAStats(
     },
   );
 
-  return Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
+  if (Array.isArray(data)) return data as NaverGFAStatEntry[];
+  const typed = data as { data?: NaverGFAStatEntry[] };
+  return Array.isArray(typed?.data) ? typed.data! : [];
 }
 
 /**

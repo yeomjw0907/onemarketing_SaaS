@@ -32,6 +32,42 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ data });
 }
 
+// PATCH — 공지 수정 (?id=...)
+export async function PATCH(req: NextRequest) {
+  await requireAdmin();
+  const supabase = await createClient();
+  const id = req.nextUrl.searchParams.get("id");
+
+  if (!id) {
+    return NextResponse.json({ error: "id가 필요합니다." }, { status: 400 });
+  }
+
+  const body = await req.json();
+  const { title, content, is_pinned } = body as {
+    title: string;
+    content: string | null;
+    is_pinned: boolean;
+  };
+
+  if (!title?.trim()) {
+    return NextResponse.json({ error: "제목을 입력하세요." }, { status: 400 });
+  }
+
+  const { data, error } = await supabase
+    .from("announcements")
+    .update({ title: title.trim(), content: content || null, is_pinned: !!is_pinned, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("[announcements PATCH]", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ data });
+}
+
 // DELETE — 공지 삭제 (?id=...)
 export async function DELETE(req: NextRequest) {
   await requireAdmin();

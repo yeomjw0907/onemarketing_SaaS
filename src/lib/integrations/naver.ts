@@ -15,6 +15,23 @@ interface NaverCredentials {
   customerId: string;
 }
 
+interface NaverCampaign {
+  nccCampaignId: string;
+  [key: string]: unknown;
+}
+
+interface NaverStatEntry {
+  statDt?: string;
+  id?: string;
+  impCnt?: number;
+  clkCnt?: number;
+  salesAmt?: number;
+  ctr?: number;
+  cpc?: number;
+  ccnt?: number;
+  [key: string]: unknown;
+}
+
 /**
  * HMAC-SHA256 서명 생성
  */
@@ -39,7 +56,7 @@ async function naverRequest(
   method: string,
   path: string,
   params?: Record<string, string>,
-): Promise<any> {
+): Promise<unknown> {
   const timestamp = String(Date.now());
   const signature = generateSignature(timestamp, method, path, credentials.secretKey);
 
@@ -95,12 +112,12 @@ async function getNaverStats(
   credentials: NaverCredentials,
   dateFrom: string,
   dateTo: string,
-): Promise<any[]> {
+): Promise<NaverStatEntry[]> {
   // 먼저 캠페인 목록 가져오기
-  const campaigns = await getNaverCampaigns(credentials);
+  const campaigns = (await getNaverCampaigns(credentials)) as NaverCampaign[];
   if (!campaigns || campaigns.length === 0) return [];
 
-  const campaignIds = campaigns.map((c: any) => c.nccCampaignId);
+  const campaignIds = campaigns.map((c) => c.nccCampaignId);
 
   // 마스터 리포트 요청
   const statData = await naverRequest(
@@ -121,7 +138,7 @@ async function getNaverStats(
     },
   );
 
-  return Array.isArray(statData) ? statData : statData?.data || [];
+  return Array.isArray(statData) ? (statData as NaverStatEntry[]) : ((statData as { data?: NaverStatEntry[] })?.data ?? []);
 }
 
 /**

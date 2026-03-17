@@ -12,7 +12,7 @@ import {
 export interface CreateWeeklyNotificationParams {
   clientId: string;
   reportType: NotificationReportType;
-  metricsSnapshot: Json;
+  metricsSnapshot: Record<string, unknown>;
   aiMessage: string | null;
   /** 목요일 제안일 때만 true */
   withApproval?: boolean;
@@ -48,7 +48,7 @@ export async function createWeeklyNotification(
     .insert({
       client_id: params.clientId,
       report_type: params.reportType,
-      metrics_snapshot: params.metricsSnapshot,
+      metrics_snapshot: params.metricsSnapshot as Json,
       ai_message: params.aiMessage,
       view_token: viewToken,
       view_token_expires_at: viewTokenExpiresAt,

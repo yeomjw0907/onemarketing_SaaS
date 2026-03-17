@@ -13,6 +13,17 @@ interface KakaoMomentCredentials {
   adAccountId: string;
 }
 
+interface KakaoMomentStatEntry {
+  date?: string;
+  imp?: number;
+  click?: number;
+  cost?: number;
+  ctr?: number;
+  cpc?: number;
+  conversions?: number;
+  [key: string]: unknown;
+}
+
 /**
  * 카카오모먼트 API 공통 요청
  */
@@ -20,7 +31,7 @@ async function kakaoMomentRequest(
   credentials: KakaoMomentCredentials,
   path: string,
   params?: Record<string, string>,
-): Promise<any> {
+): Promise<unknown> {
   const url = new URL(`${KAKAO_MOMENT_BASE}${path}`);
   if (params) {
     for (const [k, v] of Object.entries(params)) {
@@ -89,7 +100,7 @@ async function getKakaoMomentStats(
   credentials: KakaoMomentCredentials,
   dateFrom: string,
   dateTo: string,
-): Promise<any[]> {
+): Promise<KakaoMomentStatEntry[]> {
   const data = await kakaoMomentRequest(
     credentials,
     `/adaccounts/${credentials.adAccountId}/stats`,
@@ -101,7 +112,8 @@ async function getKakaoMomentStats(
     },
   );
 
-  return Array.isArray(data?.data) ? data.data : [];
+  const typed = data as { data?: KakaoMomentStatEntry[] };
+  return Array.isArray(typed?.data) ? typed.data! : [];
 }
 
 /**

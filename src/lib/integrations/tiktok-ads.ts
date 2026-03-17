@@ -13,6 +13,20 @@ interface TikTokAdsCredentials {
   advertiserId: string;
 }
 
+interface TikTokStatEntry {
+  dimensions?: { stat_time_day?: string };
+  metrics?: {
+    spend?: string;
+    impressions?: string;
+    clicks?: string;
+    conversions?: string;
+    ctr?: string;
+    cpc?: string;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
 /**
  * TikTok Ads API 공통 요청
  */
@@ -20,7 +34,7 @@ async function tiktokRequest(
   credentials: TikTokAdsCredentials,
   path: string,
   params: Record<string, string>,
-): Promise<any> {
+): Promise<unknown> {
   const url = new URL(`${TIKTOK_ADS_BASE}${path}`);
   for (const [k, v] of Object.entries(params)) {
     url.searchParams.set(k, v);
@@ -97,7 +111,7 @@ async function getTikTokStats(
   credentials: TikTokAdsCredentials,
   dateFrom: string,
   dateTo: string,
-): Promise<any[]> {
+): Promise<TikTokStatEntry[]> {
   const data = await tiktokRequest(credentials, "/report/integrated/get/", {
     advertiser_id: credentials.advertiserId,
     report_type: "BASIC",
@@ -116,7 +130,8 @@ async function getTikTokStats(
     page_size: "1000",
   });
 
-  return Array.isArray(data?.data?.list) ? data.data.list : [];
+  const typed = data as { data?: { list?: TikTokStatEntry[] } };
+  return Array.isArray(typed?.data?.list) ? typed.data!.list! : [];
 }
 
 /**

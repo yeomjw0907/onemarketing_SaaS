@@ -60,6 +60,7 @@ export function ClientsAdmin({ initialClients }: Props) {
   const [contactName, setContactName] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [contactEmail, setContactEmail] = useState("");
+  const [kakaoUrl, setKakaoUrl] = useState("");
   const [kpiTemplate, setKpiTemplate] = useState("ecommerce");
 
   const resetForm = () => {
@@ -68,6 +69,7 @@ export function ClientsAdmin({ initialClients }: Props) {
     setContactName("");
     setContactPhone("");
     setContactEmail("");
+    setKakaoUrl("");
     setKpiTemplate("ecommerce");
     setError("");
     setSuccessMsg("");
@@ -134,6 +136,7 @@ export function ClientsAdmin({ initialClients }: Props) {
     setContactName(client.contact_name || "");
     setContactPhone(phoneToDigits(client.contact_phone) || "");
     setContactEmail(client.contact_email || "");
+    setKakaoUrl(client.kakao_chat_url || "");
     setError("");
     setSuccessMsg("");
     setDialogOpen(true);
@@ -153,6 +156,7 @@ export function ClientsAdmin({ initialClients }: Props) {
             contact_name: contactName || null,
             contact_phone: phoneToDigits(contactPhone) || null,
             contact_email: contactEmail || null,
+            kakao_chat_url: kakaoUrl.trim() || null,
           })
           .eq("id", editing.id);
 
@@ -196,8 +200,8 @@ export function ClientsAdmin({ initialClients }: Props) {
           router.refresh();
         }, 2000);
       }
-    } catch (err: any) {
-      setError(err?.message || "오류 발생");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "오류 발생");
     } finally {
       setLoading(false);
     }
@@ -538,6 +542,16 @@ export function ClientsAdmin({ initialClients }: Props) {
                   <Label>이메일</Label>
                   <Input value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="hong@company.com" type="email" />
                 </div>
+              </div>
+              <div className="space-y-2">
+                <Label>카카오톡 상담 채널 URL <span className="text-muted-foreground font-normal text-xs">(선택)</span></Label>
+                <Input
+                  value={kakaoUrl}
+                  onChange={(e) => setKakaoUrl(e.target.value)}
+                  placeholder="https://pf.kakao.com/_xxxxx/chat"
+                  type="url"
+                />
+                <p className="text-xs text-muted-foreground">클라이언트 포털 '문의하기' 페이지에 표시됩니다.</p>
               </div>
             </div>
 

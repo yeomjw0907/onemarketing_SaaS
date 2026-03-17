@@ -16,7 +16,7 @@ import { formatDateTime, formatPhoneDisplay } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Bell, Send, CheckCircle, XCircle, AlertTriangle, PhoneCall, Info,
-  Pin, Trash2, Plus, Megaphone,
+  Pin, Trash2, Plus, Megaphone, Pencil, X, Check,
 } from "lucide-react";
 
 interface Client {
@@ -35,7 +35,7 @@ interface NotificationLog {
   success: boolean;
   message_id: string | null;
   error_message: string | null;
-  payload: any;
+  payload: Record<string, unknown> | null;
   created_at: string;
 }
 
@@ -81,6 +81,12 @@ export function NotificationSettings({ clients, logs, announcements: initialAnno
   const [newPinned, setNewPinned] = useState(false);
   const [announceSaving, setAnnounceSaving] = useState(false);
   const [announceMsg, setAnnounceMsg] = useState("");
+  // 수정 상태
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editContent, setEditContent] = useState("");
+  const [editPinned, setEditPinned] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
 
   const handleAddAnnouncement = async () => {
     if (!newTitle.trim()) return;
@@ -103,6 +109,35 @@ export function NotificationSettings({ clients, logs, announcements: initialAnno
       setAnnounceMsg(e instanceof Error ? e.message : "오류 발생");
     } finally {
       setAnnounceSaving(false);
+    }
+  };
+
+  const openEdit = (item: Announcement) => {
+    setEditingId(item.id);
+    setEditTitle(item.title);
+    setEditContent(item.content || "");
+    setEditPinned(item.is_pinned);
+  };
+
+  const cancelEdit = () => setEditingId(null);
+
+  const handleUpdateAnnouncement = async () => {
+    if (!editingId || !editTitle.trim()) return;
+    setEditSaving(true);
+    try {
+      const res = await fetch(`/api/admin/announcements?id=${editingId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: editTitle.trim(), content: editContent.trim() || null, is_pinned: editPinned }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || "수정 실패");
+      const { data } = await res.json();
+      setAnnouncements(announcements.map((a) => (a.id === editingId ? data : a)));
+      setEditingId(null);
+    } catch (e: unknown) {
+      setAnnounceMsg(e instanceof Error ? e.message : "수정 오류");
+    } finally {
+      setEditSaving(false);
     }
   };
 
@@ -379,28 +414,88 @@ export function NotificationSettings({ clients, logs, announcements: initialAnno
             <p className="text-sm text-muted-foreground text-center py-4">등록된 공지사항이 없습니다.</p>
           ) : (
             <div className="divide-y rounded-lg border overflow-hidden">
-              {announcements.map((item) => (
-                <div key={item.id} className="flex items-start justify-between gap-3 p-3 hover:bg-muted/30 transition-colors">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      {item.is_pinned && <Pin className="h-3 w-3 text-primary shrink-0" />}
-                      <p className="text-sm font-medium truncate">{item.title}</p>
+              {announcements.map((item) =>
+                editingId === item.id ? (
+                  // 인라인 수정 폼
+                  <div key={item.id} className="p-3 space-y-2 bg-muted/30 border-b last:border-b-0">
+                    <Input
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      placeholder="공지 제목"
+                      className="text-sm"
+                    />
+                    <Textarea
+                      value={editContent}
+                      onChange={(e) => setEditContent(e.target.value)}
+                      placeholder="공지 내용 (선택)"
+                      rows={2}
+                      className="text-sm resize-none"
+                    />
+                    <div className="flex items-center justify-between">
+                      <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={editPinned}
+                          onChange={(e) => setEditPinned(e.target.checked)}
+                          className="h-3.5 w-3.5 rounded border border-input"
+                        />
+                        <Pin className="h-3 w-3" /> 상단 고정
+                      </label>
+                      <div className="flex gap-1.5">
+                        <button
+                          type="button"
+                          onClick={cancelEdit}
+                          className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:bg-muted transition-colors"
+                          aria-label="취소"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleUpdateAnnouncement}
+                          disabled={editSaving || !editTitle.trim()}
+                          className="h-7 w-7 flex items-center justify-center rounded-md text-primary hover:bg-primary/10 transition-colors disabled:opacity-40"
+                          aria-label="저장"
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </div>
-                    {item.content && (
-                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{item.content}</p>
-                    )}
-                    <p className="text-[11px] text-muted-foreground mt-1">{new Date(item.created_at).toLocaleDateString("ko-KR")}</p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteAnnouncement(item.id)}
-                    className="shrink-0 h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                    aria-label="삭제"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              ))}
+                ) : (
+                  // 일반 표시
+                  <div key={item.id} className="flex items-start justify-between gap-3 p-3 hover:bg-muted/30 transition-colors">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        {item.is_pinned && <Pin className="h-3 w-3 text-primary shrink-0" />}
+                        <p className="text-sm font-medium truncate">{item.title}</p>
+                      </div>
+                      {item.content && (
+                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{item.content}</p>
+                      )}
+                      <p className="text-[11px] text-muted-foreground mt-1">{new Date(item.created_at).toLocaleDateString("ko-KR")}</p>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => openEdit(item)}
+                        className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                        aria-label="수정"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteAnnouncement(item.id)}
+                        className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                        aria-label="삭제"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                )
+              )}
             </div>
           )}
         </CardContent>

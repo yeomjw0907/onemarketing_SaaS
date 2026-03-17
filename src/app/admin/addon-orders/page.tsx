@@ -19,7 +19,7 @@ export default async function AdminAddonOrdersPage() {
 
   const rows = (orders ?? []).map((o) => ({
     ...o,
-    clients: (o as { clients?: { name: string } | null }).clients ?? null,
+    clients: (o as unknown as { clients?: { name: string } | null }).clients ?? null,
   }));
 
   return (

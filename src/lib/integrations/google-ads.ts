@@ -15,6 +15,25 @@ interface GoogleAdsCredentials {
   developerToken?: string;  // 없으면 관리자 설정(DB/env) 사용 (원케이션 1세트)
 }
 
+interface GoogleAdsRow {
+  segments?: { date?: string };
+  metrics?: {
+    impressions?: string | number;
+    clicks?: string | number;
+    costMicros?: string | number;
+    conversions?: string | number;
+    ctr?: string | number;
+    averageCpc?: string | number;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
+interface GoogleAdsBatch {
+  results?: GoogleAdsRow[];
+  [key: string]: unknown;
+}
+
 /** Developer Token: 연동에 저장된 값 → 관리자 설정(DB/env) */
 async function getDeveloperToken(credentials: GoogleAdsCredentials): Promise<string> {
   const fromCreds = credentials.developerToken?.trim();
@@ -77,7 +96,7 @@ async function queryGoogleAds(
   credentials: GoogleAdsCredentials,
   dateFrom: string,
   dateTo: string,
-): Promise<any[]> {
+): Promise<GoogleAdsRow[]> {
   const accessToken = await getAccessToken(credentials.refreshToken);
   const cid = credentials.customerId.replace(/-/g, "");
 
@@ -115,9 +134,9 @@ async function queryGoogleAds(
 
   const data = await res.json();
   // searchStream returns array of batches
-  const rows: any[] = [];
+  const rows: GoogleAdsRow[] = [];
   if (Array.isArray(data)) {
-    for (const batch of data) {
+    for (const batch of data as GoogleAdsBatch[]) {
       if (batch.results) rows.push(...batch.results);
     }
   }

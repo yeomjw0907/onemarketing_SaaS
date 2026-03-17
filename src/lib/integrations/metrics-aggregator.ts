@@ -254,8 +254,8 @@ export async function aggregatePlatformMetricsToMetrics(
             if (error) { result.errors.push(`insert ${cid} ${kpi.metric_key}: ${error.message}`); continue; }
             result.inserted++;
           }
-        } catch (err: any) {
-          result.errors.push(`compute ${cid} ${kpi.metric_key}: ${err?.message || err}`);
+        } catch (err: unknown) {
+          result.errors.push(`compute ${cid} ${kpi.metric_key}: ${err instanceof Error ? err.message : String(err)}`);
         }
       }
     }

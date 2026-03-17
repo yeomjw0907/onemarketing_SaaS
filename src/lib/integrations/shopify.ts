@@ -12,6 +12,14 @@ interface ShopifyCredentials {
   shopDomain: string;  // e.g. "mystore.myshopify.com"
 }
 
+interface ShopifyOrder {
+  id?: string | number;
+  total_price?: string | number;
+  created_at?: string;
+  financial_status?: string;
+  [key: string]: unknown;
+}
+
 /**
  * Shopify API 기본 URL 생성
  */
@@ -26,7 +34,7 @@ async function shopifyRequest(
   credentials: ShopifyCredentials,
   path: string,
   params?: Record<string, string>,
-): Promise<{ data: any; linkHeader: string | null }> {
+): Promise<{ data: unknown; linkHeader: string | null }> {
   const url = new URL(`${getShopifyBase(credentials.shopDomain)}${path}`);
   if (params) {
     for (const [k, v] of Object.entries(params)) {
@@ -90,8 +98,8 @@ async function getAllOrders(
   credentials: ShopifyCredentials,
   dateFrom: string,
   dateTo: string,
-): Promise<any[]> {
-  const allOrders: any[] = [];
+): Promise<ShopifyOrder[]> {
+  const allOrders: ShopifyOrder[] = [];
 
   // 첫 번째 요청
   let { data, linkHeader } = await shopifyRequest(credentials, "/orders.json", {
@@ -102,8 +110,8 @@ async function getAllOrders(
     fields: "id,total_price,created_at,financial_status",
   });
 
-  if (Array.isArray(data?.orders)) {
-    allOrders.push(...data.orders);
+  if (Array.isArray((data as { orders?: ShopifyOrder[] })?.orders)) {
+    allOrders.push(...(data as { orders: ShopifyOrder[] }).orders);
   }
 
   // Link 헤더를 통한 페이지네이션
@@ -120,8 +128,8 @@ async function getAllOrders(
     if (!res.ok) break;
 
     const pageData = await res.json();
-    if (Array.isArray(pageData?.orders)) {
-      allOrders.push(...pageData.orders);
+    if (Array.isArray((pageData as { orders?: ShopifyOrder[] })?.orders)) {
+      allOrders.push(...(pageData as { orders: ShopifyOrder[] }).orders);
     }
 
     nextUrl = extractNextPageUrl(res.headers.get("Link"));
@@ -133,7 +141,7 @@ async function getAllOrders(
 /**
  * 주문 목록을 날짜별로 집계
  */
-function aggregateOrdersByDate(orders: any[]): Map<string, { revenue: number; orders: number }> {
+function aggregateOrdersByDate(orders: ShopifyOrder[]): Map<string, { revenue: number; orders: number }> {
   const byDate = new Map<string, { revenue: number; orders: number }>();
 
   for (const order of orders) {

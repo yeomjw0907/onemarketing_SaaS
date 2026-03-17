@@ -134,8 +134,8 @@ export async function sendAlimtalk(message: AlimtalkMessage): Promise<SendResult
       success: true,
       messageId: data.groupId || data.messageId,
     };
-  } catch (err: any) {
-    return { success: false, error: err.message };
+  } catch (err: unknown) {
+    return { success: false, error: err instanceof Error ? err.message : String(err) };
   }
 }
 

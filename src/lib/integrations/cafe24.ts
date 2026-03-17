@@ -14,6 +14,12 @@ interface Cafe24Credentials {
   clientSecret: string;
 }
 
+interface Cafe24Order {
+  order_date?: string;
+  total_price?: string | number;
+  [key: string]: unknown;
+}
+
 /**
  * Cafe24 API 기본 URL 생성
  */
@@ -69,7 +75,7 @@ async function cafe24Request(
   mallId: string,
   path: string,
   params?: Record<string, string>,
-): Promise<any> {
+): Promise<unknown> {
   const url = new URL(`${getCafe24Base(mallId)}${path}`);
   if (params) {
     for (const [k, v] of Object.entries(params)) {
@@ -120,8 +126,8 @@ async function getAllCafe24Orders(
   credentials: Cafe24Credentials,
   dateFrom: string,
   dateTo: string,
-): Promise<any[]> {
-  const allOrders: any[] = [];
+): Promise<Cafe24Order[]> {
+  const allOrders: Cafe24Order[] = [];
   const limit = 500;
   let offset = 0;
 
@@ -138,7 +144,7 @@ async function getAllCafe24Orders(
       },
     );
 
-    const orders = Array.isArray(data?.orders) ? data.orders : [];
+    const orders: Cafe24Order[] = Array.isArray((data as { orders?: Cafe24Order[] })?.orders) ? (data as { orders: Cafe24Order[] }).orders : [];
     if (orders.length === 0) break;
 
     allOrders.push(...orders);
@@ -154,7 +160,7 @@ async function getAllCafe24Orders(
 /**
  * 주문 목록을 날짜별로 집계
  */
-function aggregateOrdersByDate(orders: any[]): Map<string, { revenue: number; orders: number }> {
+function aggregateOrdersByDate(orders: Cafe24Order[]): Map<string, { revenue: number; orders: number }> {
   const byDate = new Map<string, { revenue: number; orders: number }>();
 
   for (const order of orders) {
@@ -223,10 +229,12 @@ export async function fetchCafe24Metrics(
       { start_date: dateFrom, end_date: dateTo },
     );
 
-    const visitorRows = Array.isArray(visitorData?.visitor_stats)
-      ? visitorData.visitor_stats
-      : Array.isArray(visitorData)
-        ? visitorData
+    interface Cafe24VisitorRow { date?: string; stat_date?: string; visitors?: number; visitor_count?: number; [key: string]: unknown }
+    const typedVisitorData = visitorData as { visitor_stats?: Cafe24VisitorRow[] } | Cafe24VisitorRow[];
+    const visitorRows: Cafe24VisitorRow[] = Array.isArray((typedVisitorData as { visitor_stats?: Cafe24VisitorRow[] }).visitor_stats)
+      ? (typedVisitorData as { visitor_stats: Cafe24VisitorRow[] }).visitor_stats
+      : Array.isArray(typedVisitorData)
+        ? typedVisitorData
         : [];
 
     for (const row of visitorRows) {
@@ -244,12 +252,12 @@ export async function fetchCafe24Metrics(
         raw_data: row,
       });
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     // 방문자 통계는 기본 플랜에서 제공되지 않을 수 있음 – 무시
-    const status = err?.message?.match(/\d{3}/)?.[0];
+    const msg = err instanceof Error ? err.message : String(err);
+    const status = msg.match(/\d{3}/)?.[0];
     if (status !== "403" && status !== "404") {
-      // 403/404 이외의 오류는 로그만 남기고 계속 진행
-      console.warn("Cafe24 방문자 통계 조회 실패 (무시됨):", err?.message);
+      console.warn("Cafe24 방문자 통계 조회 실패 (무시됨):", msg);
     }
   }
 

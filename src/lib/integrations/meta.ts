@@ -14,6 +14,24 @@ interface MetaCredentials {
   tokenExpiresAt?: string;  // ISO date
 }
 
+interface MetaAction {
+  action_type: string;
+  value: string;
+}
+
+interface MetaInsightEntry {
+  date_start?: string;
+  impressions?: string;
+  clicks?: string;
+  spend?: string;
+  ctr?: string;
+  cpc?: string;
+  cpm?: string;
+  reach?: string;
+  actions?: MetaAction[];
+  [key: string]: unknown;
+}
+
 /**
  * Meta Graph API 요청
  */
@@ -21,7 +39,7 @@ async function metaRequest(
   accessToken: string,
   path: string,
   params?: Record<string, string>,
-): Promise<any> {
+): Promise<unknown> {
   const url = new URL(`${META_GRAPH_URL}${path}`);
   url.searchParams.set("access_token", accessToken);
   if (params) {
@@ -48,12 +66,13 @@ export async function exchangeLongLivedToken(
   appSecret: string,
   shortLivedToken: string,
 ): Promise<{ accessToken: string; expiresIn: number }> {
-  const data = await metaRequest("", "/oauth/access_token", {
+  const raw = await metaRequest("", "/oauth/access_token", {
     grant_type: "fb_exchange_token",
     client_id: appId,
     client_secret: appSecret,
     fb_exchange_token: shortLivedToken,
   });
+  const data = raw as { access_token: string; expires_in?: number };
   return {
     accessToken: data.access_token,
     expiresIn: data.expires_in || 5184000, // ~60일
@@ -81,11 +100,11 @@ export async function testMetaConnection(credentials: MetaCredentials): Promise<
  * Ad Account 목록 가져오기
  */
 export async function getMetaAdAccounts(accessToken: string) {
-  const data = await metaRequest(accessToken, "/me/adaccounts", {
+  const raw = await metaRequest(accessToken, "/me/adaccounts", {
     fields: "id,name,account_status,currency",
     limit: "100",
   });
-  return data?.data || [];
+  return (raw as { data?: unknown[] })?.data ?? [];
 }
 
 /**
@@ -95,7 +114,7 @@ async function getMetaInsights(
   credentials: MetaCredentials,
   dateFrom: string,
   dateTo: string,
-): Promise<any[]> {
+): Promise<MetaInsightEntry[]> {
   const acctId = credentials.adAccountId.startsWith("act_")
     ? credentials.adAccountId
     : `act_${credentials.adAccountId}`;
@@ -108,7 +127,7 @@ async function getMetaInsights(
     limit: "500",
   });
 
-  return data?.data || [];
+  return (data as { data?: MetaInsightEntry[] })?.data ?? [];
 }
 
 /**
@@ -134,7 +153,7 @@ export async function fetchMetaMetrics(
     let conversions = 0;
     if (entry.actions) {
       const purchaseAction = entry.actions.find(
-        (a: any) => a.action_type === "purchase" || a.action_type === "offsite_conversion.fb_pixel_purchase",
+        (a) => a.action_type === "purchase" || a.action_type === "offsite_conversion.fb_pixel_purchase",
       );
       conversions = purchaseAction ? Number(purchaseAction.value) : 0;
     }
