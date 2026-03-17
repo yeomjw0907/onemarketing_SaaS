@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -33,9 +33,14 @@ import {
   Unplug, RefreshCw, Trash2, Zap, TestTube2, ExternalLink,
   LayoutDashboard, CalendarDays, FolderKanban, FileText, Image, MessageCircle,
   GripVertical, BarChart2, BookOpen, Settings, History,
+  Users, Mail, Copy, Crown, ShieldCheck, Eye,
 } from "lucide-react";
 import { SERVICE_CATALOG, ALL_SERVICE_KEYS, defaultEnabledServices, findServiceItem } from "@/lib/service-catalog";
 import { ServiceIcon } from "@/components/service-icon";
+import { toast } from "sonner";
+import { format } from "date-fns";
+import { ko } from "date-fns/locale";
+import { Loader2 } from "lucide-react";
 
 // ── 모듈 라벨 ──
 const moduleLabels: Record<keyof EnabledModules, string> = {
@@ -174,6 +179,7 @@ export function ClientDetail({
           <TabsTrigger value="integrations">데이터 연동</TabsTrigger>
           <TabsTrigger value="services">이용중인 서비스</TabsTrigger>
           <TabsTrigger value="modules">활성 모듈</TabsTrigger>
+          <TabsTrigger value="team">팀원</TabsTrigger>
         </TabsList>
         </div>
 
@@ -188,6 +194,7 @@ export function ClientDetail({
         <TabsContent value="integrations"><IntegrationTab clientId={client.id} initialIntegrations={initialIntegrations} router={router} /></TabsContent>
         <TabsContent value="services"><ServiceTab clientId={client.id} initialServices={(client.enabled_services || {}) as Record<string, boolean>} initialServiceUrls={(client.service_urls || {}) as Record<string, string>} supabase={supabase} router={router} /></TabsContent>
         <TabsContent value="modules"><ModuleTab clientId={client.id} initialModules={{ ...(client.enabled_modules || {}), overview: true, execution: true, calendar: true, projects: true, reports: true, assets: true, support: true, timeline: true } as EnabledModules} supabase={supabase} router={router} /></TabsContent>
+        <TabsContent value="team"><ClientTeamTab clientId={client.id} /></TabsContent>
       </Tabs>
 
       {/* ── 비밀번호 리셋 다이얼로그 ── */}
@@ -1819,3 +1826,240 @@ function ModuleTab({ clientId, initialModules, supabase, router }: { clientId: s
     </div>
   </div>);
 }
+
+// ╔══════════════════════════════════════════════╗
+// ║  클라이언트 팀원 탭                             ║
+// ╚══════════════════════════════════════════════╝
+const CLIENT_ROLE_LABELS: Record<string, { label: string; icon: typeof Crown; color: string }> = {
+  owner:   { label: "오너",   icon: Crown,      color: "text-amber-500" },
+  manager: { label: "매니저", icon: ShieldCheck, color: "text-blue-500" },
+  viewer:  { label: "뷰어",   icon: Eye,         color: "text-slate-500" },
+};
+
+interface ClientMember {
+  user_id: string;
+  display_name: string;
+  email: string;
+  created_at: string;
+}
+
+interface ClientPendingInvite {
+  id: string;
+  invited_email: string;
+  created_at: string;
+  expires_at: string;
+}
+
+function ClientTeamTab({ clientId }: { clientId: string }) {
+  const [members, setMembers] = useState<ClientMember[]>([]);
+  const [pendingInvites, setPendingInvites] = useState<ClientPendingInvite[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteUrl, setInviteUrl] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [sendAlimtalk, setSendAlimtalk] = useState(false);
+
+  const fetchMembers = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/admin/clients/${clientId}/members`);
+      const data = await res.json();
+      if (res.ok) {
+        setMembers(data.members ?? []);
+        setPendingInvites(data.pendingInvites ?? []);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [clientId]);
+
+  useEffect(() => { fetchMembers(); }, [fetchMembers]);
+
+  const handleInvite = async () => {
+    if (!inviteEmail.trim()) { toast.error("이메일을 입력해 주세요."); return; }
+    setInviteLoading(true);
+    try {
+      const res = await fetch(`/api/admin/clients/${clientId}/invite`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ invitedEmail: inviteEmail.trim(), sendAlimtalk }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast.error(data.error ?? "초대 실패"); return; }
+      setInviteUrl(data.inviteUrl);
+      await fetchMembers();
+      toast.success("초대 링크가 생성되었습니다.");
+    } finally {
+      setInviteLoading(false);
+    }
+  };
+
+  const handleRemoveMember = async (userId: string, name: string) => {
+    if (!confirm(`${name}님의 포털 접근 권한을 제거할까요?`)) return;
+    try {
+      const res = await fetch(`/api/admin/clients/${clientId}/members`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast.error(data.error ?? "제거 실패"); return; }
+      toast.success("멤버가 제거되었습니다.");
+      await fetchMembers();
+    } catch { toast.error("서버 오류가 발생했습니다."); }
+  };
+
+  const copyUrl = async () => {
+    await navigator.clipboard.writeText(inviteUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const closeDialog = () => {
+    setInviteDialogOpen(false);
+    setInviteEmail("");
+    setInviteUrl("");
+    setCopied(false);
+    setSendAlimtalk(false);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold">포털 접속 멤버</h3>
+          <p className="text-sm text-muted-foreground mt-0.5">이 클라이언트의 포털에 접속할 수 있는 담당자들입니다.</p>
+        </div>
+        <Button size="sm" onClick={() => setInviteDialogOpen(true)}>
+          <Plus className="h-4 w-4 mr-1" />
+          담당자 초대
+        </Button>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center gap-2 text-muted-foreground py-8 justify-center">
+          <Loader2 className="h-4 w-4 animate-spin" /><span className="text-sm">로딩 중...</span>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {members.length > 0 && (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>이름</TableHead>
+                  <TableHead>이메일</TableHead>
+                  <TableHead>가입일</TableHead>
+                  <TableHead className="w-12"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {members.map((member) => (
+                  <TableRow key={member.user_id}>
+                    <TableCell className="font-medium">{member.display_name || "—"}</TableCell>
+                    <TableCell className="text-muted-foreground text-sm">{member.email}</TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {format(new Date(member.created_at), "yyyy.MM.dd", { locale: ko })}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                        onClick={() => handleRemoveMember(member.user_id, member.display_name)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+
+          {pendingInvites.length > 0 && (
+            <div>
+              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-2">초대 대기 중</p>
+              <div className="space-y-2">
+                {pendingInvites.map((invite) => (
+                  <div key={invite.id} className="flex items-center justify-between rounded-lg border border-dashed px-3 py-2.5 text-sm">
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">{invite.invited_email}</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {format(new Date(invite.expires_at), "M/d까지", { locale: ko })}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {members.length === 0 && pendingInvites.length === 0 && (
+            <div className="text-center py-10 text-muted-foreground text-sm border rounded-lg bg-muted/20">
+              아직 포털 접속 담당자가 없습니다. 담당자를 초대해 보세요.
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 초대 다이얼로그 */}
+      <Dialog open={inviteDialogOpen} onOpenChange={(open) => { if (!open) closeDialog(); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>포털 담당자 초대</DialogTitle>
+          </DialogHeader>
+          {!inviteUrl ? (
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label htmlFor="clientInviteEmail">이메일</Label>
+                <Input
+                  id="clientInviteEmail"
+                  type="email"
+                  placeholder="contact@example.com"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  disabled={inviteLoading}
+                />
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer text-sm">
+                <input
+                  type="checkbox"
+                  checked={sendAlimtalk}
+                  onChange={(e) => setSendAlimtalk(e.target.checked)}
+                  className="rounded"
+                />
+                알림톡으로 초대 링크 발송 (클라이언트 담당자 전화번호 필요)
+              </label>
+            </div>
+          ) : (
+            <div className="space-y-3 py-2">
+              <p className="text-sm text-muted-foreground">아래 초대 링크를 복사해 담당자에게 전달하세요. 7일간 유효합니다.</p>
+              <div className="flex gap-2">
+                <Input value={inviteUrl} readOnly className="text-xs font-mono" />
+                <Button variant="outline" size="icon" onClick={copyUrl}>
+                  {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            {!inviteUrl ? (
+              <>
+                <Button variant="outline" onClick={closeDialog}>취소</Button>
+                <Button onClick={handleInvite} disabled={inviteLoading}>
+                  {inviteLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />처리 중...</> : "초대 링크 생성"}
+                </Button>
+              </>
+            ) : (
+              <Button className="w-full" onClick={closeDialog}>닫기</Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
