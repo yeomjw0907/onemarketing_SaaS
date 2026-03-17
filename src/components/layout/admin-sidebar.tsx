@@ -8,9 +8,7 @@ import { useMobileSidebar } from "@/components/layout/mobile-sidebar-wrapper";
 import {
   LayoutDashboard,
   Users,
-  UserPlus,
   CalendarDays,
-  FolderKanban,
   FileText,
   Image,
   Bell,
@@ -18,20 +16,49 @@ import {
   PanelLeftClose,
   PanelRight,
   ShoppingCart,
-  CreditCard,
+  Settings,
 } from "lucide-react";
 
-const adminMenu = [
-  { label: "대시보드", href: "/admin", icon: LayoutDashboard },
-  { label: "가입 대기", href: "/admin/signups", icon: UserPlus },
-  { label: "클라이언트", href: "/admin/clients", icon: Users },
-  { label: "캘린더", href: "/admin/calendar", icon: CalendarDays },
-  { label: "프로젝트", href: "/admin/projects", icon: FolderKanban },
-  { label: "리포트", href: "/admin/reports", icon: FileText },
-  { label: "자료실", href: "/admin/assets", icon: Image },
-  { label: "부가서비스 주문", href: "/admin/addon-orders", icon: ShoppingCart },
-  { label: "알림 설정", href: "/admin/notifications", icon: Bell },
-  { label: "구독 관리", href: "/admin/billing", icon: CreditCard },
+type AdminNavItem = {
+  label: string;
+  href: string;
+  icon: React.ElementType;
+};
+
+type AdminNavGroup = {
+  title: string;
+  items: AdminNavItem[];
+};
+
+const adminNavGroups: AdminNavGroup[] = [
+  {
+    title: "업무",
+    items: [
+      { label: "대시보드",   href: "/admin",              icon: LayoutDashboard },
+      { label: "클라이언트", href: "/admin/clients",      icon: Users },
+    ],
+  },
+  {
+    title: "콘텐츠",
+    items: [
+      { label: "리포트",  href: "/admin/reports", icon: FileText },
+      { label: "자료실",  href: "/admin/assets",  icon: Image },
+    ],
+  },
+  {
+    title: "커뮤니케이션",
+    items: [
+      { label: "발송 관리", href: "/admin/notifications", icon: Bell },
+      { label: "캘린더",   href: "/admin/calendar",       icon: CalendarDays },
+    ],
+  },
+  {
+    title: "운영",
+    items: [
+      { label: "부가서비스 주문", href: "/admin/addon-orders", icon: ShoppingCart },
+      { label: "설정",           href: "/admin/billing",       icon: Settings },
+    ],
+  },
 ];
 
 export function AdminSidebar() {
@@ -50,6 +77,9 @@ export function AdminSidebar() {
     },
     [router]
   );
+
+  const isActive = (href: string) =>
+    href === "/admin" ? pathname === "/admin" : pathname.startsWith(href);
 
   return (
     <aside
@@ -104,40 +134,47 @@ export function AdminSidebar() {
         </button>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 py-4">
-        <ul className="space-y-1">
-          {adminMenu.map((item) => {
-            const isActive =
-              item.href === "/admin"
-                ? pathname === "/admin"
-                : pathname.startsWith(item.href);
-            const Icon = item.icon;
-            return (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  onClick={handleNav(item.href)}
-                  prefetch={true}
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                    isCollapsed && "md:justify-center md:px-2",
-                    isActive
-                      ? "bg-primary/10 text-primary"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                    isPending && "pointer-events-none"
-                  )}
-                  title={isCollapsed ? item.label : undefined}
-                  aria-label={item.label}
-                >
-                  <Icon className="h-4 w-4 shrink-0" />
-                  <span className={cn("truncate", isCollapsed ? "md:hidden" : "md:block")}>
-                    {item.label}
-                  </span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
+        {adminNavGroups.map((group, gIdx) => (
+          <div key={gIdx}>
+            <p className={cn(
+              "px-2 mb-1.5 text-[10px] text-muted-foreground font-semibold uppercase tracking-wider",
+              isCollapsed && "md:hidden"
+            )}>
+              {group.title}
+            </p>
+            <ul className="space-y-0.5">
+              {group.items.map((item) => {
+                const active = isActive(item.href);
+                const Icon = item.icon;
+                return (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      onClick={handleNav(item.href)}
+                      prefetch={true}
+                      className={cn(
+                        "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                        isCollapsed && "md:justify-center md:px-2",
+                        active
+                          ? "bg-primary/10 text-primary"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                        isPending && "pointer-events-none"
+                      )}
+                      title={isCollapsed ? item.label : undefined}
+                      aria-label={item.label}
+                    >
+                      <Icon className="h-4 w-4 shrink-0" />
+                      <span className={cn("truncate", isCollapsed ? "md:hidden" : "md:block")}>
+                        {item.label}
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
       </nav>
 
       {isPending && (
