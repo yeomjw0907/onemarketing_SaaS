@@ -157,6 +157,25 @@ export function CalendarClient({ events, relatedActions = [], projectIdToTitle =
     }
   };
 
+  const eventTypeBadge = (eventType: string) => {
+    switch (eventType) {
+      case "report":
+        return (
+          <Badge className="bg-green-100 text-green-800 border border-green-200 hover:bg-green-100">
+            📊 리포트
+          </Badge>
+        );
+      case "notification":
+        return (
+          <Badge className="bg-blue-100 text-blue-800 border border-blue-200 hover:bg-blue-100">
+            📱 알림톡
+          </Badge>
+        );
+      default:
+        return <Badge variant="outline">{eventType}</Badge>;
+    }
+  };
+
   const navigateRelatedWork = (event: CalendarEvent) => {
     if (event.related_action_ids && event.related_action_ids.length > 0) {
       const ids = event.related_action_ids.join(",");
@@ -388,7 +407,7 @@ export function CalendarClient({ events, relatedActions = [], projectIdToTitle =
               <div className="space-y-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <StatusBadge status={selectedEvent.status} />
-                  <Badge variant="outline">{selectedEvent.event_type}</Badge>
+                  {eventTypeBadge(selectedEvent.event_type)}
                   {selectedEvent.related_action_ids &&
                     selectedEvent.related_action_ids.length > 0 && (() => {
                       const keys = new Set(

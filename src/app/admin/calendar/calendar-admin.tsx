@@ -50,6 +50,25 @@ const CLIENT_LIGHT_COLORS = [
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 const STATUS_LABEL: Record<string, string> = { planned: "계획됨", done: "완료", hold: "보류" };
 
+function EventTypeBadge({ eventType }: { eventType: string }) {
+  switch (eventType) {
+    case "report":
+      return (
+        <Badge className="bg-green-100 text-green-800 border border-green-200 hover:bg-green-100 text-[10px]">
+          📊 리포트
+        </Badge>
+      );
+    case "notification":
+      return (
+        <Badge className="bg-blue-100 text-blue-800 border border-blue-200 hover:bg-blue-100 text-[10px]">
+          📱 알림톡
+        </Badge>
+      );
+    default:
+      return <Badge variant="outline" className="text-[10px]">{eventType}</Badge>;
+  }
+}
+
 export function CalendarAdmin({ initialEvents, clients }: Props) {
   const router = useRouter();
   const supabase = createClient();
@@ -465,7 +484,7 @@ export function CalendarAdmin({ initialEvents, clients }: Props) {
                           <span className="font-medium text-foreground/80">{clientNameMap[ev.client_id] || "?"}</span>
                           <span>{formatDateTime(ev.start_at)}</span>
                           {ev.end_at && <span>~ {formatDateTime(ev.end_at)}</span>}
-                          {ev.event_type && <Badge variant="outline" className="text-[10px]">{ev.event_type}</Badge>}
+                          {ev.event_type && <EventTypeBadge eventType={ev.event_type} />}
                         </div>
                         {ev.description && (
                           <p className="text-xs text-muted-foreground mt-1.5 whitespace-pre-wrap">{ev.description}</p>

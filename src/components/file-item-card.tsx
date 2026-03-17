@@ -30,6 +30,10 @@ export function FileItemCard({
 
   const getSignedUrl = async (action: "view" | "download") => {
     setLoading(true);
+
+    // 보기: 팝업 차단 방지 — 클릭과 동시에 (동기적으로) 빈 탭을 먼저 열고, URL 취득 후 이동
+    const newTab = action === "view" ? window.open("", "_blank") : null;
+
     try {
       const res = await fetch("/api/files/signed-url", {
         method: "POST",
@@ -41,17 +45,30 @@ export function FileItemCard({
         if (action === "view") {
           setViewUrl(data.url);
           setExpiresAt(data.expiresAt);
-          window.open(data.url, "_blank");
+          if (newTab) {
+            newTab.location.href = data.url;
+          } else {
+            window.open(data.url, "_blank");
+          }
         } else {
-          // Download
+          // 다운로드: Supabase URL은 cross-origin → blob으로 받아 로컬 object URL 생성 후 다운로드
+          const fileRes = await fetch(data.url);
+          const blob = await fileRes.blob();
+          const blobUrl = URL.createObjectURL(blob);
           const a = document.createElement("a");
-          a.href = data.url;
+          a.href = blobUrl;
           a.download = filePath.split("/").pop() || "download";
+          document.body.appendChild(a);
           a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(blobUrl);
         }
+      } else {
+        newTab?.close();
       }
     } catch (err) {
       console.error("Failed to get signed URL:", err);
+      newTab?.close();
     } finally {
       setLoading(false);
     }

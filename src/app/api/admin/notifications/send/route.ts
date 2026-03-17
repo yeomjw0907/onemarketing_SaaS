@@ -19,6 +19,7 @@ import {
   buildViewUrl,
 } from "@/lib/notifications/tokens";
 import { createPortalToken } from "@/lib/notifications/create-portal-token";
+import { createAutoCalendarEvent } from "@/lib/calendar/create-auto-event";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -85,6 +86,16 @@ export async function POST(req: NextRequest) {
           reportUrl,
           brief,
         });
+
+        // 발송 성공 시 클라이언트 캘린더에 자동 이벤트 기록
+        if (result.success) {
+          await createAutoCalendarEvent(supabase, {
+            clientId,
+            title: `📊 리포트 발송: ${reportTitle}`,
+            description: brief || reportSummary || undefined,
+            eventType: "report",
+          });
+        }
         break;
       }
 
@@ -147,9 +158,9 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json(result);
-  } catch (err: any) {
+  } catch (err: unknown) {
     return NextResponse.json(
-      { success: false, error: err.message },
+      { success: false, error: err instanceof Error ? err.message : String(err) },
       { status: 500 },
     );
   }

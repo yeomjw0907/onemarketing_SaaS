@@ -15,6 +15,7 @@ import {
   getAiMessageForReport,
 } from "@/lib/ai/notification-message";
 import type { NotificationReportType } from "@/lib/types/database";
+import { createAutoCalendarEvent } from "@/lib/calendar/create-auto-event";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -110,6 +111,19 @@ export async function GET(req: NextRequest) {
           recipient_phone: phone,
           success: true,
           payload: { notification_id: created.id },
+        });
+
+        // 클라이언트 캘린더에 알림톡 발송 이벤트 자동 기록
+        const calendarTitleMap: Record<string, string> = {
+          MON_REVIEW: "📊 주간 성과 리뷰 알림톡 발송",
+          WED_BUDGET: "📈 예산 페이싱 알림톡 발송",
+          THU_PROPOSAL: "💡 다음주 제안 알림톡 발송",
+        };
+        await createAutoCalendarEvent(supabase, {
+          clientId: client.id,
+          title: calendarTitleMap[reportType] ?? `알림톡 발송: ${reportType}`,
+          description: aiMessage ?? undefined,
+          eventType: "notification",
         });
       } else {
         await supabase.from("notification_logs").insert({
