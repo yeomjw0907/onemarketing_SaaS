@@ -135,6 +135,11 @@ export function ClientDetail({
           <p className="text-xs text-muted-foreground mt-1">등록일: {formatDate(client.created_at)}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <Link href={`/admin/clients/${client.id}/portal-preview`} target="_blank">
+            <Button variant="outline" size="sm">
+              <ExternalLink className="h-3 w-3 mr-1" /> <span className="hidden sm:inline">포털 </span>미리보기
+            </Button>
+          </Link>
           {clientProfile && (
             <Button variant="outline" size="sm" onClick={() => { setPwDialogOpen(true); setPwMsg(""); }}>
               <KeyRound className="h-3 w-3 mr-1" /> <span className="hidden sm:inline">비밀번호 </span>리셋

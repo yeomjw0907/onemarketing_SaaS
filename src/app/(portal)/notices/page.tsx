@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { requireClient } from "@/lib/auth";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { createClient } from "@/lib/supabase/server";
 import { Bell } from "lucide-react";
+import { NoticesClient } from "./notices-client";
 
 export const metadata: Metadata = {
   title: "공지사항 | Onecation",
@@ -10,6 +11,13 @@ export const metadata: Metadata = {
 
 export default async function NoticesPage() {
   await requireClient();
+  const supabase = await createClient();
+
+  const { data: announcements } = await supabase
+    .from("announcements")
+    .select("id, title, content, is_pinned, created_at")
+    .order("is_pinned", { ascending: false })
+    .order("created_at", { ascending: false });
 
   return (
     <div className="space-y-6">
@@ -20,31 +28,7 @@ export default async function NoticesPage() {
         <p className="text-muted-foreground text-sm mt-1">중요 공지를 확인하세요.</p>
       </div>
 
-      <Card className="w-full">
-        <CardHeader>
-          <CardTitle className="text-base">공지 목록</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="table w-full min-w-[400px] text-sm" style={{ tableLayout: "fixed" }}>
-              <thead>
-                <tr className="border-b bg-muted/40">
-                  <th className="text-left font-medium py-3 px-4 w-16 shrink-0 text-muted-foreground whitespace-nowrap">번호</th>
-                  <th className="text-left font-medium py-3 px-4 text-muted-foreground">제목</th>
-                  <th className="text-left font-medium py-3 px-4 w-28 shrink-0 text-muted-foreground">등록일</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="border-b last:border-0">
-                  <td colSpan={3} className="py-10 px-4 text-center text-muted-foreground">
-                    등록된 공지사항이 없습니다. 중요 공지는 등록 시 이곳에서 안내드립니다.
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+      <NoticesClient announcements={announcements || []} />
     </div>
   );
 }

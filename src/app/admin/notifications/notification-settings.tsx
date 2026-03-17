@@ -13,8 +13,10 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { formatDateTime, formatPhoneDisplay } from "@/lib/utils";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Bell, Send, CheckCircle, XCircle, AlertTriangle, PhoneCall, Info,
+  Pin, Trash2, Plus, Megaphone,
 } from "lucide-react";
 
 interface Client {
@@ -37,9 +39,18 @@ interface NotificationLog {
   created_at: string;
 }
 
+interface Announcement {
+  id: string;
+  title: string;
+  content: string | null;
+  is_pinned: boolean;
+  created_at: string;
+}
+
 interface Props {
   clients: Client[];
   logs: NotificationLog[];
+  announcements: Announcement[];
 }
 
 const ENV_VARS = [
@@ -57,11 +68,49 @@ const ALIMTALK_SETUP_STEPS = [
   { step: 5, title: "테스트 발송", detail: "아래 [테스트 발송]에서 클라이언트·유형 선택 후 발송. 전화번호는 클라이언트 상세의 담당자 전화번호에 등록된 번호로 발송됨" },
 ];
 
-export function NotificationSettings({ clients, logs }: Props) {
+export function NotificationSettings({ clients, logs, announcements: initialAnnouncements }: Props) {
   const [selectedClient, setSelectedClient] = useState("");
   const [testType, setTestType] = useState("report_published");
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<{ success: boolean; error?: string } | null>(null);
+
+  // ── 공지사항 관리 ──
+  const [announcements, setAnnouncements] = useState<Announcement[]>(initialAnnouncements);
+  const [newTitle, setNewTitle] = useState("");
+  const [newContent, setNewContent] = useState("");
+  const [newPinned, setNewPinned] = useState(false);
+  const [announceSaving, setAnnounceSaving] = useState(false);
+  const [announceMsg, setAnnounceMsg] = useState("");
+
+  const handleAddAnnouncement = async () => {
+    if (!newTitle.trim()) return;
+    setAnnounceSaving(true);
+    setAnnounceMsg("");
+    try {
+      const res = await fetch("/api/admin/announcements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: newTitle.trim(), content: newContent.trim() || null, is_pinned: newPinned }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || "등록 실패");
+      const { data } = await res.json();
+      setAnnouncements([data, ...announcements]);
+      setNewTitle("");
+      setNewContent("");
+      setNewPinned(false);
+      setAnnounceMsg("공지사항이 등록되었습니다.");
+    } catch (e: unknown) {
+      setAnnounceMsg(e instanceof Error ? e.message : "오류 발생");
+    } finally {
+      setAnnounceSaving(false);
+    }
+  };
+
+  const handleDeleteAnnouncement = async (id: string) => {
+    if (!confirm("공지사항을 삭제하시겠습니까?")) return;
+    const res = await fetch(`/api/admin/announcements?id=${id}`, { method: "DELETE" });
+    if (res.ok) setAnnouncements(announcements.filter((a) => a.id !== id));
+  };
 
   const handleTestSend = async () => {
     if (!selectedClient) return;
@@ -264,6 +313,94 @@ export function NotificationSettings({ clients, logs }: Props) {
               {result.success
                 ? "✅ 알림톡 발송 성공!"
                 : `❌ 발송 실패: ${result.error || "알 수 없는 오류"}`}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── 공지사항 관리 ── */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Megaphone className="h-4 w-4 text-violet-500" />
+            공지사항 관리
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* 작성 폼 */}
+          <div className="space-y-3 border rounded-lg p-4 bg-muted/20">
+            <p className="text-xs font-medium text-muted-foreground">새 공지 등록</p>
+            <div className="space-y-2">
+              <Label>제목</Label>
+              <Input
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                placeholder="공지사항 제목을 입력하세요"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>내용 (선택)</Label>
+              <Textarea
+                value={newContent}
+                onChange={(e) => setNewContent(e.target.value)}
+                placeholder="공지 내용을 입력하세요"
+                rows={3}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                id="pinned"
+                type="checkbox"
+                checked={newPinned}
+                onChange={(e) => setNewPinned(e.target.checked)}
+                className="h-4 w-4 rounded border border-input"
+              />
+              <label htmlFor="pinned" className="text-sm text-muted-foreground cursor-pointer">
+                <Pin className="h-3 w-3 inline mr-1" />
+                상단 고정
+              </label>
+            </div>
+            {announceMsg && (
+              <p className="text-xs text-center text-muted-foreground">{announceMsg}</p>
+            )}
+            <Button
+              size="sm"
+              onClick={handleAddAnnouncement}
+              disabled={announceSaving || !newTitle.trim()}
+              className="w-full sm:w-auto"
+            >
+              <Plus className="h-3.5 w-3.5 mr-1.5" />
+              {announceSaving ? "등록 중..." : "공지 등록"}
+            </Button>
+          </div>
+
+          {/* 목록 */}
+          {announcements.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">등록된 공지사항이 없습니다.</p>
+          ) : (
+            <div className="divide-y rounded-lg border overflow-hidden">
+              {announcements.map((item) => (
+                <div key={item.id} className="flex items-start justify-between gap-3 p-3 hover:bg-muted/30 transition-colors">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      {item.is_pinned && <Pin className="h-3 w-3 text-primary shrink-0" />}
+                      <p className="text-sm font-medium truncate">{item.title}</p>
+                    </div>
+                    {item.content && (
+                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{item.content}</p>
+                    )}
+                    <p className="text-[11px] text-muted-foreground mt-1">{new Date(item.created_at).toLocaleDateString("ko-KR")}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteAnnouncement(item.id)}
+                    className="shrink-0 h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                    aria-label="삭제"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
             </div>
           )}
         </CardContent>

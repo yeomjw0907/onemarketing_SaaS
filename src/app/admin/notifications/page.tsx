@@ -12,17 +12,11 @@ export default async function NotificationsPage() {
   await requireAdmin();
   const supabase = await createClient();
 
-  const { data: clients } = await supabase
-    .from("clients")
-    .select("id, name, contact_name, contact_phone, is_active")
-    .order("name");
-
-  // 최근 알림 발송 로그
-  const { data: logs } = await supabase
-    .from("notification_logs")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(20);
+  const [clientsRes, logsRes, announcementsRes] = await Promise.all([
+    supabase.from("clients").select("id, name, contact_name, contact_phone, is_active").order("name"),
+    supabase.from("notification_logs").select("*").order("created_at", { ascending: false }).limit(20),
+    supabase.from("announcements").select("id, title, content, is_pinned, created_at").order("is_pinned", { ascending: false }).order("created_at", { ascending: false }),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -32,7 +26,7 @@ export default async function NotificationsPage() {
           카카오 알림톡을 통해 클라이언트에게 보고서 발행, 일정 알림 등을 발송합니다.
         </p>
       </div>
-      <NotificationSettings clients={clients || []} logs={logs || []} />
+      <NotificationSettings clients={clientsRes.data || []} logs={logsRes.data || []} announcements={announcementsRes.data || []} />
     </div>
   );
 }
