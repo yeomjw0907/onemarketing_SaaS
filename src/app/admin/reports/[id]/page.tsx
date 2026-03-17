@@ -2,18 +2,13 @@ import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, ThumbsUp, ThumbsDown, MessageSquare } from "lucide-react";
 import { formatDate, clientReportTitle } from "@/lib/utils";
 import { ShareButton } from "./share-button";
-
-const TiptapViewer = dynamic(
-  () => import("@/components/tiptap-editor").then((m) => m.TiptapViewer),
-  { ssr: false, loading: () => <div className="p-8 text-center text-muted-foreground">로딩 중...</div> }
-);
+import { ReportViewer } from "./report-viewer";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -75,7 +70,7 @@ export default async function AdminReportDetailPage({ params }: Props) {
       {hasContent && (
         <Card>
           <CardContent className="py-6 px-8">
-            <TiptapViewer content={report.summary!} />
+            <ReportViewer content={report.summary!} />
           </CardContent>
         </Card>
       )}
