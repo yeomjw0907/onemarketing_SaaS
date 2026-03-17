@@ -11,7 +11,7 @@ interface Props {
 export default async function ClientDetailPage({ params, searchParams }: Props) {
   await requireAdmin();
   const { id } = await params;
-  const sp = await searchParams?.catch(() => ({}));
+  const sp = await searchParams?.catch(() => ({} as { tab?: string }));
   const initialTab = sp?.tab === "integrations" ? "integrations" : "kpis";
   const supabase = await createClient();
 

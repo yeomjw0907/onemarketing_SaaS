@@ -12,7 +12,7 @@ import { ShareButton } from "./share-button";
 
 const TiptapViewer = dynamic(
   () => import("@/components/tiptap-editor").then((m) => m.TiptapViewer),
-  { ssr: false, loading: () => <div className="p-8 text-center text-muted-foreground">로딩 중...</div> }
+  { loading: () => <div className="p-8 text-center text-muted-foreground">로딩 중...</div> }
 );
 
 interface Props {

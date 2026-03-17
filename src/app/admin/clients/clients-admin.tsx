@@ -27,12 +27,45 @@ import {
 import { formatDate, formatPhoneDisplay, formatPhoneInput, phoneToDigits } from "@/lib/utils";
 import { Plus, Pencil, ChevronRight, Search, Mail, Copy, Check, Bell } from "lucide-react";
 import { KPI_TEMPLATES } from "@/lib/kpi-templates";
+import { type HealthScoreResult, GRADE_META } from "@/lib/health-score";
 
 interface Props {
   initialClients: Client[];
+  healthScores: Record<string, HealthScoreResult>;
 }
 
-export function ClientsAdmin({ initialClients }: Props) {
+/** 헬스 스코어 배지 */
+function HealthBadge({ score }: { score: HealthScoreResult }) {
+  const meta = GRADE_META[score.grade];
+  const title = [
+    `헬스 스코어: ${score.score}점 (${meta.label})`,
+    `리포트: ${score.details.report}/25`,
+    `알림톡: ${score.details.alimtalk}/20`,
+    `실행완료율: ${score.details.execution}/20`,
+    score.details.integration !== null
+      ? `데이터연동: ${score.details.integration}/20`
+      : "데이터연동: N/A (연동 안함)",
+    `클라이언트접속: ${score.details.clientLogin}/15`,
+    score.noIntegration ? "※ 연동 없음 — 나머지 4개 기준으로 산출" : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  return (
+    <span
+      title={title}
+      className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-xs font-semibold cursor-default ${meta.bg} ${meta.color}`}
+    >
+      <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${meta.dot}`} />
+      {score.score}
+      {score.noIntegration && (
+        <span className="text-[9px] opacity-70 font-normal">연동없음</span>
+      )}
+    </span>
+  );
+}
+
+export function ClientsAdmin({ initialClients, healthScores }: Props) {
   const router = useRouter();
   const supabase = createSupabase();
   const [clients] = useState(initialClients);
@@ -245,6 +278,7 @@ export function ClientsAdmin({ initialClients }: Props) {
                 <TableHead>로그인 이메일</TableHead>
                 <TableHead>담당자</TableHead>
                 <TableHead>상태</TableHead>
+                <TableHead>헬스</TableHead>
                 <TableHead>등록일</TableHead>
                 <TableHead className="text-right">관리</TableHead>
               </TableRow>
@@ -279,6 +313,11 @@ export function ClientsAdmin({ initialClients }: Props) {
                       <Badge variant={client.is_active ? "done" : "hold"}>
                         {client.is_active ? "활성" : "비활성"}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {healthScores[client.id] && (
+                        <HealthBadge score={healthScores[client.id]} />
+                      )}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {formatDate(client.created_at)}
@@ -337,11 +376,14 @@ export function ClientsAdmin({ initialClients }: Props) {
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-semibold truncate">{client.name}</p>
                       <Badge variant={client.is_active ? "done" : "hold"} className="shrink-0 text-[10px]">
                         {client.is_active ? "활성" : "비활성"}
                       </Badge>
+                      {healthScores[client.id] && (
+                        <HealthBadge score={healthScores[client.id]} />
+                      )}
                     </div>
                     <p className="text-xs text-muted-foreground mt-1 truncate">
                       {client.contact_email || `${client.client_code}@onecation.co.kr`}
