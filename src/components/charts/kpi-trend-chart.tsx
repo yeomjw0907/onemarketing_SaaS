@@ -203,22 +203,40 @@ interface PlatformMetricDataPoint {
 
 interface MetricChartProps {
   data: PlatformMetricDataPoint[];
+  compareData?: PlatformMetricDataPoint[]; // 비교 기간 데이터 (점선)
   metricKeys: { key: string; label: string; color: string }[];
   title: string;
   chartType?: "area" | "bar" | "line";
   valueFormatter?: (v: number) => string;
+  comparePeriodLabel?: string; // 툴팁에 표시할 비교 기간 라벨
 }
 
 export function MetricChart({
   data,
+  compareData,
   metricKeys,
   title,
   chartType = "area",
   valueFormatter = (v) => v.toLocaleString(),
+  comparePeriodLabel,
 }: MetricChartProps) {
   if (data.length === 0) return null;
 
+  // 비교 데이터를 인덱스 기준으로 현재 데이터에 병합
+  // 키 네이밍: impressions_prev, clicks_prev ...
+  const mergedData = data.map((d, i) => {
+    const cmp = compareData?.[i];
+    if (!cmp) return d;
+    const extra: Record<string, number> = {};
+    for (const mk of metricKeys) {
+      const v = cmp[mk.key];
+      if (v !== undefined) extra[`${mk.key}_prev`] = v as number;
+    }
+    return { ...d, ...extra };
+  });
+
   const ChartComponent = chartType === "bar" ? BarChart : chartType === "line" ? LineChart : AreaChart;
+  const hasCompare = (compareData?.length ?? 0) > 0;
 
   return (
     <Card className="border-border/50 shadow-sm">
@@ -226,7 +244,18 @@ export function MetricChart({
         <h3 className="text-sm font-bold mb-4">{title}</h3>
         <div className="h-[240px]">
           <ResponsiveContainer width="100%" height="100%">
-            <ChartComponent data={data} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+            <ChartComponent data={mergedData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+              {/* 그라디언트 defs (area only) */}
+              {chartType === "area" && (
+                <defs>
+                  {metricKeys.map((mk) => (
+                    <linearGradient key={mk.key} id={`mcg-${mk.key}`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={mk.color} stopOpacity={0.15} />
+                      <stop offset="95%" stopColor={mk.color} stopOpacity={0} />
+                    </linearGradient>
+                  ))}
+                </defs>
+              )}
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} />
               <XAxis
                 dataKey="dateLabel"
@@ -248,46 +277,63 @@ export function MetricChart({
                   fontSize: "12px",
                   boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
                 }}
-                formatter={(value: any, name: any) => {
-                  const m = metricKeys.find((k) => k.key === name);
-                  return [valueFormatter(Number(value)), m?.label || name];
+                formatter={(value: unknown, name: unknown) => {
+                  const nameStr = String(name);
+                  const isPrev = nameStr.endsWith("_prev");
+                  const baseKey = isPrev ? nameStr.replace("_prev", "") : nameStr;
+                  const m = metricKeys.find((k) => k.key === baseKey);
+                  const label = m ? (isPrev ? `${m.label} (${comparePeriodLabel ?? "비교"})` : m.label) : nameStr;
+                  return [valueFormatter(Number(value)), label];
                 }}
               />
-              {metricKeys.length > 1 && (
+              {(metricKeys.length > 1 || hasCompare) && (
                 <Legend
-                  formatter={(v) => metricKeys.find((k) => k.key === v)?.label || v}
+                  formatter={(v) => {
+                    const isPrev = v.endsWith("_prev");
+                    const baseKey = isPrev ? v.replace("_prev", "") : v;
+                    const m = metricKeys.find((k) => k.key === baseKey);
+                    return m ? (isPrev ? `${m.label} (${comparePeriodLabel ?? "비교"})` : m.label) : v;
+                  }}
                   wrapperStyle={{ fontSize: "11px" }}
                 />
               )}
+
+              {/* 현재 기간 시리즈 */}
               {metricKeys.map((mk) => {
                 if (chartType === "bar") {
                   return <Bar key={mk.key} dataKey={mk.key} fill={mk.color} radius={[4, 4, 0, 0]} />;
                 }
                 if (chartType === "line") {
                   return (
-                    <Line
-                      key={mk.key}
-                      type="monotone"
-                      dataKey={mk.key}
-                      stroke={mk.color}
-                      strokeWidth={2}
+                    <Line key={mk.key} type="monotone" dataKey={mk.key}
+                      stroke={mk.color} strokeWidth={2}
                       dot={{ r: 2.5, fill: mk.color, strokeWidth: 0 }}
                     />
                   );
                 }
                 return (
-                  <Area
-                    key={mk.key}
-                    type="monotone"
-                    dataKey={mk.key}
-                    stroke={mk.color}
-                    strokeWidth={2}
-                    fill={mk.color}
-                    fillOpacity={0.08}
+                  <Area key={mk.key} type="monotone" dataKey={mk.key}
+                    stroke={mk.color} strokeWidth={2}
+                    fill={`url(#mcg-${mk.key})`} fillOpacity={1}
                     dot={{ r: 2.5, fill: mk.color, strokeWidth: 0 }}
                   />
                 );
               })}
+
+              {/* 비교 기간 시리즈 (점선) */}
+              {hasCompare && metricKeys.map((mk) => (
+                <Line
+                  key={`${mk.key}_prev`}
+                  type="monotone"
+                  dataKey={`${mk.key}_prev`}
+                  stroke={mk.color}
+                  strokeWidth={1.5}
+                  strokeDasharray="4 3"
+                  strokeOpacity={0.5}
+                  dot={false}
+                  legendType="line"
+                />
+              ))}
             </ChartComponent>
           </ResponsiveContainer>
         </div>

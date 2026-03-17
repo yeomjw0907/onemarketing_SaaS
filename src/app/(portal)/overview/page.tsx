@@ -9,7 +9,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { formatDate, clientReportTitle } from "@/lib/utils";
 import {
   Zap, CalendarDays, FileText,
-  ChevronRight,
+  ChevronRight, TrendingUp, TrendingDown, Minus,
 } from "lucide-react";
 import Link from "next/link";
 import { ServiceCatalogView } from "@/components/service-catalog-view";
@@ -43,24 +43,27 @@ export default async function OverviewPage() {
     .order("overview_order", { ascending: true })
     .limit(4);
 
-  // 각 KPI 최신값
+  // 각 KPI 최신값 + 이전 기간값 (MoM 비교)
   const kpiCards = [];
   if (kpiDefs) {
     for (const kpi of kpiDefs) {
-      const { data: latestMetric } = await supabase
+      const { data: recentMetrics } = await supabase
         .from("metrics")
-        .select("value, notes, period_start")
+        .select("value, notes, period_start, period_type")
         .eq("client_id", clientId)
         .eq("metric_key", kpi.metric_key)
         .eq("visibility", "visible")
         .order("period_start", { ascending: false })
-        .limit(1)
-        .single();
+        .limit(2);
+
+      const current = recentMetrics?.[0] ?? null;
+      const prev = recentMetrics?.[1] ?? null;
 
       kpiCards.push({
         ...kpi,
-        latestValue: latestMetric?.value ?? null,
-        latestNotes: latestMetric?.notes ?? null,
+        latestValue: current?.value ?? null,
+        latestNotes: current?.notes ?? null,
+        prevValue: prev?.value ?? null,
       });
     }
   }
@@ -162,7 +165,15 @@ export default async function OverviewPage() {
       {/* ─── KPI 카드 ─── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         {kpiCards.map((kpi, i) =>
-          kpi ? (
+          kpi ? (() => {
+            // MoM 변화율 계산
+            const cur = kpi.latestValue !== null ? Number(kpi.latestValue) : null;
+            const prv = kpi.prevValue !== null ? Number(kpi.prevValue) : null;
+            let changePct: number | null = null;
+            if (cur !== null && prv !== null && prv !== 0) {
+              changePct = ((cur - prv) / Math.abs(prv)) * 100;
+            }
+            return (
             <Card key={kpi.id} className="border-border/50 shadow-sm hover:shadow-md transition-shadow">
               <CardContent className="pt-5 pb-4">
                 <p className="text-xs font-medium text-muted-foreground truncate">
@@ -170,20 +181,35 @@ export default async function OverviewPage() {
                 </p>
                 <div className="flex items-baseline gap-1.5 mt-2">
                   <span className="text-2xl md:text-3xl font-bold tracking-tight">
-                    {kpi.latestValue !== null
-                      ? Number(kpi.latestValue).toLocaleString()
-                      : "-"}
+                    {cur !== null ? cur.toLocaleString() : "-"}
                   </span>
                   <span className="text-sm text-muted-foreground">{kpi.unit}</span>
                 </div>
-                {kpi.latestNotes && (
-                  <p className="text-[11px] text-muted-foreground mt-1.5 truncate">
-                    {kpi.latestNotes}
-                  </p>
-                )}
+                <div className="flex items-center justify-between mt-2">
+                  {kpi.latestNotes && (
+                    <p className="text-[11px] text-muted-foreground truncate flex-1">
+                      {kpi.latestNotes}
+                    </p>
+                  )}
+                  {changePct !== null ? (
+                    <span className={`inline-flex items-center gap-0.5 text-[11px] font-semibold shrink-0 ml-auto ${
+                      changePct > 0 ? "text-emerald-600" : changePct < 0 ? "text-rose-500" : "text-muted-foreground"
+                    }`}>
+                      {changePct > 0
+                        ? <TrendingUp className="h-3 w-3" />
+                        : changePct < 0
+                        ? <TrendingDown className="h-3 w-3" />
+                        : <Minus className="h-3 w-3" />}
+                      {changePct > 0 ? "+" : ""}{changePct.toFixed(1)}%
+                    </span>
+                  ) : prv === null && cur !== null ? (
+                    <span className="text-[11px] text-muted-foreground shrink-0 ml-auto">이전 기간 없음</span>
+                  ) : null}
+                </div>
               </CardContent>
             </Card>
-          ) : (
+            );
+          })() : (
             <Card key={`ph-${i}`} className="border-dashed border-border/40 bg-muted/20">
               <CardContent className="pt-5 pb-4">
                 <p className="text-xs font-medium text-muted-foreground/60">KPI 미설정</p>

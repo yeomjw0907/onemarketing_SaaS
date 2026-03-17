@@ -2,15 +2,12 @@ import type { Metadata } from "next";
 import { requireClient, isModuleEnabled } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { ModuleDisabled } from "@/components/module-guard";
-import { EmptyState } from "@/components/empty-state";
-import { StatusBadge } from "@/components/status-badge";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatDate, stripHtml } from "@/lib/utils";
 import Link from "next/link";
 import { Zap } from "lucide-react";
 import { findServiceItem } from "@/lib/service-catalog";
 import { ExecutionCategoryFilter } from "./execution-category-filter";
+import { ExecutionView } from "./execution-view";
 
 export const metadata: Metadata = {
   title: "실행 현황 | Onecation",
@@ -170,49 +167,7 @@ export default async function ExecutionPage({ searchParams }: Props) {
         </div>
       )}
 
-      {actions && actions.length > 0 ? (
-        <div className="space-y-3">
-          {actions.map((action) => (
-            <Card key={action.id} className="transition-subtle hover:shadow-md">
-              <Link href={`/execution/actions/${action.id}`} className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg">
-                <CardContent className="py-4 px-6 cursor-pointer">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <span className="text-base font-medium">
-                        {stripHtml(action.title) || action.title}
-                      </span>
-                      {action.description && (
-                        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                          {stripHtml(action.description)}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-2 flex-wrap mt-2">
-                        {((action.category ?? "")
-                          .split(",")
-                          .map((c: string) => c.trim())
-                          .filter(Boolean).length
-                          ? (action.category ?? "").split(",").map((c: string) => c.trim()).filter(Boolean)
-                          : ["general"]
-                        ).map((k: string) => (
-                          <Badge key={k} variant="outline" className="text-xs">
-                            {categoryLabelByKey[k] ?? (k === "general" ? "일반" : k.replace(/_/g, " "))}
-                          </Badge>
-                        ))}
-                        <span className="text-xs text-muted-foreground">
-                          {formatDate(action.action_date)}
-                        </span>
-                      </div>
-                    </div>
-                    <StatusBadge status={action.status} />
-                  </div>
-                </CardContent>
-              </Link>
-            </Card>
-          ))}
-        </div>
-      ) : (
-        <EmptyState title="실행 내역 없음" description="등록된 액션이 없습니다." />
-      )}
+      <ExecutionView actions={actions} categoryLabelByKey={categoryLabelByKey} />
     </div>
   );
 }
