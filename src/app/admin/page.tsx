@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
 import { requireAdmin } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, FolderKanban, FileText, CalendarDays, Image, TrendingUp, Building2, CreditCard } from "lucide-react";
+import {
+  Users, FolderKanban, FileText, CalendarDays, Image,
+  TrendingUp, Building2, CreditCard, HeartPulse, ChevronRight,
+} from "lucide-react";
 import Link from "next/link";
+import { calcHealthScore, GRADE_META, type HealthGrade } from "@/lib/health-score";
 
 export const metadata: Metadata = {
   title: "대시보드 | Onecation 관리자",
@@ -21,6 +25,9 @@ export default async function AdminDashboard() {
   const session = await requireAdmin();
   const supabase = await createClient();
 
+  const now = new Date();
+  const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+
   const safeCount = async (table: string) => {
     try {
       const { count } = await supabase.from(table).select("id", { count: "exact", head: true });
@@ -30,19 +37,29 @@ export default async function AdminDashboard() {
     }
   };
 
-  const [clientsN, projectsN, eventsN, reportsN, assetsN, agenciesRes, subscriptionsRes] =
-    await Promise.all([
-      safeCount("clients"),
-      safeCount("projects"),
-      safeCount("calendar_events"),
-      safeCount("reports"),
-      safeCount("assets"),
-      supabase.from("agencies").select("id", { count: "exact", head: true }),
-      supabase
-        .from("agency_subscriptions")
-        .select("plan_key, status, billing_cycle")
-        .in("status", ["active", "trialing"]),
-    ]);
+  const [
+    clientsN, projectsN, eventsN, reportsN, assetsN,
+    agenciesRes, subscriptionsRes,
+    clientsRes, reportsHealthRes, notiRes, actionsRes, integrationsRes, profilesRes,
+  ] = await Promise.all([
+    safeCount("clients"),
+    safeCount("projects"),
+    safeCount("calendar_events"),
+    safeCount("reports"),
+    safeCount("assets"),
+    supabase.from("agencies").select("id", { count: "exact", head: true }),
+    supabase
+      .from("agency_subscriptions")
+      .select("plan_key, status, billing_cycle")
+      .in("status", ["active", "trialing"]),
+    // 헬스 스코어용
+    supabase.from("clients").select("id, name").eq("is_active", true),
+    supabase.from("reports").select("client_id, published_at").order("published_at", { ascending: false }),
+    supabase.from("notification_logs").select("client_id, created_at").eq("success", true).order("created_at", { ascending: false }),
+    supabase.from("actions").select("client_id, status").gte("action_date", monthStart).eq("visibility", "visible"),
+    supabase.from("data_integrations").select("client_id, status"),
+    supabase.from("profiles").select("user_id, client_id").eq("role", "client").not("client_id", "is", null),
+  ]);
 
   const agenciesN = agenciesRes.count ?? 0;
   const subs = subscriptionsRes.data ?? [];
@@ -72,6 +89,78 @@ export default async function AdminDashboard() {
     { label: "리포트", count: reportsN, icon: FileText, href: "/admin/reports" },
     { label: "자료실", count: assetsN, icon: Image, href: "/admin/assets" },
   ];
+
+  // ── 헬스 스코어 계산 ──
+  const clients = clientsRes.data || [];
+
+  const lastReportByClient: Record<string, string> = {};
+  for (const r of reportsHealthRes.data || []) {
+    if (!r.client_id || lastReportByClient[r.client_id]) continue;
+    lastReportByClient[r.client_id] = r.published_at;
+  }
+
+  const lastAlimtalkByClient: Record<string, string> = {};
+  for (const n of notiRes.data || []) {
+    if (!n.client_id || lastAlimtalkByClient[n.client_id]) continue;
+    lastAlimtalkByClient[n.client_id] = n.created_at;
+  }
+
+  const executionByClient: Record<string, { total: number; done: number }> = {};
+  for (const a of actionsRes.data || []) {
+    if (!a.client_id) continue;
+    if (!executionByClient[a.client_id]) executionByClient[a.client_id] = { total: 0, done: 0 };
+    executionByClient[a.client_id].total++;
+    if (a.status === "done") executionByClient[a.client_id].done++;
+  }
+
+  const integrationByClient: Record<string, boolean | null> = {};
+  for (const i of integrationsRes.data || []) {
+    if (!i.client_id) continue;
+    const prev = integrationByClient[i.client_id];
+    if (prev === true) continue;
+    integrationByClient[i.client_id] = i.status === "active" ? true : (prev ?? false);
+  }
+
+  const lastLoginByClient: Record<string, string | null> = {};
+  try {
+    const serviceClient = await createServiceClient();
+    const { data: authData } = await serviceClient.auth.admin.listUsers({ perPage: 1000 });
+    const loginByUserId: Record<string, string | null> = {};
+    for (const u of authData?.users || []) {
+      loginByUserId[u.id] = u.last_sign_in_at ?? null;
+    }
+    for (const p of profilesRes.data || []) {
+      if (!p.client_id) continue;
+      const login = loginByUserId[p.user_id] ?? null;
+      const current = lastLoginByClient[p.client_id] ?? null;
+      if (!current || (login && login > current)) {
+        lastLoginByClient[p.client_id] = login;
+      }
+    }
+  } catch {
+    // 서비스 키 없으면 로그인 점수 0
+  }
+
+  const clientScores = clients.map((c) => {
+    const hasIntegration =
+      integrationByClient[c.id] !== undefined ? integrationByClient[c.id] : null;
+    const result = calcHealthScore({
+      lastReportDate: lastReportByClient[c.id] ?? null,
+      lastAlimtalkDate: lastAlimtalkByClient[c.id] ?? null,
+      executionThisMonth: executionByClient[c.id] ?? { total: 0, done: 0 },
+      hasIntegration,
+      lastClientLogin: lastLoginByClient[c.id] ?? null,
+    });
+    return { id: c.id, name: c.name, ...result };
+  });
+
+  const gradeDist: Record<HealthGrade, number> = { excellent: 0, good: 0, warning: 0, danger: 0 };
+  for (const cs of clientScores) gradeDist[cs.grade]++;
+
+  const needAttention = clientScores
+    .filter((cs) => cs.grade === "danger" || cs.grade === "warning")
+    .sort((a, b) => a.score - b.score)
+    .slice(0, 5);
 
   return (
     <div className="space-y-6">
@@ -133,6 +222,90 @@ export default async function AdminDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* 클라이언트 헬스 스코어 */}
+      {clients.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+              <HeartPulse className="h-4 w-4" /> 클라이언트 헬스
+            </h2>
+            <Link href="/admin/clients" className="text-xs text-primary hover:underline flex items-center gap-0.5">
+              전체 보기 <ChevronRight className="h-3 w-3" />
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* 등급 분포 */}
+            <Card>
+              <CardContent className="pt-5">
+                <p className="text-xs font-medium text-muted-foreground mb-3">등급 분포 ({clients.length}개 활성 클라이언트)</p>
+                <div className="grid grid-cols-4 gap-2">
+                  {(["excellent", "good", "warning", "danger"] as HealthGrade[]).map((g) => {
+                    const meta = GRADE_META[g];
+                    return (
+                      <div
+                        key={g}
+                        className={`rounded-xl border p-3 text-center ${meta.bg}`}
+                      >
+                        <div className={`text-xl font-bold ${meta.color}`}>
+                          {gradeDist[g]}
+                        </div>
+                        <div className={`text-[10px] font-medium mt-0.5 ${meta.color}`}>
+                          {meta.label}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* 주의 필요 클라이언트 */}
+            <Card>
+              <CardContent className="pt-5">
+                <p className="text-xs font-medium text-muted-foreground mb-3">
+                  주의 필요
+                  {needAttention.length > 0 && (
+                    <span className="ml-1 text-orange-600">({needAttention.length})</span>
+                  )}
+                </p>
+                {needAttention.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-4 text-center">
+                    <div className="h-8 w-8 rounded-full bg-emerald-100 flex items-center justify-center mb-2">
+                      <span className="text-emerald-600 text-lg">✓</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">모든 클라이언트 상태 양호</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {needAttention.map((cs) => {
+                      const meta = GRADE_META[cs.grade];
+                      return (
+                        <Link
+                          key={cs.id}
+                          href={`/admin/clients/${cs.id}`}
+                          className="flex items-center justify-between rounded-lg px-3 py-2 hover:bg-muted/50 transition-colors -mx-1"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className={`h-2 w-2 rounded-full shrink-0 ${meta.dot}`} />
+                            <span className="text-sm font-medium truncate">{cs.name}</span>
+                            {cs.noIntegration && (
+                              <span className="text-[10px] text-muted-foreground shrink-0">연동없음</span>
+                            )}
+                          </div>
+                          <span className={`text-xs font-bold shrink-0 ml-2 ${meta.color}`}>
+                            {cs.score}점
+                          </span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
 
       {/* 콘텐츠 현황 */}
       <div>
