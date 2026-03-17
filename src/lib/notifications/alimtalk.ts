@@ -30,19 +30,19 @@ export interface SendResult {
 
 // ── 템플릿 ID 상수 ──
 export const TEMPLATE_IDS = {
-  WELCOME: "TPL_welcome",                           // 가입 승인 완료 (웰컴)
-  REPORT_PUBLISHED: "TPL_report_published",        // 보고서 발행 알림
-  ACTION_STATUS_CHANGED: "TPL_action_status",       // 실행항목 상태 변경 알림
-  EVENT_REMINDER: "TPL_event_reminder",             // 일정 리마인더
-  PASSWORD_RESET: "TPL_password_reset",             // 비밀번호 리셋 안내
-  MON_REVIEW: "TPL_mon_review",                     // 지난주 성과 리뷰
-  WED_BUDGET: "TPL_wed_budget",                     // 예산 페이싱
-  THU_PROPOSAL: "TPL_thu_proposal",                 // 다음 주 제안 + 승인
-  ADDON_ORDER_TO_ADMIN: "TPL_addon_order_admin",    // 부가서비스 주문 접수 (관리자 수신)
-  ADDON_ORDER_TO_CLIENT: "TPL_addon_order_client",  // 부가서비스 주문 접수 확인 (고객 수신)
-  REPORT_FEEDBACK: "TPL_report_feedback",           // 클라이언트 리포트 피드백 (관리자 수신)
-  SUBSCRIPTION_EXPIRY: "TPL_subscription_expiry",   // 구독 만료 임박 안내 (에이전시 오너 수신)
-  CLIENT_INVITE: "TPL_client_invite",               // 포털 초대 링크 안내 (클라이언트 수신)
+  WELCOME:               "KA01TP260225105532366xlkulfkNmAK",  // 가입 승인 완료 (웰컴)
+  REPORT_PUBLISHED:      "KA01TP260225105907622RIoYoUiEPHl",  // 보고서 발행 알림
+  ACTION_STATUS_CHANGED: "KA01TP260225112210684DBj9B1z2uvu",  // 실행항목 상태 변경 알림
+  EVENT_REMINDER:        "KA01TP260225112500730UNG6lezLClc",  // 일정 리마인더
+  PASSWORD_RESET:        "KA01TP26022511262520344usp5kCNr9",  // 비밀번호 리셋 안내
+  MON_REVIEW:            "KA01TP2602251129061296sowYRA1gYu",  // 지난주 성과 리뷰
+  WED_BUDGET:            "KA01TP260225113014090K4FKc6f9nxV",  // 예산 페이싱
+  THU_PROPOSAL:          "KA01TP260225113134146BPhdrOnfBkj",  // 다음 주 제안 + 승인
+  ADDON_ORDER_TO_ADMIN:  "KA01TP260225113249444j3M42ZwNv6P",  // 부가서비스 주문 접수 (관리자 수신)
+  ADDON_ORDER_TO_CLIENT: "KA01TP260225113401454pEZwWwwypBJ",  // 부가서비스 주문 접수 확인 (고객 수신)
+  REPORT_FEEDBACK:       "",  // TODO: Solapi 미등록 — 등록 후 ID 입력
+  SUBSCRIPTION_EXPIRY:   "",  // TODO: Solapi 미등록 — 등록 후 ID 입력
+  CLIENT_INVITE:         "",  // TODO: Solapi 미등록 — 등록 후 ID 입력
 } as const;
 
 // ── 솔라피 인증 헤더 생성 ──
