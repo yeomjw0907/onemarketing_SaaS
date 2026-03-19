@@ -16,7 +16,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { formatDate } from "@/lib/utils";
-import { Plus, MessageSquare, ThumbsUp, ThumbsDown } from "lucide-react";
+import { Plus, MessageSquare, ThumbsUp, ThumbsDown, Eye, EyeOff, Clock } from "lucide-react";
 
 interface Props {
   initialReports: any[];
@@ -69,17 +69,46 @@ export function ReportsAdmin({ initialReports, clients }: Props) {
           <TableHeader><TableRow>
             <TableHead>클라이언트</TableHead><TableHead>제목</TableHead>
             <TableHead>유형</TableHead><TableHead>발행일</TableHead>
+            <TableHead>열람</TableHead>
             <TableHead>피드백</TableHead>
           </TableRow></TableHeader>
           <TableBody>
             {filteredReports.length === 0 ? (
-              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">없음</TableCell></TableRow>
-            ) : filteredReports.map((r: any) => (
+              <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">없음</TableCell></TableRow>
+            ) : filteredReports.map((r: any) => {
+              const views = (r.report_views as any[]) ?? [];
+              const lastView = views.sort((a: any, b: any) =>
+                new Date(b.opened_at).getTime() - new Date(a.opened_at).getTime()
+              )[0];
+              const totalDuration = views.reduce((sum: number, v: any) => sum + (v.duration_seconds || 0), 0);
+              return (
               <TableRow key={r.id} className="cursor-pointer hover:bg-muted/50" onClick={() => router.push(`/admin/reports/${r.id}`)}>
                 <TableCell>{r.clients?.name || "-"}</TableCell>
                 <TableCell className="font-medium">{r.title}</TableCell>
                 <TableCell><Badge variant="outline">{r.report_type === "weekly" ? "주간" : "월간"}</Badge></TableCell>
                 <TableCell className="text-sm">{formatDate(r.published_at)}</TableCell>
+                <TableCell>
+                  {lastView ? (
+                    <div className="flex flex-col gap-0.5">
+                      <span className="flex items-center gap-1 text-xs text-emerald-600 font-medium">
+                        <Eye className="h-3 w-3" />
+                        {formatDate(lastView.opened_at)}
+                      </span>
+                      {totalDuration > 0 && (
+                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <Clock className="h-3 w-3" />
+                          {totalDuration >= 60
+                            ? `${Math.floor(totalDuration / 60)}분 ${totalDuration % 60}초`
+                            : `${totalDuration}초`}
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <EyeOff className="h-3 w-3" />미열람
+                    </span>
+                  )}
+                </TableCell>
                 <TableCell>
                   {(() => {
                     const comments = (r.report_comments as any[]) ?? [];
@@ -97,7 +126,7 @@ export function ReportsAdmin({ initialReports, clients }: Props) {
                   })()}
                 </TableCell>
               </TableRow>
-            ))}
+            );})}
           </TableBody>
         </Table>
       </CardContent></Card>

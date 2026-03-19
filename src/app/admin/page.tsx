@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Users, FolderKanban, FileText, CalendarDays, Image,
   TrendingUp, Building2, CreditCard, HeartPulse, ChevronRight,
-  ArrowUpRight, ListChecks,
+  ArrowUpRight, ListChecks, AlertTriangle, Eye, CheckCircle2,
 } from "lucide-react";
 import Link from "next/link";
 import { calcHealthScore, GRADE_META, type HealthGrade } from "@/lib/health-score";
@@ -49,6 +49,7 @@ export default async function AdminDashboard() {
     agenciesRes, subscriptionsRes,
     clientsRes, reportsHealthRes, notiRes, actionsRes, integrationsRes, profilesRes,
     pendingApprovalsRes, weekEventsRes, todayEventsRes,
+    perfAlertsRes, recentViewsRes,
   ] = await Promise.all([
     safeCount("clients"),
     safeCount("projects"),
@@ -88,6 +89,19 @@ export default async function AdminDashboard() {
       .gte("start_at", todayStart)
       .lte("start_at", todayEnd)
       .order("start_at", { ascending: true }),
+    // 미해결 성과 이상 감지 알림 (최신 10건)
+    supabase
+      .from("performance_alerts")
+      .select("id, client_id, alert_type, severity, title, message, detected_at, is_read")
+      .is("resolved_at", null)
+      .order("detected_at", { ascending: false })
+      .limit(10),
+    // 미열람 리포트 최신 5건 (어드민용)
+    supabase
+      .from("report_views")
+      .select("report_id, opened_at, duration_seconds, client_id")
+      .order("opened_at", { ascending: false })
+      .limit(20),
   ]);
 
   const agenciesN = agenciesRes.count ?? 0;
@@ -115,6 +129,8 @@ export default async function AdminDashboard() {
   const pendingApprovals = pendingApprovalsRes.data ?? [];
   const weekEvents = weekEventsRes.data ?? [];
   const todayEvents = todayEventsRes.data ?? [];
+  const perfAlerts = perfAlertsRes.data ?? [];
+  const recentViews = recentViewsRes.data ?? [];
 
   // 투두 총 개수
   const todoTotal = todayEvents.length + pendingApprovals.length;
@@ -204,6 +220,70 @@ export default async function AdminDashboard() {
           </div>
         )}
       </div>
+
+      {/* ── 성과 이상 감지 알림 ───────────────────────────────────────────── */}
+      {perfAlerts.length > 0 && (
+        <div>
+          <h2 className="text-base font-semibold flex items-center gap-2 mb-3">
+            <AlertTriangle className="h-4 w-4 text-amber-500" />
+            성과 이상 감지
+            <span className="ml-1 inline-flex items-center justify-center rounded-full bg-amber-100 text-amber-700 text-xs font-bold px-2 py-0.5">
+              {perfAlerts.length}
+            </span>
+          </h2>
+          <div className="space-y-2">
+            {perfAlerts.map((alert: any) => (
+              <Link key={alert.id} href={`/admin/clients/${alert.client_id}`}>
+                <div className={`flex items-start gap-3 rounded-xl border px-4 py-3 hover:bg-muted/50 transition-colors ${
+                  alert.severity === "critical"
+                    ? "border-red-200 bg-red-50/50"
+                    : "border-amber-200 bg-amber-50/50"
+                }`}>
+                  <AlertTriangle className={`h-4 w-4 mt-0.5 flex-shrink-0 ${
+                    alert.severity === "critical" ? "text-red-500" : "text-amber-500"
+                  }`} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{alert.title}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{alert.message}</p>
+                  </div>
+                  <span className="text-xs text-muted-foreground flex-shrink-0">
+                    {new Date(alert.detected_at).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── 리포트 열람 현황 ─────────────────────────────────────────────── */}
+      {recentViews.length > 0 && (
+        <div>
+          <h2 className="text-base font-semibold flex items-center gap-2 mb-3">
+            <Eye className="h-4 w-4 text-blue-500" />
+            최근 리포트 열람
+          </h2>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {recentViews.slice(0, 6).map((v: any) => (
+              <div key={v.report_id + v.client_id}
+                className="flex items-center gap-3 rounded-xl border bg-card px-4 py-3">
+                <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    {clientNameById[v.client_id] || "클라이언트"}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(v.opened_at).toLocaleDateString("ko-KR", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                    {v.duration_seconds > 0 && ` · ${v.duration_seconds >= 60
+                      ? `${Math.floor(v.duration_seconds / 60)}분`
+                      : `${v.duration_seconds}초`}`}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── 할 일 섹션 (항상 표시) ────────────────────────────────────────── */}
       <div>

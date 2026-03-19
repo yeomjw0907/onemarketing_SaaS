@@ -27,6 +27,43 @@ export function ReportDetailView({ report }: Props) {
   const hasContent = report.summary && report.summary.startsWith("<");
   const hasFile = report.file_path && report.file_path !== "inline";
 
+  // ── 열람 추적 ──
+  useEffect(() => {
+    let viewId: string | null = null;
+    let startTime = Date.now();
+    let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+
+    const sendHeartbeat = async () => {
+      const seconds = Math.floor((Date.now() - startTime) / 1000);
+      await fetch(`/api/portal/reports/${report.id}/view`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ duration_seconds: seconds }),
+      }).catch(() => {});
+    };
+
+    const init = async () => {
+      try {
+        const res = await fetch(`/api/portal/reports/${report.id}/view`, { method: "POST" });
+        const data = await res.json();
+        if (data.viewId) {
+          viewId = data.viewId;
+          // 30초마다 체류 시간 업데이트
+          heartbeatTimer = setInterval(sendHeartbeat, 30_000);
+        }
+      } catch {}
+    };
+
+    init();
+
+    return () => {
+      if (heartbeatTimer) clearInterval(heartbeatTimer);
+      // 페이지 떠날 때 마지막 시간 전송
+      if (viewId) sendHeartbeat();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [report.id]);
+
   // 댓글/피드백 상태
   const [comments, setComments] = useState<ReportComment[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(true);
