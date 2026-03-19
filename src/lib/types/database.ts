@@ -339,6 +339,76 @@ export interface ReportComment {
   updated_at: string;
 }
 
+// ── Instagram 인사이트 ────────────────────────────────────────
+
+export type InstagramAccountStatus = "active" | "inactive" | "error";
+
+export interface InstagramAccount {
+  id: string;
+  client_id: string;
+  instagram_id: string;
+  username: string | null;
+  page_id: string | null;
+  access_token: string;
+  token_expires_at: string | null;
+  followers_count: number | null;
+  media_count: number | null;
+  profile_picture_url: string | null;
+  status: InstagramAccountStatus;
+  error_message: string | null;
+  last_synced_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InstagramDailyStat {
+  id: string;
+  account_id: string;
+  client_id: string;
+  stat_date: string;
+  followers_count: number | null;
+  impressions: number | null;
+  reach: number | null;
+  profile_views: number | null;
+  website_clicks: number | null;
+  created_at: string;
+}
+
+export interface InstagramMediaMetric {
+  id: string;
+  account_id: string;
+  client_id: string;
+  media_id: string;
+  media_type: string | null;
+  caption: string | null;
+  media_url: string | null;
+  thumbnail_url: string | null;
+  posted_at: string | null;
+  like_count: number | null;
+  comments_count: number | null;
+  saved_count: number | null;
+  reach: number | null;
+  impressions: number | null;
+  engagement_rate: number | null;
+  updated_at: string;
+  created_at: string;
+}
+
+export interface BoostingPeriod {
+  id: string;
+  client_id: string;
+  account_id: string | null;
+  label: string;
+  start_date: string;
+  end_date: string;
+  budget_won: number | null;
+  platform: string | null;
+  meta_campaign_id: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // ── 에이전시 / 구독 ──────────────────────────────────────────
 
 export type SubscriptionStatus = "trialing" | "active" | "past_due" | "cancelled" | "expired";

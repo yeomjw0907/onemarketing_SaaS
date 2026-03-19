@@ -61,17 +61,24 @@ export function InstagramTab({ clientId, initialAccounts }: Props) {
     setSyncLoading(accountId);
     setSyncMsg(null);
     try {
-      const cronSecret = "";
-      const res = await fetch("/api/cron/sync-instagram", {
-        headers: { authorization: `Bearer ${cronSecret}` },
+      const res = await fetch("/api/admin/instagram-sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accountId }),
       });
       if (res.ok) {
-        setSyncMsg("동기화 요청이 완료되었습니다.");
+        const data = (await res.json()) as { succeeded?: number; failed?: number };
+        if ((data.failed ?? 0) > 0) {
+          setSyncMsg("동기화 중 오류가 발생했습니다.");
+        } else {
+          setSyncMsg("동기화가 완료되었습니다.");
+        }
         // 계정 목록 갱신
-        const accRes = await fetch(`/api/instagram/connect?clientId=${clientId}`, { method: "HEAD" }).catch(() => null);
+        const accRes = await fetch(`/api/instagram/boosting?clientId=${clientId}`).catch(() => null);
         void accRes;
       } else {
-        setSyncMsg("동기화 실패");
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        setSyncMsg(data.error ?? "동기화 실패");
       }
     } catch {
       setSyncMsg("동기화 오류 발생");
