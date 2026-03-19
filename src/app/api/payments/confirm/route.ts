@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
   const planKey = searchParams.get("planKey") ?? "starter";
   const billingCycle = (searchParams.get("billingCycle") ?? "monthly") as "monthly" | "yearly";
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://onemarketing.kr";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.onemarketing.kr";
 
   if (!paymentKey || !orderId || !amountStr || !agencyId) {
     return NextResponse.redirect(`${appUrl}/admin/billing?paymentFailed=1`);
