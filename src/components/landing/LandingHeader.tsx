@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
-import { Menu, X } from "lucide-react";
+import { Menu, X, Instagram } from "lucide-react";
 export function LandingHeader() {
   const [mobileOpen, setMobileOpen] = useState(false);
   return (
@@ -13,6 +13,12 @@ export function LandingHeader() {
           <img src="/logo-light.png" alt="ONEmarketing" className="h-8 w-auto" />
         </Link>
         <div className="hidden md:flex items-center gap-3">
+          <Link href="/free-report">
+            <Button variant="outline" size="sm" className="gap-1.5 border-pink-500/30 text-pink-600 hover:bg-pink-50 hover:text-pink-700 hover:border-pink-500/50">
+              <Instagram className="h-3.5 w-3.5" />
+              무료 인스타 분석
+            </Button>
+          </Link>
           <Link href="/login">
             <Button variant="ghost" size="sm">
               로그인
@@ -34,6 +40,12 @@ export function LandingHeader() {
       {mobileOpen && (
         <div className="md:hidden border-t border-border bg-background px-4 py-4 space-y-2">
           <div className="flex flex-col gap-2">
+            <Link href="/free-report" onClick={() => setMobileOpen(false)}>
+              <Button variant="outline" className="w-full gap-2 border-pink-500/30 text-pink-600">
+                <Instagram className="h-4 w-4" />
+                무료 인스타 분석
+              </Button>
+            </Link>
             <Link href="/login" onClick={() => setMobileOpen(false)}>
               <Button variant="outline" className="w-full">로그인</Button>
             </Link>
