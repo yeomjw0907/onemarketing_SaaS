@@ -1,35 +1,21 @@
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export function LandingCta() {
   return (
-    <section className="w-full bg-neutral-950 py-24 md:py-32">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6">
-        <p className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-8">
-          시작하기
-        </p>
-        <h2 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black tracking-tighter text-white leading-[0.95] max-w-3xl">
-          마케팅 성과를
-          <br />
-          투명하게,
-          <br />
-          <span className="text-neutral-400">지금 바로.</span>
+    <section className="w-full bg-gradient-to-br from-primary/10 via-background to-primary/5 py-16 md:py-20">
+      <div className="mx-auto max-w-4xl px-4 sm:px-6 text-center">
+        <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl md:text-4xl">
+          마케팅을 한곳에서, 지금 시작하세요
         </h2>
-        <div className="mt-12 flex flex-col sm:flex-row gap-4">
-          <Link
-            href="/signup"
-            className="inline-flex items-center gap-2 bg-white text-neutral-950 text-sm font-semibold px-7 py-3.5 rounded-full hover:bg-neutral-100 transition-colors w-fit"
-          >
-            무료로 시작하기
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-          <Link
-            href="/free-report"
-            className="inline-flex items-center gap-2 border border-neutral-700 text-neutral-300 text-sm font-semibold px-7 py-3.5 rounded-full hover:border-neutral-500 hover:text-white transition-colors w-fit"
-          >
-            인스타 성과 무료 확인 →
-          </Link>
-        </div>
+        <p className="mt-4 text-muted-foreground">
+          투명한 데이터와 올인원 기능으로 성과를 관리할 수 있습니다.
+        </p>
+        <Link href="/signup" className="inline-block mt-8">
+          <Button size="lg" className="min-w-[180px]">
+            지금 시작하기
+          </Button>
+        </Link>
       </div>
     </section>
   );
