@@ -1,52 +1,38 @@
 import Link from "next/link";
-import { Instagram, ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Instagram } from "lucide-react";
 import { Section } from "./Section";
 
 export function LandingHero() {
   return (
-    <section className="w-full bg-white border-b border-neutral-100">
-      <Section className="py-20 md:py-28 lg:py-36">
-        {/* 상단 배지 */}
-        <div className="mb-8">
-          <span className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-widest uppercase text-neutral-400">
-            <span className="inline-block w-4 h-px bg-neutral-300" />
-            Marketing SaaS for Agencies
-          </span>
-        </div>
-
-        {/* 메인 헤드라인 */}
-        <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black tracking-tighter text-neutral-950 leading-[0.92] max-w-4xl">
-          광고주가
+    <section className="relative w-full overflow-hidden bg-gradient-to-br from-primary/5 via-background to-primary/10">
+      <Section className="flex flex-col items-center justify-center text-center py-16 md:py-24 lg:py-28">
+        <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl md:text-5xl max-w-3xl">
+          마케팅 올인원 관리 서비스
           <br />
-          직접 보는
-          <br />
-          <span className="text-primary">마케팅 관리</span>
+          <span className="text-primary">원마케팅으로</span>
         </h1>
-
-        {/* 서브카피 + CTA 행 */}
-        <div className="mt-10 md:mt-14 flex flex-col sm:flex-row sm:items-end gap-8 sm:gap-16">
-          <p className="text-lg text-neutral-500 max-w-xs leading-relaxed">
-            Google · Meta · 카카오 성과를 한 화면에.
-            <br />
-            매주 3회 알림톡으로 자동 보고.
-          </p>
-          <div className="flex flex-col gap-3">
-            <Link
-              href="/signup"
-              className="inline-flex items-center gap-2 bg-neutral-950 text-white text-sm font-semibold px-6 py-3 rounded-full hover:bg-neutral-800 transition-colors w-fit"
-            >
+        <p className="mt-4 text-lg text-muted-foreground max-w-xl sm:text-xl">
+          데이터 100% 소유, 투명한 성과 측정.
+          <br className="hidden sm:block" />
+          마케팅을 한곳에서 쉽게 관리하세요.
+        </p>
+        <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
+          <Link href="/signup">
+            <Button size="lg" className="w-full sm:w-auto min-w-[160px]">
               지금 시작하기
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-            <Link
-              href="/free-report"
-              className="inline-flex items-center gap-1.5 text-sm text-neutral-400 hover:text-neutral-700 transition-colors w-fit"
-            >
-              <Instagram className="h-3.5 w-3.5" />
-              인스타 성과 먼저 무료로 확인 →
-            </Link>
-          </div>
+            </Button>
+          </Link>
         </div>
+        <div className="mt-5 flex items-center gap-3">
+          <div className="h-px w-12 bg-border" />
+          <span className="text-sm text-muted-foreground">또는</span>
+          <div className="h-px w-12 bg-border" />
+        </div>
+        <Link href="/free-report" className="mt-4 inline-flex items-center gap-2 rounded-full border border-pink-500/30 bg-pink-500/5 px-5 py-2 text-sm font-medium text-pink-600 transition-colors hover:bg-pink-500/10 hover:border-pink-500/50">
+          <Instagram className="h-4 w-4" />
+          내 인스타그램 성과 무료로 확인하기 →
+        </Link>
       </Section>
     </section>
   );

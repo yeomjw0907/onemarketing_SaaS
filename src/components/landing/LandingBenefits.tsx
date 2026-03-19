@@ -1,33 +1,53 @@
+import { CheckCircle2, FileText, TrendingUp } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Section } from "./Section";
 
-const stats = [
-  { number: "3회", label: "매주 자동 보고", sub: "월·수·목 카카오톡" },
-  { number: "3+", label: "채널 통합", sub: "Google · Meta · 카카오" },
-  { number: "100%", label: "데이터 소유", sub: "샘플링 없는 측정" },
-  { number: "0", label: "추가 보고 작업", sub: "자동 발송으로 절약" },
+const benefits = [
+  {
+    icon: CheckCircle2,
+    title: "올인원 기능",
+    description:
+      "매주 3회 카카오 정기 보고, 다채널 대시보드, 주간·월간 리포트 발행·알림, 실행·일정·프로젝트 진척도 관리까지 한곳에서 제공합니다.",
+  },
+  {
+    icon: FileText,
+    title: "맞춤형 컨설팅",
+    description:
+      "비즈니스 규모와 목표에 맞는 KPI 설계와 데이터 기반 최적화 방안을 제안합니다.",
+  },
+  {
+    icon: TrendingUp,
+    title: "정확한 데이터",
+    description:
+      "자체 추적과 실시간 DB로 샘플링 없이 100% 정확한 데이터를 확보하고, 투명한 성과 측정이 가능합니다.",
+  },
 ];
 
 export function LandingBenefits() {
   return (
-    <Section className="py-16 md:py-20">
-      <div className="border-t border-neutral-950 pt-12 md:pt-16">
-        <p className="text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-12">
-          왜 원마케팅인가
+    <Section>
+      <div className="text-center space-y-4 mb-10 md:mb-12">
+        <h2 className="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">
+          이렇게 다릅니다
+        </h2>
+        <p className="text-muted-foreground max-w-2xl mx-auto">
+          원케이션이 설계·구현한 마케팅 인프라로 성장을 가속화합니다.
         </p>
-        <div className="grid grid-cols-2 md:grid-cols-4">
-          {stats.map(({ number, label, sub }, i) => (
-            <div
-              key={label}
-              className={`py-6 pr-8 ${i < stats.length - 1 ? "border-r border-neutral-200 mr-8" : ""}`}
-            >
-              <p className="text-5xl md:text-6xl font-black tracking-tighter text-neutral-950 leading-none">
-                {number}
-              </p>
-              <p className="mt-3 text-sm font-semibold text-neutral-700">{label}</p>
-              <p className="mt-0.5 text-xs text-neutral-400">{sub}</p>
-            </div>
-          ))}
-        </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {benefits.map(({ icon: Icon, title, description }) => (
+          <Card key={title} className="border-border bg-card text-center">
+            <CardHeader>
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary mb-2">
+                <Icon className="h-6 w-6" />
+              </div>
+              <CardTitle className="text-lg">{title}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">{description}</p>
+            </CardContent>
+          </Card>
+        ))}
       </div>
     </Section>
   );
