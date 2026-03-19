@@ -31,7 +31,7 @@ export async function POST(
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://onemarketing.kr";
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.onemarketing.kr";
     return NextResponse.json({ shareUrl: `${appUrl}/report/v/${token}` });
   } catch (err) {
     console.error("[admin/reports/share-token]", err);

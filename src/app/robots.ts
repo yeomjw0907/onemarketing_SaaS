@@ -6,6 +6,6 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: "*",
       disallow: "/",
     },
-    host: "https://onemarketing.kr",
+    host: "https://www.onemarketing.kr",
   };
 }
