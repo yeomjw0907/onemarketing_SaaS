@@ -113,7 +113,7 @@ export function InstagramDashboard({
   const firstStat = stats[0];
   const followerGrowth =
     firstStat && latestStat && (firstStat.followers_count ?? 0) > 0
-      ? latestStat.followers_count! - firstStat.followers_count!
+      ? (latestStat.followers_count ?? 0) - (firstStat.followers_count ?? 0)
       : null;
   const totalImpressions = stats.reduce((s, d) => s + (d.impressions ?? 0), 0);
   const avgReach =
