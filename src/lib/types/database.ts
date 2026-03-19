@@ -182,6 +182,23 @@ export interface Asset {
   created_at: string;
 }
 
+export interface AssetCollection {
+  id: string;
+  client_id: string;
+  name: string;
+  description: string | null;
+  color: string;
+  sort_order: number;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface AssetCollectionItem {
+  collection_id: string;
+  asset_id: string;
+  added_at: string;
+}
+
 export interface AddonOrder {
   id: string;
   client_id: string;

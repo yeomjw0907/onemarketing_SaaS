@@ -845,54 +845,361 @@ function ReportTab({ clientId, initialReports, supabase, router }: { clientId: s
 // ╔══════════════════════════════════════════════╗
 // ║  자료실 탭                                     ║
 // ╚══════════════════════════════════════════════╝
-function AssetTab({ clientId, initialAssets, supabase, router }: { clientId: string; initialAssets: any[]; supabase: any; router: any }) {
-  const [dialogOpen, setDialogOpen] = useState(false); const [loading, setLoading] = useState(false); const [error, setError] = useState("");
-  const [title, setTitle] = useState(""); const [assetType, setAssetType] = useState<AssetType>("other"); const [tagList, setTagList] = useState<string[]>([]); const [tagInput, setTagInput] = useState(""); const [file, setFile] = useState<File | null>(null);
-  const openCreate = () => { setTitle(""); setAssetType("other"); setTagList([]); setTagInput(""); setFile(null); setError(""); setDialogOpen(true); };
-  const addTag = () => { const v = tagInput.trim(); if (v && !tagList.includes(v)) { setTagList(prev => [...prev, v]); setTagInput(""); } };
-  const removeTag = (idx: number) => { setTagList(prev => prev.filter((_, i) => i !== idx)); };
-  const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addTag(); } };
-  const handleSave = async () => { if (!title || !file) { setError("제목과 파일은 필수입니다."); return; }
-    setLoading(true); setError("");
+// ── 컬렉션 색상 팔레트 ──
+const COLLECTION_COLORS = [
+  "#6366f1", "#8b5cf6", "#ec4899", "#ef4444",
+  "#f59e0b", "#10b981", "#06b6d4", "#64748b",
+];
+const ASSET_TYPE_LABELS: Record<string, string> = {
+  logo: "로고", guideline: "가이드라인", font: "폰트",
+  photo: "사진", video: "영상", other: "기타",
+};
+
+function AssetTab({ clientId, initialAssets, supabase, router }: {
+  clientId: string; initialAssets: any[]; supabase: any; router: any;
+}) {
+  const [subTab, setSubTab] = useState<"files" | "collections">("files");
+
+  // ── 파일 업로드 상태 ──
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const [title, setTitle] = useState("");
+  const [assetType, setAssetType] = useState<AssetType>("other");
+  const [tagList, setTagList] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+
+  // ── 컬렉션 상태 ──
+  const [collections, setCollections] = useState<any[]>([]);
+  const [collectionItems, setCollectionItems] = useState<{ collection_id: string; asset_id: string }[]>([]);
+  const [colLoading, setColLoading] = useState(false);
+
+  // 컬렉션 생성 다이얼로그
+  const [colDialogOpen, setColDialogOpen] = useState(false);
+  const [editingCol, setEditingCol] = useState<any | null>(null);
+  const [colName, setColName] = useState("");
+  const [colDesc, setColDesc] = useState("");
+  const [colColor, setColColor] = useState(COLLECTION_COLORS[0]!);
+  const [colSaving, setColSaving] = useState(false);
+
+  // 파일 할당 다이얼로그
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [assignColId, setAssignColId] = useState("");
+  const [assignSelected, setAssignSelected] = useState<Set<string>>(new Set());
+  const [assignSaving, setAssignSaving] = useState(false);
+
+  // ── 초기 로드 ──
+  useEffect(() => {
+    loadCollections();
+  }, [clientId]);
+
+  const loadCollections = async () => {
+    setColLoading(true);
+    const [colRes, itemRes] = await Promise.all([
+      supabase.from("asset_collections").select("*").eq("client_id", clientId).order("sort_order"),
+      supabase.from("asset_collection_items").select("collection_id, asset_id"),
+    ]);
+    setCollections(colRes.data ?? []);
+    setCollectionItems(itemRes.data ?? []);
+    setColLoading(false);
+  };
+
+  // ── 파일 업로드 ──
+  const addTag = () => { const v = tagInput.trim(); if (v && !tagList.includes(v)) { setTagList(p => [...p, v]); setTagInput(""); } };
+  const removeTag = (i: number) => setTagList(p => p.filter((_, j) => j !== i));
+  const handleTagKey = (e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addTag(); } };
+
+  const handleUpload = async () => {
+    if (!title || !file) { setUploadError("제목과 파일은 필수입니다."); return; }
+    setUploading(true); setUploadError("");
     const { data: { user } } = await supabase.auth.getUser(); if (!user) return;
     const filePath = safeFilePath(clientId, file.name);
     const { error: upErr } = await supabase.storage.from("assets").upload(filePath, file);
-    if (upErr) { setError("업로드 실패: " + upErr.message); setLoading(false); return; }
-    const tagsToSave = tagInput.trim() ? [...tagList, tagInput.trim()] : tagList;
-    await supabase.from("assets").insert({ client_id: clientId, asset_type: assetType, title, file_path: filePath, tags: tagsToSave, visibility: "visible", created_by: user.id });
-    setDialogOpen(false); router.refresh(); setLoading(false); };
-  return (<>
-    <div className="flex items-center justify-between mb-4"><h3 className="text-lg font-semibold">자료실</h3><Button size="sm" onClick={openCreate}><Plus className="h-4 w-4 mr-1" /> 추가</Button></div>
-    <Card><CardContent className="p-0 overflow-x-auto"><Table><TableHeader><TableRow><TableHead>제목</TableHead><TableHead>유형</TableHead><TableHead>태그</TableHead><TableHead>파일</TableHead></TableRow></TableHeader><TableBody>
-      {initialAssets.length === 0 ? <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">없음</TableCell></TableRow> : initialAssets.map((a: any) => (
-        <TableRow key={a.id}><TableCell className="font-medium">{a.title}</TableCell><TableCell><Badge variant="outline">{a.asset_type}</Badge></TableCell><TableCell className="text-xs">{a.tags?.join(", ") || "-"}</TableCell><TableCell className="text-xs text-muted-foreground truncate max-w-[200px]">{a.file_path}</TableCell></TableRow>
-      ))}</TableBody></Table></CardContent></Card>
-    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}><DialogContent className="max-w-md"><DialogHeader><DialogTitle>에셋 추가</DialogTitle></DialogHeader><div className="space-y-4">
-      <div className="space-y-2"><Label>제목 *</Label><Input value={title} onChange={e => setTitle(e.target.value)} /></div>
-      <div className="space-y-2"><Label>유형</Label><Select value={assetType} onValueChange={v => setAssetType(v as AssetType)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="logo">로고</SelectItem><SelectItem value="guideline">가이드라인</SelectItem><SelectItem value="font">폰트</SelectItem><SelectItem value="photo">사진</SelectItem><SelectItem value="video">영상</SelectItem><SelectItem value="other">기타</SelectItem></SelectContent></Select></div>
-      <div className="space-y-2">
-        <Label>태그 (입력 후 엔터로 추가)</Label>
-        <div className="flex flex-wrap gap-2 p-2 border rounded-md bg-background min-h-[42px] focus-within:ring-2 focus-within:ring-ring">
-          {tagList.map((t, i) => (
-            <Badge key={i} variant="secondary" className="gap-1 pr-1">
-              {t}
-              <button type="button" onClick={() => removeTag(i)} className="rounded-full hover:bg-muted p-0.5" aria-label="태그 제거"><X className="h-3 w-3" /></button>
-            </Badge>
+    if (upErr) { setUploadError("업로드 실패: " + upErr.message); setUploading(false); return; }
+    const tags = tagInput.trim() ? [...tagList, tagInput.trim()] : tagList;
+    await supabase.from("assets").insert({ client_id: clientId, asset_type: assetType, title, file_path: filePath, tags, visibility: "visible", created_by: user.id });
+    setUploadOpen(false); setUploading(false); router.refresh();
+  };
+
+  // ── 컬렉션 저장 ──
+  const openNewCollection = () => {
+    setEditingCol(null); setColName(""); setColDesc(""); setColColor(COLLECTION_COLORS[0]!); setColDialogOpen(true);
+  };
+  const openEditCollection = (col: any) => {
+    setEditingCol(col); setColName(col.name); setColDesc(col.description ?? ""); setColColor(col.color); setColDialogOpen(true);
+  };
+  const handleSaveCollection = async () => {
+    if (!colName.trim()) return;
+    setColSaving(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (editingCol) {
+      await supabase.from("asset_collections").update({ name: colName.trim(), description: colDesc.trim() || null, color: colColor }).eq("id", editingCol.id);
+    } else {
+      await supabase.from("asset_collections").insert({ client_id: clientId, name: colName.trim(), description: colDesc.trim() || null, color: colColor, sort_order: collections.length, created_by: user?.id });
+    }
+    setColDialogOpen(false); setColSaving(false); loadCollections();
+  };
+  const handleDeleteCollection = async (colId: string) => {
+    if (!confirm("컬렉션을 삭제하시겠습니까? 파일은 삭제되지 않습니다.")) return;
+    await supabase.from("asset_collections").delete().eq("id", colId);
+    loadCollections();
+  };
+
+  // ── 파일 할당 ──
+  const openAssign = (colId: string) => {
+    const already = new Set(collectionItems.filter(i => i.collection_id === colId).map(i => i.asset_id));
+    setAssignColId(colId); setAssignSelected(already); setAssignOpen(true);
+  };
+  const toggleAssign = (assetId: string) => {
+    setAssignSelected(prev => { const s = new Set(prev); s.has(assetId) ? s.delete(assetId) : s.add(assetId); return s; });
+  };
+  const handleSaveAssign = async () => {
+    setAssignSaving(true);
+    const current = new Set(collectionItems.filter(i => i.collection_id === assignColId).map(i => i.asset_id));
+    const toAdd = [...assignSelected].filter(id => !current.has(id));
+    const toRemove = [...current].filter(id => !assignSelected.has(id));
+    if (toAdd.length) await supabase.from("asset_collection_items").insert(toAdd.map(asset_id => ({ collection_id: assignColId, asset_id })));
+    if (toRemove.length) await supabase.from("asset_collection_items").delete().eq("collection_id", assignColId).in("asset_id", toRemove);
+    setAssignOpen(false); setAssignSaving(false); loadCollections();
+  };
+
+  // ── 컬렉션별 파일 수 ──
+  const itemCountByCol = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const it of collectionItems) m[it.collection_id] = (m[it.collection_id] ?? 0) + 1;
+    return m;
+  }, [collectionItems]);
+
+  // ── 파일이 속한 컬렉션 목록 ──
+  const colsByAsset = useMemo(() => {
+    const m: Record<string, string[]> = {};
+    for (const it of collectionItems) {
+      if (!m[it.asset_id]) m[it.asset_id] = [];
+      const col = collections.find(c => c.id === it.collection_id);
+      if (col) m[it.asset_id]!.push(col.name);
+    }
+    return m;
+  }, [collectionItems, collections]);
+
+  return (
+    <>
+      {/* 서브 탭 헤더 */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-0.5">
+          {(["files", "collections"] as const).map(t => (
+            <button key={t} type="button" onClick={() => setSubTab(t)}
+              className={cn("px-4 py-1.5 rounded-md text-sm font-medium transition-colors",
+                subTab === t ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+              )}>
+              {t === "files" ? `파일 (${initialAssets.length})` : `컬렉션 (${collections.length})`}
+            </button>
           ))}
-          <input
-            type="text"
-            value={tagInput}
-            onChange={e => setTagInput(e.target.value)}
-            onKeyDown={handleTagKeyDown}
-            placeholder={tagList.length === 0 ? "태그 입력 후 엔터" : ""}
-            className="flex-1 min-w-[120px] outline-none bg-transparent text-sm"
-          />
         </div>
+        <Button size="sm" onClick={subTab === "files" ? () => { setTitle(""); setAssetType("other"); setTagList([]); setTagInput(""); setFile(null); setUploadError(""); setUploadOpen(true); } : openNewCollection}>
+          <Plus className="h-4 w-4 mr-1" />{subTab === "files" ? "파일 추가" : "컬렉션 추가"}
+        </Button>
       </div>
-      <div className="space-y-2"><Label>파일 *</Label><Input type="file" onChange={e => setFile(e.target.files?.[0] || null)} /></div>
-      {error && <p className="text-sm text-destructive">{error}</p>}
-    </div><DialogFooter><Button variant="outline" onClick={() => setDialogOpen(false)}>취소</Button><Button onClick={handleSave} disabled={loading}><Upload className="h-4 w-4 mr-1" />{loading ? "업로드 중..." : "업로드"}</Button></DialogFooter></DialogContent></Dialog>
-  </>);
+
+      {/* ── 파일 탭 ── */}
+      {subTab === "files" && (
+        <Card><CardContent className="p-0 overflow-x-auto">
+          <Table>
+            <TableHeader><TableRow>
+              <TableHead>제목</TableHead><TableHead>유형</TableHead>
+              <TableHead>컬렉션</TableHead><TableHead>태그</TableHead>
+            </TableRow></TableHeader>
+            <TableBody>
+              {initialAssets.length === 0
+                ? <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">파일 없음</TableCell></TableRow>
+                : initialAssets.map((a: any) => (
+                  <TableRow key={a.id}>
+                    <TableCell className="font-medium">{a.title}</TableCell>
+                    <TableCell><Badge variant="outline" className="text-xs">{ASSET_TYPE_LABELS[a.asset_type] ?? a.asset_type}</Badge></TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {(colsByAsset[a.id] ?? []).map(n => (
+                          <span key={n} className="text-[10px] bg-primary/8 text-primary px-1.5 py-0.5 rounded-full font-medium">{n}</span>
+                        ))}
+                        {(colsByAsset[a.id] ?? []).length === 0 && <span className="text-xs text-muted-foreground">미분류</span>}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{a.tags?.join(", ") || "-"}</TableCell>
+                  </TableRow>
+                ))}
+            </TableBody>
+          </Table>
+        </CardContent></Card>
+      )}
+
+      {/* ── 컬렉션 탭 ── */}
+      {subTab === "collections" && (
+        <div>
+          {colLoading ? (
+            <div className="py-12 text-center text-sm text-muted-foreground">불러오는 중...</div>
+          ) : collections.length === 0 ? (
+            <div className="py-12 text-center">
+              <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mx-auto mb-3">
+                <Image className="h-5 w-5 text-muted-foreground/50" />
+              </div>
+              <p className="text-sm font-medium text-muted-foreground">컬렉션이 없습니다</p>
+              <p className="text-xs text-muted-foreground mt-1">컬렉션을 만들어 파일을 목적별로 묶어보세요</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {collections.map(col => {
+                const count = itemCountByCol[col.id] ?? 0;
+                const assetIds = collectionItems.filter(i => i.collection_id === col.id).map(i => i.asset_id);
+                const previewFiles = initialAssets.filter(a => assetIds.includes(a.id)).slice(0, 4);
+                return (
+                  <Card key={col.id} className="overflow-hidden">
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
+                        {/* 컬러 마커 */}
+                        <div className="h-10 w-10 rounded-xl shrink-0 flex items-center justify-center" style={{ backgroundColor: col.color + "20", border: `2px solid ${col.color}40` }}>
+                          <div className="h-3 w-3 rounded-full" style={{ backgroundColor: col.color }} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="font-semibold text-sm">{col.name}</p>
+                            <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">{count}개</span>
+                          </div>
+                          {col.description && <p className="text-xs text-muted-foreground mt-0.5 truncate">{col.description}</p>}
+                          {/* 미리보기 파일명 */}
+                          {previewFiles.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-2">
+                              {previewFiles.map(f => (
+                                <span key={f.id} className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                                  {f.title}
+                                </span>
+                              ))}
+                              {count > 4 && <span className="text-[10px] text-muted-foreground">+{count - 4}개</span>}
+                            </div>
+                          )}
+                        </div>
+                        {/* 액션 버튼 */}
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => openAssign(col.id)}>
+                            파일 설정
+                          </Button>
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openEditCollection(col)}>
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive hover:text-destructive" onClick={() => handleDeleteCollection(col.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── 파일 업로드 다이얼로그 ── */}
+      <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>파일 추가</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2"><Label>제목 *</Label><Input value={title} onChange={e => setTitle(e.target.value)} /></div>
+            <div className="space-y-2">
+              <Label>유형</Label>
+              <Select value={assetType} onValueChange={v => setAssetType(v as AssetType)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(ASSET_TYPE_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>태그 (엔터로 추가)</Label>
+              <div className="flex flex-wrap gap-1.5 p-2 border rounded-md bg-background min-h-[42px] focus-within:ring-2 focus-within:ring-ring">
+                {tagList.map((t, i) => (
+                  <Badge key={i} variant="secondary" className="gap-1 pr-1">{t}
+                    <button type="button" onClick={() => removeTag(i)}><X className="h-3 w-3" /></button>
+                  </Badge>
+                ))}
+                <input type="text" value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={handleTagKey}
+                  placeholder={tagList.length === 0 ? "태그 입력 후 엔터" : ""} className="flex-1 min-w-[100px] outline-none bg-transparent text-sm" />
+              </div>
+            </div>
+            <div className="space-y-2"><Label>파일 *</Label><Input type="file" onChange={e => setFile(e.target.files?.[0] || null)} /></div>
+            {uploadError && <p className="text-sm text-destructive">{uploadError}</p>}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setUploadOpen(false)}>취소</Button>
+            <Button onClick={handleUpload} disabled={uploading}><Upload className="h-4 w-4 mr-1" />{uploading ? "업로드 중..." : "업로드"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── 컬렉션 생성/편집 다이얼로그 ── */}
+      <Dialog open={colDialogOpen} onOpenChange={setColDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>{editingCol ? "컬렉션 편집" : "컬렉션 추가"}</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2"><Label>이름 *</Label><Input value={colName} onChange={e => setColName(e.target.value)} placeholder="예: 2025 여름 캠페인" /></div>
+            <div className="space-y-2"><Label>설명 (선택)</Label><Input value={colDesc} onChange={e => setColDesc(e.target.value)} placeholder="컬렉션 설명" /></div>
+            <div className="space-y-2">
+              <Label>컬러</Label>
+              <div className="flex gap-2 flex-wrap">
+                {COLLECTION_COLORS.map(c => (
+                  <button key={c} type="button" onClick={() => setColColor(c)}
+                    className={cn("h-7 w-7 rounded-full border-2 transition-all", colColor === c ? "border-foreground scale-110" : "border-transparent")}
+                    style={{ backgroundColor: c }} />
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setColDialogOpen(false)}>취소</Button>
+            <Button onClick={handleSaveCollection} disabled={colSaving || !colName.trim()}>
+              {colSaving ? "저장 중..." : "저장"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── 파일 할당 다이얼로그 ── */}
+      <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>파일 설정 — {collections.find(c => c.id === assignColId)?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-1 max-h-80 overflow-y-auto">
+            {initialAssets.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-6">업로드된 파일이 없습니다</p>
+            ) : initialAssets.map((a: any) => {
+              const checked = assignSelected.has(a.id);
+              return (
+                <button key={a.id} type="button" onClick={() => toggleAssign(a.id)}
+                  className={cn("w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors",
+                    checked ? "bg-primary/8" : "hover:bg-muted/60")}>
+                  <div className={cn("h-4 w-4 rounded border-2 flex items-center justify-center shrink-0",
+                    checked ? "bg-primary border-primary" : "border-muted-foreground/40")}>
+                    {checked && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate">{a.title}</p>
+                    <p className="text-xs text-muted-foreground">{ASSET_TYPE_LABELS[a.asset_type] ?? a.asset_type}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAssignOpen(false)}>취소</Button>
+            <Button onClick={handleSaveAssign} disabled={assignSaving}>
+              {assignSaving ? "저장 중..." : `적용 (${assignSelected.size}개)`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
 }
 
 // ╔══════════════════════════════════════════════╗
