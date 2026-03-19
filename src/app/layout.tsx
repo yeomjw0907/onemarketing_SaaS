@@ -6,11 +6,41 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "ONEmarketing Client Portal",
-  description: "Marketing Agency Client Portal by ONEmarketing",
+  title: {
+    default: "원마케팅 클라이언트 포털",
+    template: "%s | 원마케팅",
+  },
+  description: "원마케팅 클라이언트 전용 포털 — 광고 성과 리포트, 일정, 자료실을 한곳에서 확인하세요.",
+  metadataBase: new URL("https://onemarketing.kr"),
   icons: { icon: "/logo-light.png" },
+  openGraph: {
+    type: "website",
+    locale: "ko_KR",
+    url: "https://onemarketing.kr",
+    siteName: "원마케팅",
+    title: "원마케팅 클라이언트 포털",
+    description: "광고 성과 리포트, 일정, 자료실을 한곳에서 확인하세요.",
+    images: [
+      {
+        url: "/logo-light.png",
+        width: 1200,
+        height: 630,
+        alt: "원마케팅 클라이언트 포털",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "원마케팅 클라이언트 포털",
+    description: "광고 성과 리포트, 일정, 자료실을 한곳에서 확인하세요.",
+    images: ["/logo-light.png"],
+  },
   verification: {
     google: "j_QacCWx_Ql7M0qP-FyFILCofahutHtVZj-5eSvp-V4",
+  },
+  robots: {
+    index: false,
+    follow: false,
   },
 };
 

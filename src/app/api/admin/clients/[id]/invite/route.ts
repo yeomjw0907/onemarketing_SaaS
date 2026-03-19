@@ -54,7 +54,7 @@ export async function POST(
       return NextResponse.json({ error: "초대 토큰 생성 실패: " + tokenError?.message }, { status: 500 });
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://onemarketing.kr";
     const inviteUrl = `${appUrl}/invite/${inviteToken.token}`;
 
     // 알림톡 발송 (요청 시 + 전화번호 있을 때)

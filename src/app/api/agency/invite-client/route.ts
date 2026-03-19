@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. 초대 링크 생성
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://onemarketing.kr";
     const inviteUrl = `${appUrl}/invite/${inviteToken.token}`;
 
     // 4. Supabase Auth 이메일 초대 (관리자 키 필요)
