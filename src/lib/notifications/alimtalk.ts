@@ -2,13 +2,11 @@
  * 카카오 알림톡 발송 모듈
  *
  * 솔라피(Solapi) API를 사용합니다.
- * 다른 ISP(NHN Cloud, 비즈뿌리오 등)로 교체할 수 있도록 인터페이스를 분리했습니다.
  *
  * 필요 환경변수:
- *   SOLAPI_API_KEY        - 솔라피 API Key
- *   SOLAPI_API_SECRET     - 솔라피 API Secret
- *   SOLAPI_PFID           - 카카오톡 채널 프로필 ID (예: @onecation)
- *   SOLAPI_SENDER_NUMBER  - 발신번호 (알림톡 실패 시 SMS 대체 발송용)
+ *   SOLAPI_API_KEY   - 솔라피 API Key
+ *   SOLAPI_API_SECRET - 솔라피 API Secret
+ *   SOLAPI_PFID      - 카카오톡 채널 프로필 ID (예: @onecation)
  */
 import crypto from "crypto";
 
@@ -82,7 +80,6 @@ function stripProtocol(url: string): string {
 // ── 단건 알림톡 발송 ──
 export async function sendAlimtalk(message: AlimtalkMessage): Promise<SendResult> {
   const pfId = process.env.SOLAPI_PFID;
-  const senderNumber = process.env.SOLAPI_SENDER_NUMBER;
 
   if (!pfId) {
     return { success: false, error: "SOLAPI_PFID가 설정되지 않았습니다." };
@@ -101,7 +98,6 @@ export async function sendAlimtalk(message: AlimtalkMessage): Promise<SendResult
     const body = {
       message: {
         to: phoneDigits,
-        from: senderNumber || "",
         kakaoOptions: {
           pfId,
           templateId: message.templateId.trim(),
