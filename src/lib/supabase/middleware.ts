@@ -114,12 +114,14 @@ export async function updateSession(request: NextRequest) {
       return supabaseResponse;
     }
 
-    // 토큰 기반 리포트 보기/승인, 포털 매직링크, 클라이언트 초대, 결제 — 로그인 없이 접근
+    // 토큰 기반 리포트 보기/승인, 포털 매직링크, 클라이언트 초대, 결제, 무료 리포트 — 로그인 없이 접근
     if (
       pathname.startsWith("/report/") ||
       pathname.startsWith("/api/report/") ||
       pathname.startsWith("/portal/") ||
       pathname.startsWith("/invite/") ||
+      pathname.startsWith("/free-report") ||
+      pathname.startsWith("/api/free-report/") ||
       pathname === "/api/payments/webhook" ||
       pathname === "/api/payments/confirm" ||
       pathname === "/api/agency/invite-client/consume" ||
