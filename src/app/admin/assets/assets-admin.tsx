@@ -7,7 +7,6 @@ import { AssetType } from "@/lib/types/database";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { FileItemCard } from "@/components/file-item-card";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,

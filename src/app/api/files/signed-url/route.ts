@@ -45,12 +45,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Authorization check — match DB using both original path and normalized path
+    // Use .in() rather than .or() to safely handle paths with special characters
     const table = bucket === "reports" ? "reports" : "assets";
+    const pathCandidates = [...new Set([file_path, normalizedPath])];
+
     if (profile.role === "client") {
       const { data: fileRecord } = await supabase
         .from(table)
         .select("id, client_id")
-        .or(`file_path.eq.${file_path},file_path.eq.${normalizedPath}`)
+        .in("file_path", pathCandidates)
         .eq("client_id", profile.client_id!)
         .maybeSingle();
 
@@ -65,7 +68,7 @@ export async function POST(request: NextRequest) {
       const { data: fileRecord } = await serviceClient
         .from(table)
         .select("id")
-        .or(`file_path.eq.${file_path},file_path.eq.${normalizedPath}`)
+        .in("file_path", pathCandidates)
         .maybeSingle();
 
       if (!fileRecord) {

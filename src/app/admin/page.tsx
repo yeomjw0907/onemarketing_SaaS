@@ -3,7 +3,6 @@ import { requireAdmin } from "@/lib/auth";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   Users, FolderKanban, FileText, CalendarDays, Image,
   TrendingUp, Building2, CreditCard, HeartPulse, ChevronRight,

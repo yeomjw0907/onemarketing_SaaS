@@ -45,8 +45,6 @@ import {
   addMonths,
   subMonths,
   differenceInCalendarDays,
-  startOfWeek as sowFn,
-  endOfWeek as eowFn,
   isToday,
   isPast,
 } from "date-fns";
