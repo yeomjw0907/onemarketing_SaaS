@@ -7,6 +7,6 @@
     { "path": "/api/cron/send-weekly-alimtalk", "schedule": "0 5 * * 3" },
     { "path": "/api/cron/send-weekly-alimtalk", "schedule": "0 7 * * 4" },
     { "path": "/api/cron/check-subscriptions", "schedule": "0 1 * * *" },
-    { "path": "/api/cron/anomaly-detect", "schedule": "0 0 * * *" }
+    { "path": "/api/cron/anomaly-detect", "schedule": "0 */4 * * *" }
   ]
 }
