@@ -409,6 +409,41 @@ export interface BoostingPeriod {
   updated_at: string;
 }
 
+// ── GA4 페이지별 지표 ─────────────────────────────────────────
+
+export interface GA4PageMetric {
+  id: string;
+  client_id: string;
+  integration_id: string;
+  metric_date: string;
+  page_path: string;
+  sessions: number;
+  users: number;
+  pageviews: number;
+  bounce_rate: number;
+  avg_session_duration: number;
+  scroll_depth_90: number;
+  created_at: string;
+}
+
+// ── 통합 지표 (Meta Ads + GA4 병합) ───────────────────────────
+
+export interface CombinedMetric {
+  date: string;
+  // Meta Ads
+  impressions?: number;
+  clicks?: number;
+  cost?: number;
+  ctr?: number;
+  cpc?: number;
+  // GA4
+  sessions?: number;
+  bounce_rate?: number;
+  avg_session_duration?: number;
+  // 계산값
+  click_to_session_rate?: number;
+}
+
 // ── 에이전시 / 구독 ──────────────────────────────────────────
 
 export type SubscriptionStatus = "trialing" | "active" | "past_due" | "cancelled" | "expired";
@@ -539,6 +574,11 @@ export interface Database {
         Row: NotificationLog;
         Insert: Omit<NotificationLog, "id" | "created_at">;
         Update: never;
+      };
+      ga4_page_metrics: {
+        Row: GA4PageMetric;
+        Insert: Omit<GA4PageMetric, "id" | "created_at">;
+        Update: Partial<Omit<GA4PageMetric, "id" | "created_at">>;
       };
       addon_orders: {
         Row: AddonOrder;

@@ -1537,6 +1537,24 @@ function IntegrationTab({ clientId, initialIntegrations, router }: { clientId: s
     }
   }, []);
 
+  // GA4 추적 URL 로드 (GA4 연동이 있을 때)
+  useEffect(() => {
+    const hasGA4 = integrations.some((i) => i.platform === "google_analytics");
+    if (!hasGA4 || ga4PathsLoaded) return;
+    (async () => {
+      try {
+        const res = await fetch(`/api/admin/integrations/ga4-pages?clientId=${clientId}`);
+        if (res.ok) {
+          const json = await res.json();
+          setGa4TargetPaths(json.data?.targetPaths ?? []);
+          setGa4PathsLoaded(true);
+        }
+      } catch {
+        // ignore
+      }
+    })();
+  }, [integrations, clientId, ga4PathsLoaded]);
+
   // Meta OAuth 콜백 후 저장 폼 (URL에 metaToken 있을 때)
   const [metaSaveDisplayName, setMetaSaveDisplayName] = useState("Meta 광고");
   const [metaSaveAdAccountId, setMetaSaveAdAccountId] = useState("");
@@ -1574,6 +1592,12 @@ function IntegrationTab({ clientId, initialIntegrations, router }: { clientId: s
   const [cafe24RefreshToken, setCafe24RefreshToken] = useState("");
   // KPI 자동생성
   const [autoKpi, setAutoKpi] = useState(true);
+
+  // GA4 추적 랜딩페이지 설정
+  const [ga4TargetPaths, setGa4TargetPaths] = useState<string[]>([]);
+  const [ga4PathInput, setGa4PathInput] = useState("");
+  const [ga4PathsSaving, setGa4PathsSaving] = useState(false);
+  const [ga4PathsLoaded, setGa4PathsLoaded] = useState(false);
 
   const resetForm = () => {
     setPlatform("meta_ads"); setDisplayName(""); setTestResult(null); setAutoKpi(true);
@@ -2009,6 +2033,97 @@ function IntegrationTab({ clientId, initialIntegrations, router }: { clientId: s
           ))}
         </div>
       ) : null}
+
+      {/* GA4 추적 랜딩페이지 설정 */}
+      {integrations.some((i) => i.platform === "google_analytics") && (
+        <Card className="mt-4">
+          <CardContent className="py-4 space-y-3">
+            <div>
+              <p className="font-medium text-sm">추적 랜딩페이지 설정</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                GA4 페이지별 지표 수집 시 집중 분석할 URL 경로를 지정합니다. (예: /landing/product-a)
+              </p>
+            </div>
+            {ga4TargetPaths.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {ga4TargetPaths.map((path) => (
+                  <span
+                    key={path}
+                    className="inline-flex items-center gap-1 text-xs bg-muted px-2 py-1 rounded-md font-mono"
+                  >
+                    {path}
+                    <button
+                      type="button"
+                      onClick={() => setGa4TargetPaths((prev) => prev.filter((p) => p !== path))}
+                      className="text-muted-foreground hover:text-destructive"
+                      aria-label="경로 삭제"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <Input
+                value={ga4PathInput}
+                onChange={(e) => setGa4PathInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && ga4PathInput.trim()) {
+                    e.preventDefault();
+                    const p = ga4PathInput.trim();
+                    if (!ga4TargetPaths.includes(p)) setGa4TargetPaths((prev) => [...prev, p]);
+                    setGa4PathInput("");
+                  }
+                }}
+                placeholder="/landing/product-a"
+                className="font-mono text-xs h-8"
+              />
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-8 shrink-0"
+                onClick={() => {
+                  const p = ga4PathInput.trim();
+                  if (p && !ga4TargetPaths.includes(p)) setGa4TargetPaths((prev) => [...prev, p]);
+                  setGa4PathInput("");
+                }}
+              >
+                추가
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                className="h-8 shrink-0"
+                disabled={ga4PathsSaving}
+                onClick={async () => {
+                  setGa4PathsSaving(true);
+                  try {
+                    const res = await fetch("/api/admin/integrations/ga4-pages", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ clientId, paths: ga4TargetPaths }),
+                    });
+                    if (!res.ok) {
+                      const json = await res.json().catch(() => ({}));
+                      toast.error(json.error || "저장 실패");
+                    } else {
+                      toast.success("추적 경로가 저장되었습니다.");
+                    }
+                  } catch {
+                    toast.error("저장 요청 실패");
+                  } finally {
+                    setGa4PathsSaving(false);
+                  }
+                }}
+              >
+                {ga4PathsSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : "저장"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {integrations.length > 0 && (
         <Card className="mt-4">
