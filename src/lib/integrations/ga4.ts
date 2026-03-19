@@ -9,6 +9,16 @@ import { DataIntegration } from "@/lib/types/database";
 import type { MetricRow } from "./sync-engine";
 import { getAdminConfig } from "@/lib/admin-config";
 
+export interface GA4PageMetricRow {
+  pagePath: string;
+  sessions: number;
+  users: number;
+  pageviews: number;
+  bounceRate: number;
+  avgSessionDuration: number;
+  scrollDepth90: number;
+}
+
 interface GA4Credentials {
   refreshToken: string;
   propertyId: string;   // GA4 Property ID (e.g. "properties/123456789")
@@ -184,4 +194,81 @@ export async function fetchGA4Metrics(
   }
 
   return results;
+}
+
+/**
+ * GA4 Data API – 페이지별 지표 조회
+ * dimensions: pagePath
+ * metrics: sessions, totalUsers, screenPageViews, bounceRate, averageSessionDuration, scrolledUsers
+ */
+export async function fetchGA4PageMetrics(
+  integration: DataIntegration,
+  dateFrom: string,
+  dateTo: string,
+): Promise<{ pageMetrics: GA4PageMetricRow[]; error?: string }> {
+  const creds = integration.credentials as unknown as GA4Credentials;
+  if (!creds?.refreshToken || !creds?.propertyId) {
+    return { pageMetrics: [], error: "GA4 인증 정보가 올바르지 않습니다." };
+  }
+
+  try {
+    const accessToken = await getAccessToken(creds.refreshToken);
+    const propertyId = creds.propertyId.replace("properties/", "");
+
+    const res = await fetch(
+      `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          dateRanges: [{ startDate: dateFrom, endDate: dateTo }],
+          dimensions: [{ name: "pagePath" }],
+          metrics: [
+            { name: "sessions" },
+            { name: "totalUsers" },
+            { name: "screenPageViews" },
+            { name: "bounceRate" },
+            { name: "averageSessionDuration" },
+            { name: "scrolledUsers" },
+          ],
+          orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
+          limit: 100,
+        }),
+      },
+    );
+
+    if (!res.ok) {
+      const text = await res.text();
+      return { pageMetrics: [], error: `GA4 API Error ${res.status}: ${text}` };
+    }
+
+    const data = await res.json();
+    const rows: GA4PageMetricRow[] = [];
+
+    for (const row of data.rows || []) {
+      const pagePath = row.dimensionValues?.[0]?.value || "/";
+      const vals = row.metricValues || [];
+      const totalUsers = Number(vals[1]?.value || 0);
+      const scrolledUsers = Number(vals[5]?.value || 0);
+      const scrollDepth90 = totalUsers > 0 ? scrolledUsers / totalUsers : 0;
+
+      rows.push({
+        pagePath,
+        sessions: Number(vals[0]?.value || 0),
+        users: totalUsers,
+        pageviews: Number(vals[2]?.value || 0),
+        bounceRate: Number(vals[3]?.value || 0),
+        avgSessionDuration: Number(vals[4]?.value || 0),
+        scrollDepth90,
+      });
+    }
+
+    return { pageMetrics: rows };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { pageMetrics: [], error: msg };
+  }
 }

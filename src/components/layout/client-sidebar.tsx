@@ -22,6 +22,7 @@ import {
   Megaphone,
   ShoppingBag,
   BarChart2,
+  LineChart,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -79,6 +80,7 @@ export function ClientSidebar({ enabledModules, clientName }: ClientSidebarProps
       items: [
         { href: "/overview",  label: "홈",      icon: LayoutDashboard, color: "text-slate-600",  moduleKey: "overview" },
         { href: "/marketing", label: "광고 성과", icon: BarChart3,       color: "text-indigo-600" },
+        { href: "/analytics", label: "통합 분석", icon: LineChart,       color: "text-cyan-600" },
         { href: "/instagram", label: "인스타그램", icon: BarChart2,       color: "text-pink-600" },
         { href: "/reports",   label: "리포트",   icon: FileText,        color: "text-amber-600",  moduleKey: "reports" },
       ],
