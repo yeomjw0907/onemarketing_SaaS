@@ -4,8 +4,7 @@
  * PATCH — 체류 시간 업데이트 (heartbeat, 30초마다)
  */
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 
 interface Params { params: Promise<{ id: string }> }
 

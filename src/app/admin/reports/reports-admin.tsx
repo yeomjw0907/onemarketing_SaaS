@@ -77,7 +77,7 @@ export function ReportsAdmin({ initialReports, clients }: Props) {
               <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">없음</TableCell></TableRow>
             ) : filteredReports.map((r: any) => {
               const views = (r.report_views as any[]) ?? [];
-              const lastView = views.sort((a: any, b: any) =>
+              const lastView = [...views].sort((a: any, b: any) =>
                 new Date(b.opened_at).getTime() - new Date(a.opened_at).getTime()
               )[0];
               const totalDuration = views.reduce((sum: number, v: any) => sum + (v.duration_seconds || 0), 0);

@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
   const { data: clients } = await svc
     .from("clients")
     .select("id, name")
-    .eq("status", "active");
+    .eq("is_active", true);
 
   if (!clients?.length) return NextResponse.json({ message: "활성 클라이언트 없음" });
 
