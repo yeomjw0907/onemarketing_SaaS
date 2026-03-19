@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { Instagram } from "lucide-react";
 import { Section } from "./Section";
 
 export function LandingHero() {
@@ -23,6 +24,15 @@ export function LandingHero() {
             </Button>
           </Link>
         </div>
+        <div className="mt-5 flex items-center gap-3">
+          <div className="h-px w-12 bg-border" />
+          <span className="text-sm text-muted-foreground">또는</span>
+          <div className="h-px w-12 bg-border" />
+        </div>
+        <Link href="/free-report" className="mt-4 inline-flex items-center gap-2 rounded-full border border-pink-500/30 bg-pink-500/5 px-5 py-2 text-sm font-medium text-pink-600 transition-colors hover:bg-pink-500/10 hover:border-pink-500/50">
+          <Instagram className="h-4 w-4" />
+          내 인스타그램 성과 무료로 확인하기 →
+        </Link>
       </Section>
     </section>
   );
