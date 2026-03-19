@@ -12,7 +12,8 @@ export default async function ClientDetailPage({ params, searchParams }: Props) 
   await requireAdmin();
   const { id } = await params;
   const sp = await searchParams?.catch(() => ({} as { tab?: string }));
-  const initialTab = sp?.tab === "integrations" ? "integrations" : "kpis";
+  const validTabs = ["kpis", "integrations", "instagram", "metrics", "actions", "executionTargets", "adBudget", "calendar", "projects", "reports", "assets", "services", "modules", "team"];
+  const initialTab = validTabs.includes(sp?.tab ?? "") ? (sp?.tab ?? "kpis") : "kpis";
   const supabase = await createClient();
 
   const { data: client } = await supabase
@@ -32,7 +33,7 @@ export default async function ClientDetailPage({ params, searchParams }: Props) 
     .single();
 
   // 관련 데이터 병렬 로드
-  const [kpisRes, metricsRes, actionsRes, eventsRes, projectsRes, reportsRes, assetsRes, integrationsRes] =
+  const [kpisRes, metricsRes, actionsRes, eventsRes, projectsRes, reportsRes, assetsRes, integrationsRes, igAccountsRes] =
     await Promise.all([
       supabase.from("kpi_definitions").select("*").eq("client_id", id).order("overview_order"),
       supabase.from("metrics").select("*").eq("client_id", id).order("period_start", { ascending: false }).limit(50),
@@ -42,6 +43,7 @@ export default async function ClientDetailPage({ params, searchParams }: Props) 
       supabase.from("reports").select("*").eq("client_id", id).order("published_at", { ascending: false }).limit(50),
       supabase.from("assets").select("*").eq("client_id", id).order("created_at", { ascending: false }).limit(50),
       supabase.from("data_integrations").select("*").eq("client_id", id).order("created_at", { ascending: false }),
+      supabase.from("instagram_accounts").select("*").eq("client_id", id).order("created_at", { ascending: false }),
     ]);
 
   return (
@@ -57,6 +59,7 @@ export default async function ClientDetailPage({ params, searchParams }: Props) 
       initialReports={reportsRes.data || []}
       initialAssets={assetsRes.data || []}
       initialIntegrations={integrationsRes.data || []}
+      initialIgAccounts={igAccountsRes.data || []}
     />
   );
 }
