@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MousePointerClick, Users, ArrowRightLeft, TrendingDown } from "lucide-react";
 import { CombinedMetricsChart } from "@/components/analytics/combined-metrics-chart";
