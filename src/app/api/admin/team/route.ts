@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "초대 토큰 생성 실패: " + tokenError?.message }, { status: 500 });
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://onemarketing.kr";
     const inviteUrl = `${appUrl}/invite/agency/${inviteToken.token}`;
 
     return NextResponse.json({ success: true, inviteUrl });
