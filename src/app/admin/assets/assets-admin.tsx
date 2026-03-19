@@ -7,19 +7,26 @@ import { AssetType } from "@/lib/types/database";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { FileItemCard } from "@/components/file-item-card";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { safeFilePath } from "@/lib/utils";
-import { Plus, Upload } from "lucide-react";
+import { Plus, Upload, Image } from "lucide-react";
+
+const assetTypeLabels: Record<string, string> = {
+  logo: "로고",
+  guideline: "가이드라인",
+  font: "폰트",
+  photo: "사진",
+  video: "영상",
+  other: "기타",
+};
 
 interface Props {
   initialAssets: any[];
@@ -34,15 +41,17 @@ export function AssetsAdmin({ initialAssets, clients }: Props) {
   const [error, setError] = useState("");
   const [filterClient, setFilterClient] = useState("all");
 
-  const filteredAssets = filterClient === "all"
-    ? initialAssets
-    : initialAssets.filter((a: any) => a.client_id === filterClient);
-
   const [clientId, setClientId] = useState("");
   const [title, setTitle] = useState("");
   const [assetType, setAssetType] = useState<AssetType>("other");
   const [tags, setTags] = useState("");
   const [file, setFile] = useState<File | null>(null);
+
+  const filteredAssets = filterClient === "all"
+    ? initialAssets
+    : initialAssets.filter((a: any) => a.client_id === filterClient);
+
+  const assetTypes = Array.from(new Set(filteredAssets.map((a: any) => a.asset_type as string)));
 
   const openCreate = () => {
     setClientId(clients[0]?.id || "");
@@ -54,20 +63,14 @@ export function AssetsAdmin({ initialAssets, clients }: Props) {
   const handleSave = async () => {
     if (!title) { setError("제목은 필수입니다."); return; }
     if (!file) { setError("파일을 선택해주세요."); return; }
-
     setLoading(true);
     setError("");
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-
       const filePath = safeFilePath(clientId, file.name);
-      const { error: uploadError } = await supabase.storage
-        .from("assets")
-        .upload(filePath, file);
-
+      const { error: uploadError } = await supabase.storage.from("assets").upload(filePath, file);
       if (uploadError) { setError("업로드 실패: " + uploadError.message); return; }
-
       await supabase.from("assets").insert({
         client_id: clientId,
         asset_type: assetType,
@@ -77,7 +80,6 @@ export function AssetsAdmin({ initialAssets, clients }: Props) {
         visibility: "visible",
         created_by: user.id,
       });
-
       setDialogOpen(false);
       router.refresh();
     } finally { setLoading(false); }
@@ -85,63 +87,123 @@ export function AssetsAdmin({ initialAssets, clients }: Props) {
 
   return (
     <>
-      <div className="flex items-center justify-between gap-4">
+      {/* 필터 + 추가 버튼 */}
+      <div className="flex items-center gap-3">
         <Select value={filterClient} onValueChange={setFilterClient}>
-          <SelectTrigger className="w-[200px]"><SelectValue placeholder="전체 클라이언트" /></SelectTrigger>
+          <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder="전체 클라이언트" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">전체 클라이언트</SelectItem>
-            {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+            {clients.map(c => (
+              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
-        <Button onClick={openCreate}><Plus className="h-4 w-4 mr-2" /> 에셋 추가</Button>
+        <div className="ml-auto">
+          <Button onClick={openCreate}>
+            <Plus className="h-4 w-4 mr-2" /> 에셋 추가
+          </Button>
+        </div>
       </div>
 
-      <Card><CardContent className="p-0">
-        <Table>
-          <TableHeader><TableRow>
-            <TableHead>클라이언트</TableHead><TableHead>제목</TableHead>
-            <TableHead>유형</TableHead><TableHead>태그</TableHead>
-            <TableHead>파일</TableHead>
-          </TableRow></TableHeader>
-          <TableBody>
-            {filteredAssets.length === 0 ? (
-              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">없음</TableCell></TableRow>
-            ) : filteredAssets.map((a: any) => (
-              <TableRow key={a.id}>
-                <TableCell>{a.clients?.name || "-"}</TableCell>
-                <TableCell className="font-medium">{a.title}</TableCell>
-                <TableCell><Badge variant="outline">{a.asset_type}</Badge></TableCell>
-                <TableCell className="text-xs">{a.tags?.join(", ") || "-"}</TableCell>
-                <TableCell className="text-xs text-muted-foreground truncate max-w-[200px]">{a.file_path}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent></Card>
+      {/* 결과 요약 */}
+      <p className="text-sm text-muted-foreground">
+        {filterClient === "all"
+          ? `전체 ${initialAssets.length}개`
+          : `${clients.find(c => c.id === filterClient)?.name ?? ""} · ${filteredAssets.length}개`}
+      </p>
 
+      {/* 탭별 자료 목록 */}
+      {filteredAssets.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-3">
+            <Image className="h-5 w-5 text-muted-foreground/50" />
+          </div>
+          <p className="text-sm font-medium text-muted-foreground">등록된 에셋이 없습니다</p>
+        </div>
+      ) : (
+        <Tabs defaultValue="all">
+          <TabsList className="flex-wrap h-auto gap-1">
+            <TabsTrigger value="all">
+              전체 ({filteredAssets.length})
+            </TabsTrigger>
+            {assetTypes.map((type) => (
+              <TabsTrigger key={type} value={type}>
+                {assetTypeLabels[type] || type} ({filteredAssets.filter((a: any) => a.asset_type === type).length})
+              </TabsTrigger>
+            ))}
+          </TabsList>
+
+          <TabsContent value="all" className="mt-4">
+            <div className="space-y-2">
+              {filteredAssets.map((asset: any) => (
+                <div key={asset.id} className="relative">
+                  <FileItemCard
+                    title={asset.title}
+                    subtitle={asset.clients?.name ? `${asset.clients.name}${asset.tags?.length ? " · " + asset.tags.join(", ") : ""}` : asset.tags?.join(", ")}
+                    date={asset.created_at}
+                    badge={assetTypeLabels[asset.asset_type] || asset.asset_type}
+                    bucket="assets"
+                    filePath={asset.file_path}
+                  />
+                </div>
+              ))}
+            </div>
+          </TabsContent>
+
+          {assetTypes.map((type) => (
+            <TabsContent key={type} value={type} className="mt-4">
+              <div className="space-y-2">
+                {filteredAssets
+                  .filter((a: any) => a.asset_type === type)
+                  .map((asset: any) => (
+                    <FileItemCard
+                      key={asset.id}
+                      title={asset.title}
+                      subtitle={asset.clients?.name ? `${asset.clients.name}${asset.tags?.length ? " · " + asset.tags.join(", ") : ""}` : asset.tags?.join(", ")}
+                      date={asset.created_at}
+                      badge={assetTypeLabels[asset.asset_type] || asset.asset_type}
+                      bucket="assets"
+                      filePath={asset.file_path}
+                    />
+                  ))}
+              </div>
+            </TabsContent>
+          ))}
+        </Tabs>
+      )}
+
+      {/* 에셋 추가 다이얼로그 */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>에셋 추가</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>에셋 추가</DialogTitle>
+          </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>클라이언트</Label>
               <Select value={clientId} onValueChange={setClientId}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+                <SelectContent>
+                  {clients.map(c => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2"><Label>제목 *</Label><Input value={title} onChange={e => setTitle(e.target.value)} /></div>
+            <div className="space-y-2">
+              <Label>제목 *</Label>
+              <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="파일 제목" />
+            </div>
             <div className="space-y-2">
               <Label>유형</Label>
               <Select value={assetType} onValueChange={v => setAssetType(v as AssetType)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="logo">로고</SelectItem>
-                  <SelectItem value="guideline">가이드라인</SelectItem>
-                  <SelectItem value="font">폰트</SelectItem>
-                  <SelectItem value="photo">사진</SelectItem>
-                  <SelectItem value="video">영상</SelectItem>
-                  <SelectItem value="other">기타</SelectItem>
+                  {Object.entries(assetTypeLabels).map(([val, label]) => (
+                    <SelectItem key={val} value={val}>{label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -158,7 +220,8 @@ export function AssetsAdmin({ initialAssets, clients }: Props) {
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>취소</Button>
             <Button onClick={handleSave} disabled={loading}>
-              <Upload className="h-4 w-4 mr-2" />{loading ? "업로드 중..." : "업로드"}
+              <Upload className="h-4 w-4 mr-2" />
+              {loading ? "업로드 중..." : "업로드"}
             </Button>
           </DialogFooter>
         </DialogContent>

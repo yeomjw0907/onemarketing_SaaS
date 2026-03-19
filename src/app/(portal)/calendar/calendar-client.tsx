@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { CalendarEvent } from "@/lib/types/database";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/status-badge";
@@ -16,13 +16,20 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDate } from "@/lib/utils";
 import { findServiceItem } from "@/lib/service-catalog";
 import {
   ChevronLeft,
   ChevronRight,
   ExternalLink,
+  CalendarDays,
+  LayoutList,
+  CheckCircle2,
+  Clock,
+  PauseCircle,
+  FileBarChart2,
+  BellRing,
+  Sparkles,
 } from "lucide-react";
 import {
   startOfMonth,
@@ -37,13 +44,14 @@ import {
   isSameDay,
   addMonths,
   subMonths,
-  addWeeks,
-  subWeeks,
   differenceInCalendarDays,
   startOfWeek as sowFn,
   endOfWeek as eowFn,
+  isToday,
+  isPast,
 } from "date-fns";
 import { ko } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 
 export type RelatedAction = {
   id: string;
@@ -62,11 +70,62 @@ interface CalendarClientProps {
   initialSelectedEventId?: string;
 }
 
-export function CalendarClient({ events, relatedActions = [], projectIdToTitle = {}, recentDone, upcomingPlanned, initialSelectedEventId }: CalendarClientProps) {
+// ── 이벤트 타입별 스타일 정의 ─────────────────────────────────────────
+const EVENT_STYLES: Record<
+  string,
+  { bg: string; pill: string; icon: React.ElementType; label: string }
+> = {
+  report: {
+    bg: "bg-emerald-500",
+    pill: "bg-emerald-50 border-emerald-200 text-emerald-700",
+    icon: FileBarChart2,
+    label: "리포트",
+  },
+  notification: {
+    bg: "bg-blue-500",
+    pill: "bg-blue-50 border-blue-200 text-blue-700",
+    icon: BellRing,
+    label: "알림톡",
+  },
+  default: {
+    bg: "bg-violet-500",
+    pill: "bg-violet-50 border-violet-200 text-violet-700",
+    icon: Sparkles,
+    label: "일정",
+  },
+};
+
+const STATUS_STYLES: Record<
+  string,
+  { dot: string; icon: React.ElementType; label: string }
+> = {
+  done: { dot: "bg-emerald-500", icon: CheckCircle2, label: "완료" },
+  planned: { dot: "bg-blue-500", icon: Clock, label: "예정" },
+  hold: { dot: "bg-amber-500", icon: PauseCircle, label: "보류" },
+};
+
+function getEventStyle(eventType: string) {
+  return EVENT_STYLES[eventType] ?? EVENT_STYLES.default;
+}
+
+function getStatusStyle(status: string) {
+  return STATUS_STYLES[status] ?? STATUS_STYLES.planned;
+}
+
+type ViewMode = "month" | "list";
+
+export function CalendarClient({
+  events,
+  relatedActions = [],
+  projectIdToTitle = {},
+  recentDone,
+  upcomingPlanned,
+  initialSelectedEventId,
+}: CalendarClientProps) {
   const router = useRouter();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
-  const [view, setView] = useState<"month" | "week" | "list">("month");
+  const [view, setView] = useState<ViewMode>("month");
 
   useEffect(() => {
     if (!initialSelectedEventId || events.length === 0) return;
@@ -74,30 +133,40 @@ export function CalendarClient({ events, relatedActions = [], projectIdToTitle =
     if (event) setSelectedEvent(event);
   }, [initialSelectedEventId, events]);
 
-  // Month view days
+  // ── 월별 이벤트 필터 ──────────────────────────────────────────────
   const monthDays = useMemo(() => {
     const start = startOfWeek(startOfMonth(currentDate), { weekStartsOn: 0 });
     const end = endOfWeek(endOfMonth(currentDate), { weekStartsOn: 0 });
     return eachDayOfInterval({ start, end });
   }, [currentDate]);
 
-  // Week view days
-  const weekDays = useMemo(() => {
-    const start = sowFn(currentDate, { weekStartsOn: 0 });
-    const end = eowFn(currentDate, { weekStartsOn: 0 });
-    return eachDayOfInterval({ start, end });
-  }, [currentDate]);
-
-  // Chunk days into weeks (7 days each)
   const weeks = useMemo(() => {
-    const days = view === "month" ? monthDays : weekDays;
     const result: Date[][] = [];
-    for (let i = 0; i < days.length; i += 7) {
-      result.push(days.slice(i, i + 7));
+    for (let i = 0; i < monthDays.length; i += 7) {
+      result.push(monthDays.slice(i, i + 7));
     }
     return result;
-  }, [view, monthDays, weekDays]);
+  }, [monthDays]);
 
+  const eventsInMonth = useMemo(() => {
+    const monthStart = startOfMonth(currentDate);
+    const monthEnd = endOfMonth(currentDate);
+    return events.filter((e) => {
+      const s = startOfDay(new Date(e.start_at));
+      const end = e.end_at ? endOfDay(new Date(e.end_at)) : s;
+      return s <= monthEnd && end >= monthStart;
+    });
+  }, [events, currentDate]);
+
+  // ── 이번 달 요약 통계 ─────────────────────────────────────────────
+  const monthStats = useMemo(() => {
+    const total = eventsInMonth.length;
+    const done = eventsInMonth.filter((e) => e.status === "done").length;
+    const planned = eventsInMonth.filter((e) => e.status === "planned").length;
+    return { total, done, planned };
+  }, [eventsInMonth]);
+
+  // ── 멀티데이 바 계산 ──────────────────────────────────────────────
   type EventSegment = {
     event: CalendarEvent;
     startCol: number;
@@ -110,7 +179,13 @@ export function CalendarClient({ events, relatedActions = [], projectIdToTitle =
   const getWeekSegments = (weekDaysSlice: Date[]): EventSegment[] => {
     const weekStart = startOfDay(weekDaysSlice[0]!);
     const weekEnd = endOfDay(weekDaysSlice[weekDaysSlice.length - 1]!);
-    const segments: { event: CalendarEvent; startCol: number; endCol: number; continuesLeft: boolean; continuesRight: boolean }[] = [];
+    const segments: {
+      event: CalendarEvent;
+      startCol: number;
+      endCol: number;
+      continuesLeft: boolean;
+      continuesRight: boolean;
+    }[] = [];
     for (const e of events) {
       const eventStart = startOfDay(new Date(e.start_at));
       const eventEnd = e.end_at ? endOfDay(new Date(e.end_at)) : eventStart;
@@ -125,56 +200,42 @@ export function CalendarClient({ events, relatedActions = [], projectIdToTitle =
         continuesRight: eventEnd > weekEnd,
       });
     }
-    segments.sort((a, b) => a.startCol - b.startCol || (b.endCol - b.startCol) - (a.endCol - a.startCol));
+    segments.sort(
+      (a, b) =>
+        a.startCol - b.startCol ||
+        b.endCol - b.startCol - (a.endCol - a.startCol)
+    );
     const laneEnds: number[] = [];
-    const assigned: EventSegment[] = segments.map((seg) => {
+    return segments.map((seg) => {
       let lane = 0;
-      while (laneEnds[lane] !== undefined && laneEnds[lane]! > seg.startCol) lane++;
+      while (laneEnds[lane] !== undefined && laneEnds[lane]! > seg.startCol)
+        lane++;
       laneEnds[lane] = seg.endCol + 1;
       return { ...seg, lane };
     });
-    return assigned;
   };
 
   const MAX_LANES = 3;
 
-  const getEventsForDay = (day: Date) => {
-    const dayStart = startOfDay(day).getTime();
-    const dayEnd = endOfDay(day).getTime();
-    return events.filter((e) => {
-      const start = new Date(e.start_at).getTime();
-      const end = e.end_at ? new Date(e.end_at).getTime() : start;
-      return start <= dayEnd && end >= dayStart;
-    });
-  };
-
-  const statusColor = (status: string) => {
-    switch (status) {
-      case "done": return "bg-emerald-500";
-      case "planned": return "bg-blue-500";
-      case "hold": return "bg-amber-500";
-      default: return "bg-gray-400";
+  // ── 리스트 뷰: 월 전체 이벤트를 날짜 기준 그룹 ───────────────────
+  const listGroups = useMemo(() => {
+    const sorted = [...eventsInMonth].sort(
+      (a, b) =>
+        new Date(a.start_at).getTime() - new Date(b.start_at).getTime()
+    );
+    const groups: { label: string; date: Date; events: CalendarEvent[] }[] = [];
+    for (const e of sorted) {
+      const d = startOfDay(new Date(e.start_at));
+      const label = format(d, "M월 d일 (E)", { locale: ko });
+      const last = groups[groups.length - 1];
+      if (last && isSameDay(last.date, d)) {
+        last.events.push(e);
+      } else {
+        groups.push({ label, date: d, events: [e] });
+      }
     }
-  };
-
-  const eventTypeBadge = (eventType: string) => {
-    switch (eventType) {
-      case "report":
-        return (
-          <Badge className="bg-green-100 text-green-800 border border-green-200 hover:bg-green-100">
-            📊 리포트
-          </Badge>
-        );
-      case "notification":
-        return (
-          <Badge className="bg-blue-100 text-blue-800 border border-blue-200 hover:bg-blue-100">
-            📱 알림톡
-          </Badge>
-        );
-      default:
-        return <Badge variant="outline">{eventType}</Badge>;
-    }
-  };
+    return groups;
+  }, [eventsInMonth]);
 
   const navigateRelatedWork = (event: CalendarEvent) => {
     if (event.related_action_ids && event.related_action_ids.length > 0) {
@@ -184,320 +245,594 @@ export function CalendarClient({ events, relatedActions = [], projectIdToTitle =
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-      {/* Main Calendar */}
-      <div className="lg:col-span-3">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    if (view === "month") setCurrentDate(subMonths(currentDate, 1));
-                    else setCurrentDate(subWeeks(currentDate, 1));
-                  }}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <h2 className="text-lg font-semibold">
-                  {format(currentDate, view === "month" ? "yyyy년 M월" : "yyyy년 M월 d일 주간", {
-                    locale: ko,
-                  })}
-                </h2>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    if (view === "month") setCurrentDate(addMonths(currentDate, 1));
-                    else setCurrentDate(addWeeks(currentDate, 1));
-                  }}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setCurrentDate(new Date())}
-                  className="text-xs"
-                >
-                  오늘
-                </Button>
+    <div className="space-y-6">
+      {/* ── 이번 달 요약 헤더 ─────────────────────────────────────── */}
+      <div className="grid grid-cols-3 gap-3">
+        <Card className="border-0 bg-gradient-to-br from-slate-50 to-slate-100/60">
+          <CardContent className="py-4 px-5">
+            <p className="text-xs text-muted-foreground font-medium">이번 달 전체</p>
+            <p className="text-2xl font-bold mt-0.5">{monthStats.total}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">개 일정</p>
+          </CardContent>
+        </Card>
+        <Card className="border-0 bg-gradient-to-br from-emerald-50 to-emerald-100/60">
+          <CardContent className="py-4 px-5">
+            <p className="text-xs text-emerald-700 font-medium">완료</p>
+            <p className="text-2xl font-bold text-emerald-700 mt-0.5">{monthStats.done}</p>
+            <p className="text-xs text-emerald-600 mt-0.5">
+              {monthStats.total > 0
+                ? `${Math.round((monthStats.done / monthStats.total) * 100)}% 달성`
+                : "항목 없음"}
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="border-0 bg-gradient-to-br from-blue-50 to-blue-100/60">
+          <CardContent className="py-4 px-5">
+            <p className="text-xs text-blue-700 font-medium">예정</p>
+            <p className="text-2xl font-bold text-blue-700 mt-0.5">{monthStats.planned}</p>
+            <p className="text-xs text-blue-600 mt-0.5">진행 예정</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ── 메인 캘린더 영역 ────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+        {/* 캘린더 */}
+        <div className="xl:col-span-3">
+          <Card>
+            <CardContent className="p-5">
+              {/* 네비게이션 바 */}
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setCurrentDate(subMonths(currentDate, 1))}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <h2 className="text-base font-semibold px-1 min-w-[100px] text-center">
+                    {format(currentDate, "yyyy년 M월", { locale: ko })}
+                  </h2>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setCurrentDate(addMonths(currentDate, 1))}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs h-7 px-2 ml-1"
+                    onClick={() => setCurrentDate(new Date())}
+                  >
+                    오늘
+                  </Button>
+                </div>
+                {/* 뷰 토글 */}
+                <div className="flex items-center gap-1 bg-muted/60 rounded-lg p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setView("month")}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all",
+                      view === "month"
+                        ? "bg-card shadow-sm text-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <CalendarDays className="h-3.5 w-3.5" />월
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setView("list")}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all",
+                      view === "list"
+                        ? "bg-card shadow-sm text-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <LayoutList className="h-3.5 w-3.5" />목록
+                  </button>
+                </div>
               </div>
-              <Tabs value={view} onValueChange={(v) => setView(v as any)}>
-                <TabsList>
-                  <TabsTrigger value="month">월</TabsTrigger>
-                  <TabsTrigger value="week">주</TabsTrigger>
-                  <TabsTrigger value="list">목록</TabsTrigger>
-                </TabsList>
-              </Tabs>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {view === "list" ? (
-              <div className="space-y-2">
-                {events.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-8 text-center">
-                    등록된 이벤트가 없습니다.
-                  </p>
-                ) : (
-                  events.map((event) => (
-                    <button
-                      key={event.id}
-                      onClick={() => setSelectedEvent(event)}
-                      className="w-full text-left flex items-center justify-between p-3 rounded-lg hover:bg-muted transition-subtle"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className={`h-2 w-2 rounded-full ${statusColor(event.status)}`} />
-                        <div>
-                          <p className="text-sm font-medium">{event.title}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {formatDate(event.start_at)}
-                            {event.end_at && ` ~ ${formatDate(event.end_at)}`}
-                          </p>
+
+              {/* 월 뷰 */}
+              {view === "month" && (
+                <>
+                  {/* 요일 헤더 */}
+                  <div className="grid grid-cols-7 mb-1">
+                    {["일", "월", "화", "수", "목", "금", "토"].map((d, i) => (
+                      <div
+                        key={d}
+                        className={cn(
+                          "text-center text-[11px] font-semibold py-2",
+                          i === 0
+                            ? "text-rose-500"
+                            : i === 6
+                            ? "text-blue-500"
+                            : "text-muted-foreground"
+                        )}
+                      >
+                        {d}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* 주간 그리드 */}
+                  <div className="space-y-px rounded-xl overflow-hidden border border-border/40">
+                    {weeks.map((weekDaysSlice, weekIdx) => {
+                      const segs = getWeekSegments(weekDaysSlice);
+                      return (
+                        <div
+                          key={weekIdx}
+                          className="grid grid-cols-7 gap-px bg-border/30"
+                          style={{
+                            gridTemplateRows: `auto repeat(${MAX_LANES}, minmax(20px, auto))`,
+                          }}
+                        >
+                          {/* 날짜 헤더 */}
+                          {weekDaysSlice.map((day, colIdx) => {
+                            const inMonth = isSameMonth(day, currentDate);
+                            const today = isToday(day);
+                            return (
+                              <div
+                                key={day.toISOString()}
+                                className={cn(
+                                  "bg-card flex flex-col items-center pt-2 pb-1 min-h-[32px]",
+                                  !inMonth && "bg-muted/20"
+                                )}
+                                style={{ gridRow: 1, gridColumn: colIdx + 1 }}
+                              >
+                                <span
+                                  className={cn(
+                                    "text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full",
+                                    today
+                                      ? "bg-primary text-primary-foreground font-bold"
+                                      : colIdx === 0
+                                      ? inMonth ? "text-rose-500" : "text-rose-300"
+                                      : colIdx === 6
+                                      ? inMonth ? "text-blue-500" : "text-blue-300"
+                                      : inMonth
+                                      ? "text-foreground"
+                                      : "text-muted-foreground/40"
+                                  )}
+                                >
+                                  {format(day, "d")}
+                                </span>
+                              </div>
+                            );
+                          })}
+
+                          {/* 빈 레인 배경 */}
+                          {Array.from({ length: MAX_LANES }, (_, laneIdx) =>
+                            weekDaysSlice.map((day, colIdx) => (
+                              <div
+                                key={`lane-${laneIdx}-${colIdx}`}
+                                className={cn(
+                                  "bg-card min-h-[20px]",
+                                  !isSameMonth(day, currentDate) && "bg-muted/20"
+                                )}
+                                style={{
+                                  gridRow: laneIdx + 2,
+                                  gridColumn: colIdx + 1,
+                                }}
+                              />
+                            ))
+                          )}
+
+                          {/* 이벤트 바 */}
+                          {segs.map((seg) => {
+                            const style = getEventStyle(seg.event.event_type);
+                            const isDone = seg.event.status === "done";
+                            const isOverdue =
+                              seg.event.status === "planned" &&
+                              isPast(endOfDay(new Date(seg.event.start_at)));
+                            return (
+                              <button
+                                key={`${seg.event.id}-${weekIdx}-${seg.startCol}`}
+                                type="button"
+                                onClick={() => setSelectedEvent(seg.event)}
+                                title={seg.event.title}
+                                className={cn(
+                                  "flex items-center min-h-[18px] w-full text-left text-white text-[10px] font-medium leading-tight px-1.5 py-0.5 rounded transition-all hover:brightness-90 active:scale-[0.98]",
+                                  isDone
+                                    ? "bg-emerald-500"
+                                    : isOverdue
+                                    ? "bg-rose-400"
+                                    : style.bg,
+                                  seg.continuesLeft
+                                    ? "rounded-l-none pl-0.5"
+                                    : "rounded-l",
+                                  seg.continuesRight
+                                    ? "rounded-r-none"
+                                    : "rounded-r",
+                                  initialSelectedEventId === seg.event.id &&
+                                    "ring-2 ring-primary ring-offset-1"
+                                )}
+                                style={{
+                                  gridRow: seg.lane + 2,
+                                  gridColumn: `${seg.startCol + 1} / ${seg.endCol + 2}`,
+                                }}
+                              >
+                                <span className="truncate">{seg.event.title}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* 범례 */}
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-4 pt-3 border-t border-border/40">
+                    {Object.entries(EVENT_STYLES).map(([key, val]) => {
+                      const Icon = val.icon;
+                      return (
+                        <div key={key} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <span className={cn("h-2.5 w-2.5 rounded-sm", val.bg)} />
+                          <Icon className="h-3 w-3" />
+                          {val.label}
+                        </div>
+                      );
+                    })}
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <span className="h-2.5 w-2.5 rounded-sm bg-rose-400" />
+                      기한 초과
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* 목록 뷰 */}
+              {view === "list" && (
+                <div className="space-y-6">
+                  {listGroups.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-16 text-center">
+                      <CalendarDays className="h-10 w-10 text-muted-foreground/30 mb-3" />
+                      <p className="text-sm font-medium text-muted-foreground">이번 달 일정이 없습니다</p>
+                    </div>
+                  ) : (
+                    listGroups.map((group) => (
+                      <div key={group.label}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <div
+                            className={cn(
+                              "text-xs font-semibold px-2 py-1 rounded-md",
+                              isToday(group.date)
+                                ? "bg-primary text-primary-foreground"
+                                : "text-muted-foreground"
+                            )}
+                          >
+                            {group.label}
+                            {isToday(group.date) && (
+                              <span className="ml-1">· 오늘</span>
+                            )}
+                          </div>
+                          <div className="flex-1 h-px bg-border/50" />
+                        </div>
+                        <div className="space-y-1.5 pl-1">
+                          {group.events.map((event) => {
+                            const evStyle = getEventStyle(event.event_type);
+                            const stStyle = getStatusStyle(event.status);
+                            const Icon = evStyle.icon;
+                            return (
+                              <button
+                                key={event.id}
+                                type="button"
+                                onClick={() => setSelectedEvent(event)}
+                                className="w-full text-left flex items-start gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors group"
+                              >
+                                <div
+                                  className={cn(
+                                    "h-8 w-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 border",
+                                    evStyle.pill
+                                  )}
+                                >
+                                  <Icon className="h-4 w-4" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-sm font-medium truncate group-hover:text-primary transition-colors">
+                                      {event.title}
+                                    </p>
+                                  </div>
+                                  {event.description && (
+                                    <p className="text-xs text-muted-foreground truncate mt-0.5">
+                                      {event.description}
+                                    </p>
+                                  )}
+                                </div>
+                                <div className="shrink-0 mt-0.5">
+                                  <StatusBadge status={event.status} />
+                                </div>
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
-                      <StatusBadge status={event.status} />
-                    </button>
-                  ))
+                    ))
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* ── 사이드 패널 ────────────────────────────────────────────── */}
+        <div className="space-y-4">
+          {/* 다가오는 일정 */}
+          <Card>
+            <CardContent className="pt-5 pb-4 px-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Clock className="h-3.5 w-3.5 text-blue-500" />
+                <p className="text-xs font-semibold text-blue-700">다가오는 일정</p>
+                {upcomingPlanned.length > 0 && (
+                  <span className="ml-auto text-[10px] font-medium bg-blue-50 text-blue-600 border border-blue-100 px-1.5 py-0.5 rounded-full">
+                    {upcomingPlanned.length}건
+                  </span>
                 )}
               </div>
-            ) : (
-              <>
-                {/* Day headers */}
-                <div className="grid grid-cols-7 mb-2">
-                  {["일", "월", "화", "수", "목", "금", "토"].map((d) => (
-                    <div key={d} className="text-center text-xs font-medium text-muted-foreground py-2">
-                      {d}
-                    </div>
+              {upcomingPlanned.length === 0 ? (
+                <p className="text-xs text-muted-foreground py-3 text-center">
+                  향후 14일 예정 없음
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {upcomingPlanned.map((ev) => (
+                    <button
+                      key={ev.id}
+                      type="button"
+                      onClick={() => {
+                        const full = events.find((e) => e.id === ev.id);
+                        if (full) setSelectedEvent(full);
+                      }}
+                      className="w-full text-left flex items-start gap-2.5 group py-1"
+                    >
+                      <div className="h-1.5 w-1.5 rounded-full bg-blue-400 shrink-0 mt-1.5" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-medium truncate group-hover:text-primary transition-colors">
+                          {ev.title}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {format(new Date(ev.start_at), "M월 d일 (E)", { locale: ko })}
+                        </p>
+                      </div>
+                    </button>
                   ))}
                 </div>
-                {/* Week rows with multi-day bars */}
-                <div className="space-y-px bg-border rounded-lg overflow-hidden">
-                  {weeks.map((weekDaysSlice, weekIdx) => {
-                    const segs = getWeekSegments(weekDaysSlice);
-                    return (
-                      <div
-                        key={weekIdx}
-                        className="grid grid-cols-7 gap-px"
-                        style={{
-                          gridTemplateRows: `auto repeat(${MAX_LANES}, minmax(22px, 1fr))`,
-                        }}
-                      >
-                        {weekDaysSlice.map((day, colIdx) => {
-                          const isCurrentMonth = isSameMonth(day, currentDate);
-                          const isToday = isSameDay(day, new Date());
-                          return (
-                            <div
-                              key={day.toISOString()}
-                              data-date={format(day, "yyyy-MM-dd")}
-                              className={`min-h-[28px] bg-card flex flex-col items-center justify-start p-0.5 ${
-                                !isCurrentMonth && view === "month" ? "opacity-40" : ""
-                              }`}
-                              style={{ gridRow: 1, gridColumn: colIdx + 1 }}
-                            >
-                              <span
-                                className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full ${
-                                  isToday ? "bg-primary text-primary-foreground" : ""
-                                }`}
-                              >
-                                {format(day, "d")}
-                              </span>
-                            </div>
-                          );
-                        })}
-                        {Array.from({ length: MAX_LANES }, (_, laneIdx) =>
-                          weekDaysSlice.map((day, colIdx) => (
-                            <div
-                              key={`lane-${laneIdx}-${colIdx}`}
-                              data-date={format(day, "yyyy-MM-dd")}
-                              className="bg-card/50 min-h-[22px]"
-                              style={{ gridRow: laneIdx + 2, gridColumn: colIdx + 1 }}
-                            />
-                          ))
-                        )}
-                        {segs.map((seg) => (
-                          <button
-                            key={`${seg.event.id}-${weekIdx}-${seg.startCol}`}
-                            type="button"
-                            onClick={() => setSelectedEvent(seg.event)}
-                            className={`flex items-stretch rounded min-h-[20px] w-full text-left ${statusColor(
-                              seg.event.status
-                            )} text-white ${
-                              seg.continuesLeft ? "rounded-l-none" : ""
-                            } ${seg.continuesRight ? "rounded-r-none" : ""} ${
-                              initialSelectedEventId === seg.event.id ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""
-                            }`}
-                            style={{
-                              gridRow: seg.lane + 2,
-                              gridColumn: `${seg.startCol + 1} / ${seg.endCol + 2}`,
-                            }}
-                          >
-                            <span className="flex-1 text-[10px] leading-tight px-1 py-0.5 truncate min-w-0">
-                              {seg.event.title}
-                            </span>
-                          </button>
-                        ))}
+              )}
+            </CardContent>
+          </Card>
+
+          {/* 최근 완료 */}
+          <Card>
+            <CardContent className="pt-5 pb-4 px-4">
+              <div className="flex items-center gap-2 mb-3">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                <p className="text-xs font-semibold text-emerald-700">최근 완료</p>
+                {recentDone.length > 0 && (
+                  <span className="ml-auto text-[10px] font-medium bg-emerald-50 text-emerald-600 border border-emerald-100 px-1.5 py-0.5 rounded-full">
+                    {recentDone.length}건
+                  </span>
+                )}
+              </div>
+              {recentDone.length === 0 ? (
+                <p className="text-xs text-muted-foreground py-3 text-center">
+                  최근 14일 완료 없음
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {recentDone.map((ev) => (
+                    <button
+                      key={ev.id}
+                      type="button"
+                      onClick={() => {
+                        const full = events.find((e) => e.id === ev.id);
+                        if (full) setSelectedEvent(full);
+                      }}
+                      className="w-full text-left flex items-start gap-2.5 group py-1"
+                    >
+                      <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0 mt-1.5" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-medium truncate group-hover:text-primary transition-colors line-through decoration-emerald-400/60">
+                          {ev.title}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {format(new Date(ev.start_at), "M월 d일 (E)", { locale: ko })}
+                        </p>
                       </div>
-                    );
-                  })}
+                    </button>
+                  ))}
                 </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
-      {/* Side Panel */}
-      <div className="space-y-6">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm">완료 (최근 14일)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {recentDone.length > 0 ? (
-              <div className="space-y-2">
-                {recentDone.map((ev) => (
-                  <div key={ev.id} className="flex items-center gap-2 text-sm">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
-                    <span className="flex-1 truncate text-xs">{ev.title}</span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground">항목 없음</p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm">예정 (향후 14일)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {upcomingPlanned.length > 0 ? (
-              <div className="space-y-2">
-                {upcomingPlanned.map((ev) => (
-                  <div key={ev.id} className="flex items-center gap-2 text-sm">
-                    <span className="h-1.5 w-1.5 rounded-full bg-blue-500 shrink-0" />
-                    <span className="flex-1 truncate text-xs">{ev.title}</span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground">항목 없음</p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Event Detail Modal */}
+      {/* ── 이벤트 상세 모달 ─────────────────────────────────────────── */}
       <Dialog open={!!selectedEvent} onOpenChange={() => setSelectedEvent(null)}>
-        <DialogContent>
-          {selectedEvent && (
-            <>
-              <DialogHeader>
-                <DialogTitle>{selectedEvent.title}</DialogTitle>
-                <DialogDescription>
-                  {formatDate(selectedEvent.start_at)}
-                  {selectedEvent.end_at && ` ~ ${formatDate(selectedEvent.end_at)}`}
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <StatusBadge status={selectedEvent.status} />
-                  {eventTypeBadge(selectedEvent.event_type)}
-                  {selectedEvent.related_action_ids &&
-                    selectedEvent.related_action_ids.length > 0 && (() => {
-                      const keys = new Set(
-                        (selectedEvent.related_action_ids as string[])
-                          .flatMap((id) => {
-                            const a = relatedActions.find((x) => x.id === id);
-                            return (a?.category ?? "").split(",").map((c: string) => c.trim()).filter(Boolean);
-                          })
-                      );
-                      return Array.from(keys).map((k) => (
-                        <Badge key={k} variant="secondary" className="text-xs font-normal">
-                          {k === "general" ? "일반" : (findServiceItem(k)?.label ?? k.replace(/_/g, " "))}
-                        </Badge>
-                      ));
-                    })()}
-                </div>
-                {selectedEvent.description && (
-                  <p className="text-sm whitespace-pre-wrap">{selectedEvent.description}</p>
-                )}
-                {selectedEvent.project_id && (
-                  <div className="border-t pt-3 mt-3">
-                    <p className="text-xs font-semibold text-muted-foreground mb-2">관련 프로젝트</p>
-                    <Link
-                      href={`/projects/${selectedEvent.project_id}`}
-                      className="flex items-center gap-2 py-1.5 px-2 rounded-md hover:bg-muted text-sm font-medium"
+        <DialogContent className="max-w-md">
+          {selectedEvent && (() => {
+            const evStyle = getEventStyle(selectedEvent.event_type);
+            const Icon = evStyle.icon;
+            return (
+              <>
+                <DialogHeader>
+                  <div className="flex items-start gap-3">
+                    <div
+                      className={cn(
+                        "h-10 w-10 rounded-xl flex items-center justify-center shrink-0 border",
+                        evStyle.pill
+                      )}
                     >
-                      <ExternalLink className="h-4 w-4 shrink-0" />
-                      {projectIdToTitle[selectedEvent.project_id] ?? "프로젝트 보기"}
-                    </Link>
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <DialogTitle className="text-base leading-snug">
+                        {selectedEvent.title}
+                      </DialogTitle>
+                      <DialogDescription className="mt-0.5">
+                        {format(new Date(selectedEvent.start_at), "yyyy년 M월 d일 (E)", { locale: ko })}
+                        {selectedEvent.end_at &&
+                          selectedEvent.end_at !== selectedEvent.start_at &&
+                          ` ~ ${format(new Date(selectedEvent.end_at), "M월 d일", { locale: ko })}`}
+                      </DialogDescription>
+                    </div>
                   </div>
-                )}
-                {selectedEvent.related_action_ids && selectedEvent.related_action_ids.length > 0 && (
-                  <div className="border-t pt-3 mt-3">
-                    <p className="text-xs font-semibold text-muted-foreground mb-2">관련 실행 현황</p>
-                    <ul className="space-y-1.5 max-h-48 overflow-y-auto">
-                      {(selectedEvent.related_action_ids as string[])
-                        .map((id) => relatedActions.find((a) => a.id === id))
-                        .filter(Boolean)
-                        .map((action) => {
-                          const categoryKeys = (action!.category ?? "")
-                            .split(",")
-                            .map((c: string) => c.trim())
-                            .filter(Boolean);
-                          const categoryLabels = categoryKeys.map((k: string) =>
-                            k === "general" ? "일반" : (findServiceItem(k)?.label ?? k.replace(/_/g, " "))
-                          );
-                          return (
-                            <li key={action!.id}>
-                              <Link
-                                href={`/execution/actions/${action!.id}`}
-                                className="flex flex-col gap-1 py-1.5 px-2 rounded-md hover:bg-muted text-sm"
-                              >
-                                <div className="flex items-center justify-between gap-2">
-                                  <span className="truncate font-medium">{action!.title}</span>
-                                  <div className="flex items-center gap-2 shrink-0">
-                                    <StatusBadge status={action!.status} />
-                                    <span className="text-xs text-muted-foreground">
-                                      {formatDate(action!.action_date)}
-                                    </span>
-                                  </div>
-                                </div>
-                                {categoryLabels.length > 0 && (
-                                  <div className="flex flex-wrap gap-1">
-                                    {categoryLabels.map((label, i) => (
-                                      <Badge key={i} variant="secondary" className="text-[10px] font-normal">
-                                        {label}
-                                      </Badge>
-                                    ))}
-                                  </div>
-                                )}
-                              </Link>
-                            </li>
-                          );
-                        })}
-                    </ul>
-                    <Button
+                </DialogHeader>
+
+                <div className="space-y-4">
+                  {/* 상태 + 타입 배지 */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <StatusBadge status={selectedEvent.status} />
+                    <Badge
                       variant="outline"
-                      size="sm"
-                      className="mt-2 w-full"
-                      onClick={() => navigateRelatedWork(selectedEvent)}
+                      className={cn("border text-xs", evStyle.pill)}
                     >
-                      <ExternalLink className="h-4 w-4 mr-2" />
-                      실행 현황에서 전체 보기
-                    </Button>
+                      {evStyle.label}
+                    </Badge>
+                    {selectedEvent.related_action_ids &&
+                      selectedEvent.related_action_ids.length > 0 &&
+                      (() => {
+                        const keys = new Set(
+                          (selectedEvent.related_action_ids as string[]).flatMap(
+                            (id) => {
+                              const a = relatedActions.find((x) => x.id === id);
+                              return (a?.category ?? "")
+                                .split(",")
+                                .map((c: string) => c.trim())
+                                .filter(Boolean);
+                            }
+                          )
+                        );
+                        return Array.from(keys).map((k) => (
+                          <Badge
+                            key={k}
+                            variant="secondary"
+                            className="text-xs font-normal"
+                          >
+                            {k === "general"
+                              ? "일반"
+                              : (findServiceItem(k)?.label ??
+                                k.replace(/_/g, " "))}
+                          </Badge>
+                        ));
+                      })()}
                   </div>
-                )}
-              </div>
-              <DialogFooter />
-            </>
-          )}
+
+                  {/* 설명 */}
+                  {selectedEvent.description && (
+                    <div className="rounded-xl bg-muted/40 p-3">
+                      <p className="text-sm whitespace-pre-wrap text-foreground/80">
+                        {selectedEvent.description}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* 관련 프로젝트 */}
+                  {selectedEvent.project_id && (
+                    <div className="rounded-xl border border-border/60 overflow-hidden">
+                      <div className="px-3 py-2 bg-muted/30 border-b border-border/40">
+                        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                          관련 프로젝트
+                        </p>
+                      </div>
+                      <Link
+                        href={`/projects/${selectedEvent.project_id}`}
+                        className="flex items-center gap-2 px-3 py-2.5 hover:bg-muted/40 transition-colors text-sm font-medium"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        {projectIdToTitle[selectedEvent.project_id] ??
+                          "프로젝트 보기"}
+                      </Link>
+                    </div>
+                  )}
+
+                  {/* 관련 실행 현황 */}
+                  {selectedEvent.related_action_ids &&
+                    selectedEvent.related_action_ids.length > 0 && (
+                      <div className="rounded-xl border border-border/60 overflow-hidden">
+                        <div className="px-3 py-2 bg-muted/30 border-b border-border/40">
+                          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                            관련 실행 현황
+                          </p>
+                        </div>
+                        <ul className="divide-y divide-border/40 max-h-44 overflow-y-auto">
+                          {(selectedEvent.related_action_ids as string[])
+                            .map((id) => relatedActions.find((a) => a.id === id))
+                            .filter(Boolean)
+                            .map((action) => {
+                              const categoryKeys = (action!.category ?? "")
+                                .split(",")
+                                .map((c: string) => c.trim())
+                                .filter(Boolean);
+                              const categoryLabels = categoryKeys.map(
+                                (k: string) =>
+                                  k === "general"
+                                    ? "일반"
+                                    : (findServiceItem(k)?.label ??
+                                      k.replace(/_/g, " "))
+                              );
+                              return (
+                                <li key={action!.id}>
+                                  <Link
+                                    href={`/execution/actions/${action!.id}`}
+                                    className="flex flex-col gap-1 py-2.5 px-3 hover:bg-muted/40 transition-colors text-sm"
+                                  >
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span className="truncate font-medium text-sm">
+                                        {action!.title}
+                                      </span>
+                                      <div className="flex items-center gap-1.5 shrink-0">
+                                        <StatusBadge status={action!.status} />
+                                        <span className="text-[10px] text-muted-foreground">
+                                          {formatDate(action!.action_date)}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    {categoryLabels.length > 0 && (
+                                      <div className="flex flex-wrap gap-1">
+                                        {categoryLabels.map((label, i) => (
+                                          <Badge
+                                            key={i}
+                                            variant="secondary"
+                                            className="text-[10px] font-normal"
+                                          >
+                                            {label}
+                                          </Badge>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </Link>
+                                </li>
+                              );
+                            })}
+                        </ul>
+                        <div className="px-3 py-2 border-t border-border/40">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="w-full h-8 text-xs"
+                            onClick={() => navigateRelatedWork(selectedEvent)}
+                          >
+                            <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                            실행 현황에서 전체 보기
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                </div>
+
+                <DialogFooter />
+              </>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>

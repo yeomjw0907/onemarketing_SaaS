@@ -20,6 +20,7 @@ import {
   PanelRight,
   Settings,
   Megaphone,
+  ShoppingBag,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -91,6 +92,7 @@ export function ClientSidebar({ enabledModules, clientName }: ClientSidebarProps
       title: "자료",
       items: [
         { href: "/assets", label: "자료실", icon: Image, color: "text-rose-600", moduleKey: "assets" },
+        { href: "/addon", label: "부가서비스", icon: ShoppingBag, color: "text-orange-600" },
       ],
     },
     {

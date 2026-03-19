@@ -16,7 +16,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -34,6 +33,7 @@ import {
   LayoutDashboard, CalendarDays, FolderKanban, FileText, Image, MessageCircle,
   GripVertical, BarChart2, BookOpen, Settings, History,
   Users, Mail, Copy, Crown, ShieldCheck, Eye,
+  BarChart3, Target, TrendingUp, Flag, Wallet, Layers, ToggleRight, Link2,
 } from "lucide-react";
 import { SERVICE_CATALOG, ALL_SERVICE_KEYS, defaultEnabledServices, findServiceItem } from "@/lib/service-catalog";
 import { ServiceIcon } from "@/components/service-icon";
@@ -88,6 +88,9 @@ export function ClientDetail({
 }: Props) {
   const router = useRouter();
   const supabase = createClient();
+
+  // ── 사이드바 활성 섹션 ──
+  const [activeSection, setActiveSection] = useState(initialTab || "kpis");
 
   // ── 상태 토글 ──
   const [isActive, setIsActive] = useState(client.is_active);
@@ -164,40 +167,134 @@ export function ClientDetail({
         </div>
       </div>
 
-      {/* ── 탭 ── */}
-      <Tabs defaultValue={initialTab} className="space-y-4">
-        <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
-        <TabsList className="flex-wrap h-auto gap-1 w-max md:w-auto">
-          <TabsTrigger value="kpis">KPI 정의</TabsTrigger>
-          <TabsTrigger value="metrics">성과 지표</TabsTrigger>
-          <TabsTrigger value="actions">실행 항목</TabsTrigger>
-          <TabsTrigger value="executionTargets">실행 목표</TabsTrigger>
-          <TabsTrigger value="adBudget">광고 예산</TabsTrigger>
-          <TabsTrigger value="calendar">캘린더</TabsTrigger>
-          <TabsTrigger value="projects">프로젝트</TabsTrigger>
-          <TabsTrigger value="reports">리포트</TabsTrigger>
-          <TabsTrigger value="assets">자료실</TabsTrigger>
-          <TabsTrigger value="integrations">데이터 연동</TabsTrigger>
-          <TabsTrigger value="services">이용중인 서비스</TabsTrigger>
-          <TabsTrigger value="modules">활성 모듈</TabsTrigger>
-          <TabsTrigger value="team">팀원</TabsTrigger>
-        </TabsList>
+      {/* ── 사이드바 네비게이션 + 콘텐츠 ── */}
+      {/* Mobile: compact scrollable tabs */}
+      <div className="flex gap-1 overflow-x-auto pb-1 md:hidden">
+        {[
+          { key: "kpis", label: "KPI 정의" },
+          { key: "metrics", label: "성과 지표" },
+          { key: "actions", label: "실행 항목" },
+          { key: "executionTargets", label: "실행 목표" },
+          { key: "adBudget", label: "광고 예산" },
+          { key: "calendar", label: "캘린더" },
+          { key: "projects", label: "프로젝트" },
+          { key: "reports", label: "리포트" },
+          { key: "assets", label: "자료실" },
+          { key: "services", label: "이용중인 서비스" },
+          { key: "modules", label: "활성 모듈" },
+          { key: "integrations", label: "데이터 연동" },
+          { key: "team", label: "팀원" },
+        ].map(s => (
+          <button
+            key={s.key}
+            onClick={() => setActiveSection(s.key)}
+            className={cn(
+              "shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
+              activeSection === s.key
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+            )}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex gap-6">
+        {/* Left sidebar */}
+        <div className="hidden md:block w-52 shrink-0">
+          <div className="space-y-1">
+            {/* 성과 관리 */}
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 py-1.5">성과 관리</p>
+            {[
+              { key: "kpis", label: "KPI 정의", Icon: Target },
+              { key: "metrics", label: "성과 지표", Icon: TrendingUp },
+              { key: "actions", label: "실행 항목", Icon: Zap },
+              { key: "executionTargets", label: "실행 목표", Icon: Flag },
+              { key: "adBudget", label: "광고 예산", Icon: Wallet },
+            ].map(item => (
+              <button
+                key={item.key}
+                onClick={() => setActiveSection(item.key)}
+                className={cn(
+                  "w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium transition-colors",
+                  activeSection === item.key
+                    ? "bg-primary/8 text-primary"
+                    : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                )}
+              >
+                <item.Icon className="h-4 w-4 shrink-0" />
+                {item.label}
+              </button>
+            ))}
+
+            {/* 운영 */}
+            <div className="pt-3 mt-2 border-t border-border/40" />
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 py-1.5">운영</p>
+            {[
+              { key: "calendar", label: "캘린더", Icon: CalendarDays },
+              { key: "projects", label: "프로젝트", Icon: FolderKanban },
+              { key: "reports", label: "리포트", Icon: FileText },
+              { key: "assets", label: "자료실", Icon: Image },
+            ].map(item => (
+              <button
+                key={item.key}
+                onClick={() => setActiveSection(item.key)}
+                className={cn(
+                  "w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium transition-colors",
+                  activeSection === item.key
+                    ? "bg-primary/8 text-primary"
+                    : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                )}
+              >
+                <item.Icon className="h-4 w-4 shrink-0" />
+                {item.label}
+              </button>
+            ))}
+
+            {/* 설정 */}
+            <div className="pt-3 mt-2 border-t border-border/40" />
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 py-1.5">설정</p>
+            {[
+              { key: "services", label: "이용중인 서비스", Icon: Layers },
+              { key: "modules", label: "활성 모듈", Icon: ToggleRight },
+              { key: "integrations", label: "데이터 연동", Icon: Link2 },
+              { key: "team", label: "팀원", Icon: Users },
+            ].map(item => (
+              <button
+                key={item.key}
+                onClick={() => setActiveSection(item.key)}
+                className={cn(
+                  "w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium transition-colors",
+                  activeSection === item.key
+                    ? "bg-primary/8 text-primary"
+                    : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                )}
+              >
+                <item.Icon className="h-4 w-4 shrink-0" />
+                {item.label}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <TabsContent value="kpis"><KpiTab clientId={client.id} initialKpis={initialKpis} supabase={supabase} router={router} /></TabsContent>
-        <TabsContent value="metrics"><MetricTab clientId={client.id} initialMetrics={initialMetrics} kpiDefs={initialKpis} supabase={supabase} router={router} /></TabsContent>
-        <TabsContent value="actions"><ActionTab clientId={client.id} initialActions={initialActions} supabase={supabase} router={router} /></TabsContent>
-        <TabsContent value="executionTargets"><ExecutionTargetsTab clientId={client.id} initialTargets={(client.execution_targets || {}) as ExecutionTargets} supabase={supabase} router={router} /></TabsContent>
-        <TabsContent value="adBudget"><AdBudgetTab clientId={client.id} initialBudget={(client.monthly_ad_budget || {}) as Record<string, number>} supabase={supabase} router={router} /></TabsContent>
-        <TabsContent value="calendar"><CalendarTab clientId={client.id} initialEvents={initialEvents} projects={initialProjects} supabase={supabase} router={router} /></TabsContent>
-        <TabsContent value="projects"><ProjectTab clientId={client.id} initialProjects={initialProjects} supabase={supabase} router={router} /></TabsContent>
-        <TabsContent value="reports"><ReportTab clientId={client.id} initialReports={initialReports} supabase={supabase} router={router} /></TabsContent>
-        <TabsContent value="assets"><AssetTab clientId={client.id} initialAssets={initialAssets} supabase={supabase} router={router} /></TabsContent>
-        <TabsContent value="integrations"><IntegrationTab clientId={client.id} initialIntegrations={initialIntegrations} router={router} /></TabsContent>
-        <TabsContent value="services"><ServiceTab clientId={client.id} initialServices={(client.enabled_services || {}) as Record<string, boolean>} initialServiceUrls={(client.service_urls || {}) as Record<string, string>} supabase={supabase} router={router} /></TabsContent>
-        <TabsContent value="modules"><ModuleTab clientId={client.id} initialModules={{ ...(client.enabled_modules || {}), overview: true, execution: true, calendar: true, projects: true, reports: true, assets: true, support: true, timeline: true } as EnabledModules} supabase={supabase} router={router} /></TabsContent>
-        <TabsContent value="team"><ClientTeamTab clientId={client.id} /></TabsContent>
-      </Tabs>
+        {/* Right content */}
+        <div className="flex-1 min-w-0">
+          {activeSection === "kpis" && <KpiTab clientId={client.id} initialKpis={initialKpis} supabase={supabase} router={router} />}
+          {activeSection === "metrics" && <MetricTab clientId={client.id} initialMetrics={initialMetrics} kpiDefs={initialKpis} supabase={supabase} router={router} />}
+          {activeSection === "actions" && <ActionTab clientId={client.id} initialActions={initialActions} supabase={supabase} router={router} />}
+          {activeSection === "executionTargets" && <ExecutionTargetsTab clientId={client.id} initialTargets={(client.execution_targets || {}) as ExecutionTargets} supabase={supabase} router={router} />}
+          {activeSection === "adBudget" && <AdBudgetTab clientId={client.id} initialBudget={(client.monthly_ad_budget || {}) as Record<string, number>} supabase={supabase} router={router} />}
+          {activeSection === "calendar" && <CalendarTab clientId={client.id} initialEvents={initialEvents} projects={initialProjects} supabase={supabase} router={router} />}
+          {activeSection === "projects" && <ProjectTab clientId={client.id} initialProjects={initialProjects} supabase={supabase} router={router} />}
+          {activeSection === "reports" && <ReportTab clientId={client.id} initialReports={initialReports} supabase={supabase} router={router} />}
+          {activeSection === "assets" && <AssetTab clientId={client.id} initialAssets={initialAssets} supabase={supabase} router={router} />}
+          {activeSection === "integrations" && <IntegrationTab clientId={client.id} initialIntegrations={initialIntegrations} router={router} />}
+          {activeSection === "services" && <ServiceTab clientId={client.id} initialServices={(client.enabled_services || {}) as Record<string, boolean>} initialServiceUrls={(client.service_urls || {}) as Record<string, string>} supabase={supabase} router={router} />}
+          {activeSection === "modules" && <ModuleTab clientId={client.id} initialModules={{ ...(client.enabled_modules || {}), overview: true, execution: true, calendar: true, projects: true, reports: true, assets: true, support: true, timeline: true } as EnabledModules} supabase={supabase} router={router} />}
+          {activeSection === "team" && <ClientTeamTab clientId={client.id} />}
+        </div>
+      </div>
 
       {/* ── 비밀번호 리셋 다이얼로그 ── */}
       <Dialog open={pwDialogOpen} onOpenChange={setPwDialogOpen}>

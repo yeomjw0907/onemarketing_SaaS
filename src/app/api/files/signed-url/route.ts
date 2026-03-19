@@ -22,6 +22,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Normalize path: strip leading slashes (old DB records may have them)
+    const normalizedPath = file_path.replace(/^\/+/, "");
+
     // Authenticate user
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -41,16 +44,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Profile not found" }, { status: 403 });
     }
 
-    // Authorization check
+    // Authorization check — match DB using both original path and normalized path
+    const table = bucket === "reports" ? "reports" : "assets";
     if (profile.role === "client") {
-      // Verify file belongs to their client
-      const table = bucket === "reports" ? "reports" : "assets";
       const { data: fileRecord } = await supabase
         .from(table)
         .select("id, client_id")
-        .eq("file_path", file_path)
+        .or(`file_path.eq.${file_path},file_path.eq.${normalizedPath}`)
         .eq("client_id", profile.client_id!)
-        .single();
+        .maybeSingle();
 
       if (!fileRecord) {
         return NextResponse.json(
@@ -59,14 +61,12 @@ export async function POST(request: NextRequest) {
         );
       }
     } else if (profile.role === "admin") {
-      // Admin: verify file exists
-      const table = bucket === "reports" ? "reports" : "assets";
       const serviceClient = await createServiceClient();
       const { data: fileRecord } = await serviceClient
         .from(table)
         .select("id")
-        .eq("file_path", file_path)
-        .single();
+        .or(`file_path.eq.${file_path},file_path.eq.${normalizedPath}`)
+        .maybeSingle();
 
       if (!fileRecord) {
         return NextResponse.json(
@@ -76,18 +76,19 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Generate signed URL using service client
+    // Generate signed URL using service client (always use normalized path)
     const serviceClient = await createServiceClient();
     const { data: signedUrlData, error: signedUrlError } =
       await serviceClient.storage
         .from(bucket)
-        .createSignedUrl(file_path, SIGNED_URL_EXPIRY, {
+        .createSignedUrl(normalizedPath, SIGNED_URL_EXPIRY, {
           download: action === "download",
         });
 
     if (signedUrlError || !signedUrlData) {
+      console.error("Signed URL creation failed:", signedUrlError?.message, { bucket, normalizedPath });
       return NextResponse.json(
-        { error: "Failed to create signed URL" },
+        { error: "Failed to create signed URL", detail: signedUrlError?.message },
         { status: 500 }
       );
     }
