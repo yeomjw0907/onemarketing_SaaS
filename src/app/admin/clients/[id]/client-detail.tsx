@@ -172,6 +172,7 @@ export function ClientDetail({
           <TabsTrigger value="metrics">성과 지표</TabsTrigger>
           <TabsTrigger value="actions">실행 항목</TabsTrigger>
           <TabsTrigger value="executionTargets">실행 목표</TabsTrigger>
+          <TabsTrigger value="adBudget">광고 예산</TabsTrigger>
           <TabsTrigger value="calendar">캘린더</TabsTrigger>
           <TabsTrigger value="projects">프로젝트</TabsTrigger>
           <TabsTrigger value="reports">리포트</TabsTrigger>
@@ -187,6 +188,7 @@ export function ClientDetail({
         <TabsContent value="metrics"><MetricTab clientId={client.id} initialMetrics={initialMetrics} kpiDefs={initialKpis} supabase={supabase} router={router} /></TabsContent>
         <TabsContent value="actions"><ActionTab clientId={client.id} initialActions={initialActions} supabase={supabase} router={router} /></TabsContent>
         <TabsContent value="executionTargets"><ExecutionTargetsTab clientId={client.id} initialTargets={(client.execution_targets || {}) as ExecutionTargets} supabase={supabase} router={router} /></TabsContent>
+        <TabsContent value="adBudget"><AdBudgetTab clientId={client.id} initialBudget={(client.monthly_ad_budget || {}) as Record<string, number>} supabase={supabase} router={router} /></TabsContent>
         <TabsContent value="calendar"><CalendarTab clientId={client.id} initialEvents={initialEvents} projects={initialProjects} supabase={supabase} router={router} /></TabsContent>
         <TabsContent value="projects"><ProjectTab clientId={client.id} initialProjects={initialProjects} supabase={supabase} router={router} /></TabsContent>
         <TabsContent value="reports"><ReportTab clientId={client.id} initialReports={initialReports} supabase={supabase} router={router} /></TabsContent>
@@ -2056,6 +2058,204 @@ function ClientTeamTab({ clientId }: { clientId: string }) {
             ) : (
               <Button className="w-full" onClick={closeDialog}>닫기</Button>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// ─── AdBudgetTab ───────────────────────────────────────────────────────────
+
+const KNOWN_PLATFORMS = [
+  { key: "naver_ads", label: "네이버 광고" },
+  { key: "meta_ads", label: "메타 광고" },
+  { key: "google_ads", label: "구글 광고" },
+  { key: "kakao_ads", label: "카카오 광고" },
+  { key: "coupang_ads", label: "쿠팡 광고" },
+  { key: "tiktok_ads", label: "틱톡 광고" },
+  { key: "other", label: "기타" },
+];
+
+function AdBudgetTab({
+  clientId,
+  initialBudget,
+  supabase: _supabase,
+  router: _router,
+}: {
+  clientId: string;
+  initialBudget: Record<string, number>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase?: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  router?: any;
+}) {
+  const [budget, setBudget] = useState<Record<string, number>>(initialBudget ?? {});
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editKey, setEditKey] = useState<string | null>(null);
+  const [platformKey, setPlatformKey] = useState("naver_ads");
+  const [customKey, setCustomKey] = useState("");
+  const [amount, setAmount] = useState("");
+  const [saving, setSaving] = useState(false);
+  const supabase = _supabase ?? createClient();
+
+  const totalBudget = Object.values(budget).reduce((s, v) => s + v, 0);
+
+  function openAdd() {
+    setEditKey(null);
+    setPlatformKey("naver_ads");
+    setCustomKey("");
+    setAmount("");
+    setDialogOpen(true);
+  }
+
+  function openEdit(key: string) {
+    setEditKey(key);
+    const known = KNOWN_PLATFORMS.find((p) => p.key === key);
+    if (known) {
+      setPlatformKey(key);
+      setCustomKey("");
+    } else {
+      setPlatformKey("other");
+      setCustomKey(key);
+    }
+    setAmount(String(budget[key] ?? ""));
+    setDialogOpen(true);
+  }
+
+  async function handleSave() {
+    const finalKey = platformKey === "other" ? customKey.trim() : platformKey;
+    if (!finalKey) return;
+    const numAmount = parseInt(amount.replace(/,/g, ""), 10);
+    if (isNaN(numAmount) || numAmount < 0) return;
+
+    setSaving(true);
+    const newBudget = { ...budget };
+    if (editKey && editKey !== finalKey) delete newBudget[editKey];
+    newBudget[finalKey] = numAmount;
+
+    const { error } = await supabase
+      .from("clients")
+      .update({ monthly_ad_budget: newBudget })
+      .eq("id", clientId);
+
+    setSaving(false);
+    if (!error) {
+      setBudget(newBudget);
+      setDialogOpen(false);
+    }
+  }
+
+  async function handleDelete(key: string) {
+    const newBudget = { ...budget };
+    delete newBudget[key];
+    await supabase.from("clients").update({ monthly_ad_budget: newBudget }).eq("id", clientId);
+    setBudget(newBudget);
+  }
+
+  const getPlatformLabel = (key: string) =>
+    KNOWN_PLATFORMS.find((p) => p.key === key)?.label ?? key;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-medium text-muted-foreground">월 총 광고 예산</p>
+          <p className="text-2xl font-bold">
+            {totalBudget > 0 ? `₩${totalBudget.toLocaleString()}` : "—"}
+          </p>
+        </div>
+        <Button size="sm" onClick={openAdd}>
+          <Plus className="mr-1 h-4 w-4" />
+          플랫폼 추가
+        </Button>
+      </div>
+
+      {Object.keys(budget).length === 0 ? (
+        <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+          등록된 광고 예산이 없습니다. 플랫폼을 추가해 주세요.
+        </div>
+      ) : (
+        <div className="rounded-lg border overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50">
+              <tr>
+                <th className="px-4 py-2 text-left font-medium text-muted-foreground">플랫폼</th>
+                <th className="px-4 py-2 text-right font-medium text-muted-foreground">월 예산</th>
+                <th className="px-4 py-2 text-right font-medium text-muted-foreground">비중</th>
+                <th className="px-4 py-2 w-16" />
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {Object.entries(budget)
+                .sort(([, a], [, b]) => b - a)
+                .map(([key, val]) => (
+                  <tr key={key} className="hover:bg-muted/30">
+                    <td className="px-4 py-2 font-medium">{getPlatformLabel(key)}</td>
+                    <td className="px-4 py-2 text-right">₩{val.toLocaleString()}</td>
+                    <td className="px-4 py-2 text-right text-muted-foreground">
+                      {totalBudget > 0 ? `${Math.round((val / totalBudget) * 100)}%` : "—"}
+                    </td>
+                    <td className="px-4 py-2">
+                      <div className="flex gap-1 justify-end">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(key)}>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleDelete(key)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{editKey ? "예산 수정" : "플랫폼 예산 추가"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>플랫폼</Label>
+              <Select value={platformKey} onValueChange={setPlatformKey} disabled={!!editKey && KNOWN_PLATFORMS.some(p => p.key === editKey)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {KNOWN_PLATFORMS.map((p) => (
+                    <SelectItem key={p.key} value={p.key}>{p.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {platformKey === "other" && (
+              <div className="space-y-1.5">
+                <Label>플랫폼 키 (영문)</Label>
+                <Input
+                  placeholder="예: twitter_ads"
+                  value={customKey}
+                  onChange={(e) => setCustomKey(e.target.value)}
+                />
+              </div>
+            )}
+            <div className="space-y-1.5">
+              <Label>월 예산 (원)</Label>
+              <Input
+                placeholder="예: 500000"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>취소</Button>
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />저장 중...</> : "저장"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

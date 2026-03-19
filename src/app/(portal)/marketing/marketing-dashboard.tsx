@@ -42,6 +42,7 @@ interface Props {
   compareTo: string | null;
   compareEnabled: boolean;
   selectedPlatform: string;
+  monthlyBudget?: Record<string, number>;
 }
 
 const PLATFORM_LABEL: Record<string, string> = {
@@ -134,6 +135,7 @@ export function MarketingDashboard({
   dateFrom, dateTo, compareFrom, compareTo,
   compareEnabled: initialCompareEnabled,
   selectedPlatform: initialPlatform,
+  monthlyBudget,
 }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -220,6 +222,48 @@ export function MarketingDashboard({
     }
     return Object.entries(byPlatform).map(([p, vals]) => ({ platform: p, label: PLATFORM_LABEL[p] ?? p, ...vals }));
   }, [metrics]);
+
+  // 채널별 기여도 (2개 이상 플랫폼일 때만)
+  const CHANNEL_COLORS = ["#6366f1", "#10b981", "#f59e0b", "#ec4899", "#06b6d4", "#8b5cf6"];
+  const channelContribution = useMemo(() => {
+    if (platformComparison.length < 2) return [];
+    return (["cost", "clicks", "conversions", "impressions"] as const)
+      .filter((k) => currentAgg[k] !== undefined && (currentAgg[k] ?? 0) > 0)
+      .map((metricKey) => {
+        const total = currentAgg[metricKey] ?? 0;
+        const platforms = platformComparison
+          .map((pc) => ({
+            label: pc.label,
+            value: (pc as Record<string, unknown>)[metricKey] as number ?? 0,
+          }))
+          .filter((p) => p.value > 0)
+          .sort((a, b) => b.value - a.value);
+        if (platforms.length === 0) return null;
+        return { metricKey, label: METRIC_CONFIG[metricKey]?.label ?? metricKey, total, platforms };
+      })
+      .filter(Boolean) as { metricKey: string; label: string; total: number; platforms: { label: string; value: number }[] }[];
+  }, [platformComparison, currentAgg]);
+
+  // 예산 소진율: monthly_ad_budget vs 조회 기간 실제 비용
+  const budgetConsumption = useMemo(() => {
+    if (!monthlyBudget || Object.keys(monthlyBudget).length === 0) return [];
+    // 플랫폼별 cost 합계
+    const costByPlatform: Record<string, number> = {};
+    for (const m of metrics) {
+      if (m.metric_key !== "cost") continue;
+      if (!costByPlatform[m.platform]) costByPlatform[m.platform] = 0;
+      costByPlatform[m.platform] += m.metric_value;
+    }
+    return Object.entries(monthlyBudget)
+      .filter(([, budget]) => budget > 0)
+      .map(([platformKey, budget]) => {
+        const spent = costByPlatform[platformKey] ?? 0;
+        const pct = Math.min(Math.round((spent / budget) * 100), 999);
+        const overBudget = spent > budget;
+        return { platformKey, label: PLATFORM_LABEL[platformKey] ?? platformKey, budget, spent, pct, overBudget };
+      })
+      .sort((a, b) => b.pct - a.pct);
+  }, [monthlyBudget, metrics]);
 
   const comparePeriodLabel = compareFrom && compareTo ? formatDateRange(compareFrom, compareTo) : "비교";
 
@@ -412,6 +456,115 @@ export function MarketingDashboard({
             <p className="text-xs mt-1">상단 [데이터 동기화] 버튼을 눌러 최신 데이터를 가져오세요.</p>
           </CardContent>
         </Card>
+      )}
+
+      {/* ── C-1: 채널별 기여도 ── */}
+      {channelContribution.length > 0 && (
+        <div>
+          <h2 className="text-lg font-semibold mb-3">채널별 기여도</h2>
+          <Card className="border-border/50">
+            <CardContent className="pt-5 pb-5">
+              <div className="space-y-6">
+                {channelContribution.map((item) => {
+                  const cfg = METRIC_CONFIG[item.metricKey];
+                  return (
+                    <div key={item.metricKey}>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-semibold">{item.label}</span>
+                        <span className="text-sm font-bold tabular-nums">
+                          {cfg?.format(item.total) ?? item.total.toLocaleString()}
+                        </span>
+                      </div>
+                      {/* 스택 바 */}
+                      <div className="flex h-7 rounded-lg overflow-hidden gap-0.5">
+                        {item.platforms.map((p, i) => {
+                          const pct = Math.round((p.value / item.total) * 100);
+                          return (
+                            <div
+                              key={p.label}
+                              className="h-full flex items-center justify-center text-[11px] text-white font-bold transition-all hover:opacity-90 cursor-default"
+                              style={{
+                                width: `${pct}%`,
+                                backgroundColor: CHANNEL_COLORS[i % CHANNEL_COLORS.length],
+                                minWidth: pct > 0 ? "2px" : "0",
+                              }}
+                              title={`${p.label}: ${cfg?.format(p.value) ?? p.value.toLocaleString()} (${pct}%)`}
+                            >
+                              {pct >= 12 && `${pct}%`}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {/* 범례 */}
+                      <div className="flex flex-wrap gap-3 mt-2">
+                        {item.platforms.map((p, i) => {
+                          const pct = Math.round((p.value / item.total) * 100);
+                          return (
+                            <div key={p.label} className="flex items-center gap-1.5">
+                              <div
+                                className="h-2.5 w-2.5 rounded-sm shrink-0"
+                                style={{ backgroundColor: CHANNEL_COLORS[i % CHANNEL_COLORS.length] }}
+                              />
+                              <span className="text-xs text-muted-foreground">
+                                {p.label}
+                                <span className="ml-1 font-medium text-foreground">{pct}%</span>
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* ── 예산 소진율 ── */}
+      {budgetConsumption.length > 0 && (
+        <div>
+          <h2 className="text-lg font-semibold mb-3">예산 소진율</h2>
+          <Card className="border-border/50">
+            <CardContent className="pt-5 pb-5">
+              <p className="text-xs text-muted-foreground mb-4">
+                {formatDateRange(dateFrom, dateTo)} 기간 광고비 vs 월 예산
+              </p>
+              <div className="space-y-5">
+                {budgetConsumption.map((item) => (
+                  <div key={item.platformKey}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-sm font-medium">{item.label}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          ₩{item.spent.toLocaleString()} / ₩{item.budget.toLocaleString()}
+                        </span>
+                        <span className={`text-xs font-bold px-1.5 py-0.5 rounded-md ${
+                          item.overBudget
+                            ? "bg-rose-100 text-rose-700"
+                            : item.pct >= 80
+                            ? "bg-amber-100 text-amber-700"
+                            : "bg-emerald-100 text-emerald-700"
+                        }`}>
+                          {item.pct}%
+                        </span>
+                      </div>
+                    </div>
+                    <div className="h-2.5 w-full bg-muted rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${
+                          item.overBudget ? "bg-rose-500" : item.pct >= 80 ? "bg-amber-500" : "bg-emerald-500"
+                        }`}
+                        style={{ width: `${Math.min(item.pct, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       {/* ── 추이 차트 ── */}

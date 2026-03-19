@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Users, FolderKanban, FileText, CalendarDays, Image,
   TrendingUp, Building2, CreditCard, HeartPulse, ChevronRight,
+  ClipboardList, Bell, Clock,
 } from "lucide-react";
 import Link from "next/link";
 import { calcHealthScore, GRADE_META, type HealthGrade } from "@/lib/health-score";
@@ -37,10 +38,13 @@ export default async function AdminDashboard() {
     }
   };
 
+  const weekEnd = new Date(now.getTime() + 7 * 86400000).toISOString();
+
   const [
     clientsN, projectsN, eventsN, reportsN, assetsN,
     agenciesRes, subscriptionsRes,
     clientsRes, reportsHealthRes, notiRes, actionsRes, integrationsRes, profilesRes,
+    pendingApprovalsRes, weekEventsRes,
   ] = await Promise.all([
     safeCount("clients"),
     safeCount("projects"),
@@ -59,6 +63,22 @@ export default async function AdminDashboard() {
     supabase.from("actions").select("client_id, status").gte("action_date", monthStart).eq("visibility", "visible"),
     supabase.from("data_integrations").select("client_id, status"),
     supabase.from("profiles").select("user_id, client_id").eq("role", "client").not("client_id", "is", null),
+    // 이번 주 할 일
+    supabase
+      .from("notifications")
+      .select("id, client_id, report_type, sent_at, view_token")
+      .eq("report_type", "THU_PROPOSAL")
+      .eq("approval_status", "PENDING")
+      .gt("approval_token_expires_at", now.toISOString())
+      .order("sent_at", { ascending: false }),
+    supabase
+      .from("calendar_events")
+      .select("id, title, start_at, client_id")
+      .eq("status", "planned")
+      .gte("start_at", now.toISOString())
+      .lte("start_at", weekEnd)
+      .order("start_at", { ascending: true })
+      .limit(8),
   ]);
 
   const agenciesN = agenciesRes.count ?? 0;
@@ -141,6 +161,11 @@ export default async function AdminDashboard() {
     // 서비스 키 없으면 로그인 점수 0
   }
 
+  // 이번 주 할 일 데이터
+  const pendingApprovals = pendingApprovalsRes.data ?? [];
+  const weekEvents = weekEventsRes.data ?? [];
+  const clientNameById = Object.fromEntries(clients.map((c) => [c.id, c.name]));
+
   const clientScores = clients.map((c) => {
     const hasIntegration =
       integrationByClient[c.id] !== undefined ? integrationByClient[c.id] : null;
@@ -170,6 +195,90 @@ export default async function AdminDashboard() {
           환영합니다, {session.profile.display_name}
         </p>
       </div>
+
+      {/* ── 이번 주 할 일 ── */}
+      {(pendingApprovals.length > 0 || weekEvents.length > 0) && (
+        <div>
+          <h2 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-1.5">
+            <ClipboardList className="h-4 w-4" />
+            이번 주 할 일
+          </h2>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* 제안 승인 대기 */}
+            {pendingApprovals.length > 0 && (
+              <Card className="border-amber-200/60 bg-amber-50/30">
+                <CardContent className="pt-5 pb-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Bell className="h-4 w-4 text-amber-600" />
+                    <p className="text-xs font-semibold text-amber-700">
+                      제안 승인 대기
+                    </p>
+                    <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 text-[10px] ml-auto">
+                      {pendingApprovals.length}건
+                    </Badge>
+                  </div>
+                  <div className="space-y-1.5">
+                    {pendingApprovals.map((pa) => (
+                      <Link key={pa.id} href={`/report/v/${pa.view_token}`}>
+                        <div className="flex items-center justify-between py-2 px-2 -mx-2 rounded-lg hover:bg-amber-100/60 transition-colors group">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="h-2 w-2 rounded-full bg-amber-400 shrink-0 animate-pulse" />
+                            <span className="text-sm font-medium truncate group-hover:text-amber-700 transition-colors">
+                              {clientNameById[pa.client_id ?? ""] ?? "알 수 없음"}
+                            </span>
+                          </div>
+                          <span className="text-xs text-muted-foreground shrink-0 ml-2">
+                            {new Date(pa.sent_at).toLocaleDateString("ko-KR", { month: "short", day: "numeric" })}
+                          </span>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* 이번 주 예정 일정 */}
+            {weekEvents.length > 0 && (
+              <Card className="border-blue-200/60 bg-blue-50/30">
+                <CardContent className="pt-5 pb-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Clock className="h-4 w-4 text-blue-600" />
+                    <p className="text-xs font-semibold text-blue-700">
+                      이번 주 예정 일정
+                    </p>
+                    <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 text-[10px] ml-auto">
+                      {weekEvents.length}건
+                    </Badge>
+                  </div>
+                  <div className="space-y-1.5">
+                    {weekEvents.slice(0, 5).map((ev) => (
+                      <Link key={ev.id} href={`/admin/clients/${ev.client_id}`}>
+                        <div className="flex items-start justify-between py-2 px-2 -mx-2 rounded-lg hover:bg-blue-100/60 transition-colors group">
+                          <div className="flex items-start gap-2 min-w-0">
+                            <div className="h-2 w-2 rounded-full bg-blue-400 shrink-0 mt-1.5" />
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium truncate group-hover:text-blue-700 transition-colors">
+                                {ev.title}
+                              </p>
+                              <p className="text-[11px] text-muted-foreground">
+                                {clientNameById[ev.client_id ?? ""] ?? ""}
+                              </p>
+                            </div>
+                          </div>
+                          <span className="text-xs text-muted-foreground shrink-0 ml-2 mt-0.5">
+                            {new Date(ev.start_at).toLocaleDateString("ko-KR", { month: "short", day: "numeric" })}
+                          </span>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 비즈니스 지표 */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

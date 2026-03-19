@@ -55,12 +55,19 @@ export default async function MarketingPage({ searchParams }: Props) {
   const compareFrom = compareEnabled ? (sp.cFrom || autoCompareFrom) : null;
   const compareTo   = compareEnabled ? (sp.cTo   || autoCompareTo)   : null;
 
-  // ── 클라이언트 연동 목록 ──
-  const { data: integrations } = await supabase
-    .from("data_integrations")
-    .select("id, platform, display_name, status, last_synced_at")
-    .eq("client_id", profile.client_id)
-    .eq("status", "active");
+  // ── 클라이언트 연동 목록 + 월 예산 ──
+  const [{ data: integrations }, { data: clientData }] = await Promise.all([
+    supabase
+      .from("data_integrations")
+      .select("id, platform, display_name, status, last_synced_at")
+      .eq("client_id", profile.client_id)
+      .eq("status", "active"),
+    supabase
+      .from("clients")
+      .select("monthly_ad_budget")
+      .eq("id", profile.client_id)
+      .single(),
+  ]);
 
   // ── 현재 기간 지표 ──
   const { data: metrics } = await supabase
@@ -95,6 +102,7 @@ export default async function MarketingPage({ searchParams }: Props) {
       compareTo={compareTo}
       compareEnabled={compareEnabled}
       selectedPlatform={sp.platform || "all"}
+      monthlyBudget={(clientData?.monthly_ad_budget as Record<string, number>) ?? {}}
     />
   );
 }

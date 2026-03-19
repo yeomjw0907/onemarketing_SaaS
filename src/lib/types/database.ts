@@ -52,6 +52,8 @@ export interface Client {
   service_urls?: Record<string, string>;
   /** 카테고리별 기간당 목표 건수 (진척도용). 예: { "landing_page": { period: "monthly", target: 25 } } */
   execution_targets?: ExecutionTargets;
+  /** 플랫폼별 월 광고 예산 (원). 예: { "meta_ads": 500000, "naver_ads": 300000 } */
+  monthly_ad_budget?: Record<string, number>;
   is_active: boolean;
   created_at: string;
   updated_at: string;
