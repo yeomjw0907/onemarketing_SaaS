@@ -13,6 +13,7 @@ import { fetchTikTokAdsMetrics } from "./tiktok-ads";
 import { fetchNaverGFAMetrics } from "./naver-gfa";
 import { fetchShopifyMetrics } from "./shopify";
 import { fetchCafe24Metrics } from "./cafe24";
+import { fetchLinkedInAdsMetrics } from "./linkedin-ads";
 
 export interface MetricRow {
   client_id: string;
@@ -41,6 +42,7 @@ const PLATFORM_FETCHERS: Record<
   naver_gfa:             fetchNaverGFAMetrics,
   shopify:               fetchShopifyMetrics,
   cafe24:                fetchCafe24Metrics,
+  linkedin_ads:          fetchLinkedInAdsMetrics,
 };
 
 /**
