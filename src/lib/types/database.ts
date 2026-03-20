@@ -249,7 +249,8 @@ export type IntegrationPlatform =
   | "tiktok_ads"
   | "naver_gfa"
   | "shopify"
-  | "cafe24";
+  | "cafe24"
+  | "linkedin_ads";
 
 export type IntegrationStatus = "active" | "inactive" | "error";
 
@@ -444,6 +445,25 @@ export interface CombinedMetric {
   click_to_session_rate?: number;
 }
 
+// ── LinkedIn Ads 연동 ─────────────────────────────────────────
+
+export type LinkedInConnectionStatus = "active" | "inactive" | "error";
+
+export interface LinkedInConnection {
+  id: string;
+  client_id: string;
+  integration_id: string | null;
+  ad_account_id: string;
+  ad_account_urn: string;
+  ad_account_name: string | null;
+  access_token: string;
+  refresh_token: string | null;
+  token_expires_at: string | null;
+  scope: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // ── 에이전시 / 구독 ──────────────────────────────────────────
 
 export type SubscriptionStatus = "trialing" | "active" | "past_due" | "cancelled" | "expired";
@@ -584,6 +604,11 @@ export interface Database {
         Row: AddonOrder;
         Insert: Omit<AddonOrder, "id" | "created_at" | "updated_at">;
         Update: Partial<Omit<AddonOrder, "id" | "client_id" | "addon_key" | "addon_label" | "price_won" | "created_at" | "created_by">>;
+      };
+      linkedin_connections: {
+        Row: LinkedInConnection;
+        Insert: Omit<LinkedInConnection, "id" | "created_at" | "updated_at">;
+        Update: Partial<Omit<LinkedInConnection, "id" | "created_at" | "updated_at">>;
       };
     };
     Functions: {

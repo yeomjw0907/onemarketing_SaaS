@@ -1436,6 +1436,19 @@ const INTEGRATION_GUIDES: Record<string, { title: string; env?: string[]; steps:
       { name: "Refresh Token", where: "OAuth 2.0 인증 완료 후 발급되는 Refresh Token" },
     ],
   },
+  linkedin_ads: {
+    title: "LinkedIn Ads",
+    env: ["LINKEDIN_CLIENT_ID", "LINKEDIN_CLIENT_SECRET", "NEXT_PUBLIC_APP_URL (OAuth 콜백용)"],
+    steps: [
+      "권장: 상단 [LinkedIn OAuth] 버튼 클릭 → LinkedIn 로그인 동의 → 광고 계정 자동 연결",
+      "LinkedIn Campaign Manager에 활성 광고 계정이 있어야 합니다.",
+      "직접 입력 시: LinkedIn Marketing API에서 Access Token, Ad Account ID를 발급해 입력",
+    ],
+    fields: [
+      { name: "Access Token", where: "LinkedIn OAuth 버튼 사용 시 자동. 직접 입력 시 LinkedIn Marketing API에서 발급" },
+      { name: "Ad Account ID", where: "LinkedIn Campaign Manager → 광고 계정 설정 → 계정 ID (숫자만)" },
+    ],
+  },
 };
 
 const PLATFORM_OPTIONS: { value: IntegrationPlatform; label: string }[] = [
@@ -1443,6 +1456,7 @@ const PLATFORM_OPTIONS: { value: IntegrationPlatform; label: string }[] = [
   { value: "google_ads",            label: "Google Ads" },
   { value: "google_analytics",      label: "Google Analytics (GA4)" },
   { value: "google_search_console", label: "Google Search Console (SEO)" },
+  { value: "linkedin_ads",          label: "LinkedIn Ads" },
   { value: "naver_ads",             label: "네이버 검색광고" },
   { value: "naver_gfa",             label: "네이버 성과형디스플레이광고 (GFA)" },
   { value: "kakao_moment",          label: "카카오모먼트" },
@@ -1456,6 +1470,7 @@ const PLATFORM_LABEL: Record<string, string> = {
   google_ads:            "Google Ads",
   google_analytics:      "GA4",
   google_search_console: "Search Console",
+  linkedin_ads:          "LinkedIn Ads",
   naver_ads:             "네이버 검색광고",
   naver_searchad:        "네이버 검색광고",
   naver_gfa:             "네이버 GFA",
@@ -1483,6 +1498,7 @@ function IntegrationTab({ clientId, initialIntegrations, router }: { clientId: s
   const searchParams = useSearchParams();
   const metaTokenFromUrl = searchParams.get("metaToken");
   const metaExpiresInFromUrl = searchParams.get("metaExpiresIn");
+  const linkedInConnected = searchParams.get("linkedin") === "connected";
   const errorFromUrl = searchParams.get("error");
 
   const [integrations, setIntegrations] = useState<DataIntegration[]>(initialIntegrations);
@@ -1590,6 +1606,9 @@ function IntegrationTab({ clientId, initialIntegrations, router }: { clientId: s
   const [cafe24ClientId, setCafe24ClientId] = useState("");
   const [cafe24ClientSecret, setCafe24ClientSecret] = useState("");
   const [cafe24RefreshToken, setCafe24RefreshToken] = useState("");
+  // LinkedIn
+  const [linkedInAccessToken, setLinkedInAccessToken] = useState("");
+  const [linkedInAdAccountId, setLinkedInAdAccountId] = useState("");
   // KPI 자동생성
   const [autoKpi, setAutoKpi] = useState(true);
 
@@ -1608,6 +1627,7 @@ function IntegrationTab({ clientId, initialIntegrations, router }: { clientId: s
     setTiktokAccessToken(""); setTiktokAdvertiserId("");
     setShopifyAccessToken(""); setShopifyDomain("");
     setCafe24MallId(""); setCafe24ClientId(""); setCafe24ClientSecret(""); setCafe24RefreshToken("");
+    setLinkedInAccessToken(""); setLinkedInAdAccountId("");
   };
 
   const buildCredentials = (): Record<string, string> => {
@@ -1632,6 +1652,8 @@ function IntegrationTab({ clientId, initialIntegrations, router }: { clientId: s
         return { accessToken: shopifyAccessToken, shopDomain: shopifyDomain };
       case "cafe24":
         return { mallId: cafe24MallId, clientId: cafe24ClientId, clientSecret: cafe24ClientSecret, refreshToken: cafe24RefreshToken };
+      case "linkedin_ads":
+        return { accessToken: linkedInAccessToken, adAccountId: linkedInAdAccountId };
       default:
         return {};
     }
@@ -1795,6 +1817,10 @@ function IntegrationTab({ clientId, initialIntegrations, router }: { clientId: s
     window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientIdVal}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${clientId}&scope=${encodeURIComponent(scope)}&response_type=code&access_type=offline&prompt=consent`;
   };
 
+  const startLinkedInOAuth = () => {
+    window.location.href = `/api/auth/linkedin?clientId=${clientId}`;
+  };
+
   const handleSaveSettings = async () => {
     setSettingsSaving(true);
     try {
@@ -1839,6 +1865,25 @@ function IntegrationTab({ clientId, initialIntegrations, router }: { clientId: s
 
   return (
     <div className="space-y-5">
+      {linkedInConnected && (
+        <Card className="border-green-500/50 bg-green-500/5">
+          <CardContent className="py-3 flex items-center justify-between gap-3">
+            <p className="text-sm text-green-700 dark:text-green-400 font-medium">LinkedIn Ads 연동이 완료되었습니다.</p>
+            <Button
+              variant="ghost" size="sm"
+              onClick={() => {
+                const url = new URL(window.location.href);
+                url.searchParams.delete("linkedin");
+                const qs = url.searchParams.toString();
+                router.replace(qs ? `${url.pathname}?${qs}` : url.pathname, { scroll: false });
+              }}
+              className="shrink-0"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </CardContent>
+        </Card>
+      )}
       {errorFromUrl && (
         <Card className="border-destructive/50 bg-destructive/5">
           <CardContent className="py-3 flex items-center justify-between gap-3">
@@ -1863,6 +1908,9 @@ function IntegrationTab({ clientId, initialIntegrations, router }: { clientId: s
           </Button>
           <Button variant="outline" size="sm" onClick={startGoogleOAuth}>
             <ExternalLink className="h-3.5 w-3.5 mr-1" /> Google OAuth
+          </Button>
+          <Button variant="outline" size="sm" onClick={startLinkedInOAuth}>
+            <ExternalLink className="h-3.5 w-3.5 mr-1" /> LinkedIn OAuth
           </Button>
           <Button variant="outline" size="sm" onClick={() => setSettingsOpen(true)}>
             <Settings className="h-3.5 w-3.5 mr-1" /> 연동 기본 설정
@@ -2279,6 +2327,16 @@ function IntegrationTab({ clientId, initialIntegrations, router }: { clientId: s
                 <div className="space-y-2"><Label>Client ID</Label><Input value={cafe24ClientId} onChange={e => setCafe24ClientId(e.target.value)} placeholder="카페24 개발자센터 → Client ID" /></div>
                 <div className="space-y-2"><Label>Client Secret</Label><Input type="password" value={cafe24ClientSecret} onChange={e => setCafe24ClientSecret(e.target.value)} placeholder="카페24 개발자센터 → Client Secret" /></div>
                 <div className="space-y-2"><Label>Refresh Token</Label><Input type="password" value={cafe24RefreshToken} onChange={e => setCafe24RefreshToken(e.target.value)} placeholder="OAuth 인증 후 발급된 Refresh Token" /></div>
+              </div>
+            )}
+
+            {/* LinkedIn Ads */}
+            {platform === "linkedin_ads" && (
+              <div className="space-y-3 p-3 border rounded-lg bg-muted/30">
+                <p className="text-xs font-semibold text-muted-foreground">LinkedIn Ads 인증</p>
+                <p className="text-xs text-muted-foreground">권장: 상단 [LinkedIn OAuth] 버튼 클릭 → LinkedIn 로그인 동의 → 광고 계정 자동 연결</p>
+                <div className="space-y-2"><Label>Access Token</Label><Input type="password" value={linkedInAccessToken} onChange={e => setLinkedInAccessToken(e.target.value)} placeholder="LinkedIn OAuth 사용 시 자동" /></div>
+                <div className="space-y-2"><Label>Ad Account ID</Label><Input value={linkedInAdAccountId} onChange={e => setLinkedInAdAccountId(e.target.value)} placeholder="Campaign Manager → 광고 계정 ID (숫자)" /></div>
               </div>
             )}
 
