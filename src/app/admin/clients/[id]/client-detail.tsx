@@ -1553,24 +1553,6 @@ function IntegrationTab({ clientId, initialIntegrations, router }: { clientId: s
     }
   }, []);
 
-  // GA4 추적 URL 로드 (GA4 연동이 있을 때)
-  useEffect(() => {
-    const hasGA4 = integrations.some((i) => i.platform === "google_analytics");
-    if (!hasGA4 || ga4PathsLoaded) return;
-    (async () => {
-      try {
-        const res = await fetch(`/api/admin/integrations/ga4-pages?clientId=${clientId}`);
-        if (res.ok) {
-          const json = await res.json();
-          setGa4TargetPaths(json.data?.targetPaths ?? []);
-          setGa4PathsLoaded(true);
-        }
-      } catch {
-        // ignore
-      }
-    })();
-  }, [integrations, clientId, ga4PathsLoaded]);
-
   // Meta OAuth 콜백 후 저장 폼 (URL에 metaToken 있을 때)
   const [metaSaveDisplayName, setMetaSaveDisplayName] = useState("Meta 광고");
   const [metaSaveAdAccountId, setMetaSaveAdAccountId] = useState("");
@@ -1617,6 +1599,24 @@ function IntegrationTab({ clientId, initialIntegrations, router }: { clientId: s
   const [ga4PathInput, setGa4PathInput] = useState("");
   const [ga4PathsSaving, setGa4PathsSaving] = useState(false);
   const [ga4PathsLoaded, setGa4PathsLoaded] = useState(false);
+
+  // GA4 추적 URL 로드 (GA4 연동이 있을 때)
+  useEffect(() => {
+    const hasGA4 = integrations.some((i) => i.platform === "google_analytics");
+    if (!hasGA4 || ga4PathsLoaded) return;
+    (async () => {
+      try {
+        const res = await fetch(`/api/admin/integrations/ga4-pages?clientId=${clientId}`);
+        if (res.ok) {
+          const json = await res.json();
+          setGa4TargetPaths(json.data?.targetPaths ?? []);
+          setGa4PathsLoaded(true);
+        }
+      } catch {
+        // ignore
+      }
+    })();
+  }, [integrations, clientId, ga4PathsLoaded]);
 
   const resetForm = () => {
     setPlatform("meta_ads"); setDisplayName(""); setTestResult(null); setAutoKpi(true);
