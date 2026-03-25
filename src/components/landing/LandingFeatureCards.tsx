@@ -95,7 +95,7 @@ export function LandingFeatureCards() {
               <button
                 type="button"
                 onClick={() => setOpenIndex(i)}
-                className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline underline-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded"
+                className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline underline-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded py-2.5 min-h-[44px]"
               >
                 자세히 보기
                 <ChevronRight className="h-4 w-4" />
