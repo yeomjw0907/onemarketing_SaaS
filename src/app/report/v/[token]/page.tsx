@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import DOMPurify from "isomorphic-dompurify";
 import { createServiceClient } from "@/lib/supabase/server";
 import type { Notification, Report } from "@/lib/types/database";
 import { Button } from "@/components/ui/button";
@@ -207,7 +208,7 @@ async function renderReportView(
           <div className="bg-card rounded-2xl border shadow-sm p-5">
             <div
               className="prose prose-sm max-w-none text-foreground"
-              dangerouslySetInnerHTML={{ __html: report.summary }}
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(report.summary) }}
             />
           </div>
         )}
