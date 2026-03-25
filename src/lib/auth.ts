@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { Profile, Client, EnabledModules } from "@/lib/types/database";
@@ -9,7 +10,7 @@ export interface SessionUser {
   client: Client | null;
 }
 
-export async function getSession(): Promise<SessionUser | null> {
+export const getSession = cache(async (): Promise<SessionUser | null> => {
   const supabase = await createClient();
 
   const {
@@ -47,7 +48,7 @@ export async function getSession(): Promise<SessionUser | null> {
     profile,
     client,
   };
-}
+});
 
 export async function requireAuth(): Promise<SessionUser> {
   const session = await getSession();

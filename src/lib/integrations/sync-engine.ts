@@ -160,16 +160,20 @@ export async function syncAllActive(
     return { total: 0, succeeded: 0, failed: 0, results: [] };
   }
 
-  const results = [];
-  let succeeded = 0;
-  let failed = 0;
+  const settled = await Promise.allSettled(
+    integrations.map((integration) => syncIntegration(supabase, integration, dateFrom, dateTo)),
+  );
 
-  for (const integration of integrations) {
-    const result = await syncIntegration(supabase, integration, dateFrom, dateTo);
-    results.push({ integrationId: integration.id, platform: integration.platform, ...result });
-    if (result.success) succeeded++;
-    else failed++;
-  }
+  const results = settled.map((outcome, i) => {
+    const integration = integrations[i];
+    if (outcome.status === "fulfilled") {
+      return { integrationId: integration.id, platform: integration.platform, ...outcome.value };
+    }
+    return { integrationId: integration.id, platform: integration.platform, success: false, recordCount: 0, error: String(outcome.reason) };
+  });
+
+  const succeeded = results.filter((r) => r.success).length;
+  const failed = results.length - succeeded;
 
   return { total: integrations.length, succeeded, failed, results };
 }

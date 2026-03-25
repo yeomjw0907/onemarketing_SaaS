@@ -79,6 +79,11 @@ function stripProtocol(url: string): string {
 
 // ── 단건 알림톡 발송 ──
 export async function sendAlimtalk(message: AlimtalkMessage): Promise<SendResult> {
+  if (!message.templateId || message.templateId.trim() === "") {
+    console.error("[alimtalk] templateId가 비어있어 발송을 건너뜁니다.", { to: message.to });
+    return { success: false, error: "templateId가 등록되지 않았습니다. Solapi에 템플릿을 등록 후 TEMPLATE_IDS에 ID를 입력하세요." };
+  }
+
   const pfId = process.env.SOLAPI_PFID;
 
   if (!pfId) {
