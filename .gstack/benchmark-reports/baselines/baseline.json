@@ -1,0 +1,56 @@
+{
+  "date": "2026-03-25",
+  "branch": "main",
+  "env": "dev",
+  "url": "http://localhost:3001",
+  "pages": {
+    "/login": {
+      "ttfb_ms": 808,
+      "fcp_ms": 1040,
+      "dom_interactive_ms": 1495,
+      "full_load_ms": 1975,
+      "total_requests": 13,
+      "total_transfer_kb": 2940,
+      "js_transfer_kb": 2892,
+      "css_transfer_kb": 19
+    },
+    "/overview": {
+      "ttfb_ms": 773,
+      "fcp_ms": 1024,
+      "dom_interactive_ms": 1416,
+      "full_load_ms": 1831,
+      "total_requests": 13,
+      "total_transfer_kb": 2940,
+      "js_transfer_kb": 2892,
+      "css_transfer_kb": 19
+    },
+    "/admin": {
+      "ttfb_ms": 715,
+      "fcp_ms": 768,
+      "dom_interactive_ms": 1176,
+      "full_load_ms": 1663,
+      "total_requests": 13,
+      "total_transfer_kb": 2940,
+      "js_transfer_kb": 2892,
+      "css_transfer_kb": 19
+    },
+    "/admin/reports": {
+      "ttfb_ms": 653,
+      "fcp_ms": 700,
+      "dom_interactive_ms": 865,
+      "full_load_ms": 1508,
+      "total_requests": 13,
+      "total_transfer_kb": 2940,
+      "js_transfer_kb": 2892,
+      "css_transfer_kb": 19
+    }
+  },
+  "bundles": {
+    "main_app_js_transfer_kb": 1715,
+    "main_app_js_decoded_kb": 7400,
+    "tiptap_editor_kb_decoded": 3100,
+    "total_js_transfer_kb": 2892,
+    "css_transfer_kb": 19,
+    "total_requests": 13
+  }
+}

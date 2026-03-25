@@ -14,6 +14,10 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // OneDrive 환경에서 .next/trace EPERM 오류 방지
+  experimental: {
+    turbotrace: { logLevel: "error" },
+  },
   // ── 워크스페이스 루트를 이 프로젝트 폴더로 고정 ──
   // 상위 폴더에 package-lock.json 등이 있으면 Next.js가 루트를 잘못 추론하므로 명시 지정
   outputFileTracingRoot: __dirname,
