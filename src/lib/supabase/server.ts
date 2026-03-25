@@ -1,4 +1,5 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createClient as createRawClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
 type CookieToSet = { name: string; value: string; options?: CookieOptions };
@@ -50,26 +51,9 @@ export async function createServiceClient() {
       "SUPABASE_SERVICE_ROLE_KEY가 .env.local에 없습니다. 설정 후 개발 서버를 재시작하세요."
     );
   }
-  const cookieStore = await cookies();
-
-  return createServerClient(
-    supabaseUrl,
-    serviceKey,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet: CookieToSet[]) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
-          } catch {
-            // Server Component — ignore
-          }
-        },
-      },
-    }
-  );
+  // service role은 쿠키 기반 SSR 클라이언트가 아닌 raw 클라이언트 사용
+  // (SSR createServerClient + serviceKey 조합 시 쿠키 세션과 충돌)
+  return createRawClient(supabaseUrl, serviceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
 }
