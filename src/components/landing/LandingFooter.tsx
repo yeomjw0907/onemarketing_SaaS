@@ -40,12 +40,12 @@ export function LandingFooter() {
               <p>{COMPANY.address2}</p>
             </div>
           </div>
-          <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm">
+          <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
             {footerLinks.map(({ href, label }) => (
               <Link
                 key={href}
                 href={href}
-                className="opacity-80 hover:opacity-100 hover:underline underline-offset-2"
+                className="inline-block py-2 opacity-80 hover:opacity-100 hover:underline underline-offset-2 min-h-[44px] flex items-center"
               >
                 {label}
               </Link>
