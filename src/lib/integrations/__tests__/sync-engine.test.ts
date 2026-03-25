@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { syncIntegration, syncAllActive } from "../sync-engine";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { DataIntegration } from "@/lib/types/database";
@@ -104,25 +104,23 @@ describe("syncAllActive", () => {
       makeIntegration({ id: "int-2", platform: "naver_ads" }),
     ];
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const chain: any = {
-      select: vi.fn().mockImplementation(() => chain),
-      insert: vi.fn().mockImplementation(() => chain),
-      update: vi.fn().mockImplementation(() => chain),
-      delete: vi.fn().mockImplementation(() => chain),
-      eq: vi.fn().mockImplementation(() => chain),
-      in: vi.fn().mockImplementation(() => chain),
-      single: vi.fn().mockResolvedValue({ data: { id: "log-1" }, error: null }),
+    const chain = makeMockSupabase();
+    // syncAllActive의 첫 from("data_integrations") 쿼리만 integrations 반환
+    // from 첫 번째 호출 = data_integrations 조회, 이후 = sync 중 insert/update 등
+    let fromCallCount = 0;
+    const listChain = {
+      select: vi.fn().mockReturnThis(),
+      in: vi.fn().mockResolvedValue({ data: integrations, error: null }),
     };
-    chain.then = (resolve: (v: unknown) => void) => resolve({ data: null, error: null });
-    // syncAllActive의 첫 from().select().in() 호출만 integrations 반환
-    let inCallCount = 0;
-    chain.in.mockImplementation(() => {
-      inCallCount++;
-      if (inCallCount === 1) return Promise.resolve({ data: integrations, error: null });
-      return chain;
+    (chain.from as ReturnType<typeof vi.fn>).mockImplementation(() => {
+      fromCallCount++;
+      if (fromCallCount === 1) return listChain;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const c: any = { select: vi.fn().mockReturnThis(), insert: vi.fn().mockReturnThis(), update: vi.fn().mockReturnThis(), delete: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), single: vi.fn().mockResolvedValue({ data: { id: "log-1" }, error: null }) };
+      c.then = (resolve: (v: unknown) => void) => resolve({ data: null, error: null });
+      return c;
     });
-    const supabase = { from: vi.fn(() => chain) } as unknown as SupabaseClient;
+    const supabase = chain;
 
     const result = await syncAllActive(supabase, "2025-01-01", "2025-01-07");
     expect(result.total).toBe(2);
