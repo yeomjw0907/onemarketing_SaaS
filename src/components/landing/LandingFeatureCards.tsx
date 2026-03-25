@@ -85,9 +85,7 @@ export function LandingFeatureCards() {
         {features.map(({ icon: Icon, title, description }, i) => (
           <Card key={title} className="border-border bg-card flex flex-col">
             <CardHeader className="flex-1">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary mb-2">
-                <Icon className="h-5 w-5" />
-              </div>
+              <Icon className="h-6 w-6 text-primary mb-2" />
               <CardTitle className="text-lg">{title}</CardTitle>
               <CardDescription>{description}</CardDescription>
             </CardHeader>
