@@ -170,7 +170,7 @@ export function LandingPricing() {
                   className="w-full"
                   size="lg"
                 >
-                  <Link href={plan.key === "agency" ? "/support" : "/signup"}>
+                  <Link href={plan.key === "agency" ? "mailto:yeomjw0907@onecation.co.kr" : "/signup"}>
                     {plan.cta}
                   </Link>
                 </Button>
