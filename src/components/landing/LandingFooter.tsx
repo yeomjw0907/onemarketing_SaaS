@@ -27,12 +27,12 @@ export function LandingFooter() {
             <p className="text-sm opacity-90">{COMPANY.name}</p>
             <div className="space-y-1 text-sm opacity-80">
               <p>
-                <a href={`mailto:${COMPANY.email}`} className="hover:underline">
+                <a href={`mailto:${COMPANY.email}`} className="inline-block py-1 hover:underline">
                   {COMPANY.email}
                 </a>
               </p>
               <p>
-                <a href={`tel:${COMPANY.phone.replace(/-/g, "")}`} className="hover:underline">
+                <a href={`tel:${COMPANY.phone.replace(/-/g, "")}`} className="inline-block py-1 hover:underline">
                   {COMPANY.phone}
                 </a>
               </p>
