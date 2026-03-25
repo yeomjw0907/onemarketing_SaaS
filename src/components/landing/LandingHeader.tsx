@@ -12,20 +12,20 @@ export function LandingHeader() {
         <Link href="/" className="flex items-center gap-2">
           <img src="/logo-light.png" alt="ONEmarketing" className="h-8 w-auto" />
         </Link>
-        <div className="hidden md:flex items-center gap-3">
+        <div className="hidden md:flex items-center gap-2">
           <Link href="/free-report">
-            <Button variant="outline" size="sm" className="gap-1.5 border-pink-500/30 text-pink-600 hover:bg-pink-50 hover:text-pink-700 hover:border-pink-500/50">
+            <Button variant="outline" size="sm" className="gap-1.5 h-9 border-pink-500/30 text-pink-600 hover:bg-pink-50 hover:text-pink-700 hover:border-pink-500/50">
               <Instagram className="h-3.5 w-3.5" />
               무료 인스타 분석
             </Button>
           </Link>
           <Link href="/login">
-            <Button variant="ghost" size="sm">
+            <Button variant="ghost" size="sm" className="h-9">
               로그인
             </Button>
           </Link>
           <Link href="/signup">
-            <Button size="sm">회원가입</Button>
+            <Button size="sm" className="h-9">회원가입</Button>
           </Link>
         </div>
         <button
