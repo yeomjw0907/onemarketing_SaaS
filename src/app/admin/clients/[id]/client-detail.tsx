@@ -33,10 +33,11 @@ import {
   LayoutDashboard, CalendarDays, FolderKanban, FileText, Image, MessageCircle,
   GripVertical, BarChart2, BookOpen, Settings, History,
   Users, Mail, Copy, Crown, ShieldCheck, Eye,
-  BarChart3, Target, TrendingUp, Flag, Wallet, Layers, ToggleRight, Link2,
+  BarChart3, Target, TrendingUp, Flag, Wallet, Layers, ToggleRight, Link2, MessageSquare,
 } from "lucide-react";
 import { InstagramTab } from "./instagram-tab";
 import { IntegrationTab } from "./integration-tab";
+import { AlimtalkScheduleTab } from "./alimtalk-schedule-tab";
 import { SERVICE_CATALOG, ALL_SERVICE_KEYS, defaultEnabledServices, findServiceItem } from "@/lib/service-catalog";
 import { ServiceIcon } from "@/components/service-icon";
 import { toast } from "sonner";
@@ -188,6 +189,7 @@ export function ClientDetail({
           { key: "modules", label: "활성 모듈" },
           { key: "integrations", label: "데이터 연동" },
           { key: "instagram", label: "Instagram" },
+          { key: "alimtalk", label: "알림톡" },
           { key: "team", label: "팀원" },
         ].map(s => (
           <button
@@ -265,6 +267,7 @@ export function ClientDetail({
               { key: "modules", label: "활성 모듈", Icon: ToggleRight },
               { key: "integrations", label: "데이터 연동", Icon: Link2 },
               { key: "instagram", label: "Instagram", Icon: BarChart2 },
+              { key: "alimtalk", label: "알림톡 설정", Icon: MessageSquare },
               { key: "team", label: "팀원", Icon: Users },
             ].map(item => (
               <button
@@ -299,6 +302,7 @@ export function ClientDetail({
           {activeSection === "instagram" && <InstagramTab clientId={client.id} initialAccounts={initialIgAccounts} />}
           {activeSection === "services" && <ServiceTab clientId={client.id} initialServices={(client.enabled_services || {}) as Record<string, boolean>} initialServiceUrls={(client.service_urls || {}) as Record<string, string>} supabase={supabase} router={router} />}
           {activeSection === "modules" && <ModuleTab clientId={client.id} initialModules={{ ...(client.enabled_modules || {}), overview: true, execution: true, calendar: true, projects: true, reports: true, assets: true, support: true, timeline: true } as EnabledModules} supabase={supabase} router={router} />}
+          {activeSection === "alimtalk" && <AlimtalkScheduleTab clientId={client.id} />}
           {activeSection === "team" && <ClientTeamTab clientId={client.id} />}
         </div>
       </div>
