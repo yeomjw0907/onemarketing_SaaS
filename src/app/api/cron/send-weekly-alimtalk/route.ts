@@ -1,6 +1,6 @@
 /**
- * Vercel Cron — 월/수/목 주간 알림톡 발송
- * 한국 시간 기준: 월 09:30, 수 14:00, 목 16:00 등으로 Cron 설정 권장
+ * Vercel Cron — 매일 오전 9시(KST) 알림톡 발송
+ * client_report_schedules 테이블 기반으로 오늘 요일에 해당하는 스케줄만 처리
  */
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
@@ -28,6 +28,15 @@ function getKoreaDayOfWeek(): number {
   return kr.getDay();
 }
 
+/** snapshot이 비어 있거나 모든 수치가 0인지 판단 */
+function isSnapshotEmpty(snapshot: Record<string, unknown>): boolean {
+  const numericKeys = Object.entries(snapshot)
+    .filter(([k]) => k !== "period")
+    .filter(([, v]) => typeof v === "number");
+  if (numericKeys.length === 0) return true;
+  return numericKeys.every(([, v]) => (v as number) === 0);
+}
+
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -35,40 +44,84 @@ export async function GET(req: NextRequest) {
   }
 
   const day = getKoreaDayOfWeek();
-  const reportTypeByDay: Record<number, NotificationReportType | null> = {
-    1: "MON_REVIEW",
-    3: "WED_BUDGET",
-    4: "THU_PROPOSAL",
-  };
-  const reportType = reportTypeByDay[day] ?? null;
+  const supabase = await createServiceClient();
 
-  if (!reportType) {
+  // client_report_schedules에서 오늘 요일 + 활성 스케줄 조회
+  const { data: schedules, error: scheduleError } = await supabase
+    .from("client_report_schedules")
+    .select("id, client_id, template_type, clients(id, name, contact_phone)")
+    .eq("day_of_week", day)
+    .eq("is_active", true);
+
+  if (scheduleError) {
+    console.error("[Cron] 스케줄 조회 오류:", scheduleError);
+    return NextResponse.json({ error: "스케줄 조회 실패", detail: scheduleError.message }, { status: 500 });
+  }
+
+  if (!schedules || schedules.length === 0) {
     return NextResponse.json({
-      message: "오늘은 발송 요일이 아닙니다.",
+      message: "오늘 발송할 스케줄 없음",
       day,
       koreaDay: ["일", "월", "화", "수", "목", "금", "토"][day],
     });
   }
 
-  const supabase = await createServiceClient();
+  // template_type → NotificationReportType 매핑
+  const templateTypeMap: Record<string, NotificationReportType> = {
+    PERFORMANCE: "MON_REVIEW",
+    BUDGET: "WED_BUDGET",
+    PROPOSAL: "THU_PROPOSAL",
+  };
 
-  const { data: clients } = await supabase
-    .from("clients")
-    .select("id, name, contact_phone")
-    .eq("is_active", true)
-    .not("contact_phone", "is", null)
-    .neq("contact_phone", "");
+  const results: {
+    scheduleId: string;
+    clientId: string;
+    clientName: string;
+    success: boolean;
+    skipped?: boolean;
+    error?: string;
+  }[] = [];
 
-  if (!clients || clients.length === 0) {
-    return NextResponse.json({ message: "발송 대상 클라이언트 없음" });
-  }
+  const calendarTitleMap: Record<string, string> = {
+    MON_REVIEW: "📊 주간 성과 리뷰 알림톡 발송",
+    WED_BUDGET: "📈 예산 페이싱 알림톡 발송",
+    THU_PROPOSAL: "💡 다음주 제안 알림톡 발송",
+  };
 
-  const results: { clientId: string; clientName: string; success: boolean; error?: string }[] = [];
+  for (const schedule of schedules) {
+    const client = Array.isArray(schedule.clients)
+      ? schedule.clients[0]
+      : schedule.clients;
 
-  for (const client of clients) {
+    if (!client || !client.contact_phone) {
+      console.warn(`[Cron] 스케줄 ${schedule.id}: 클라이언트 정보 없음`);
+      continue;
+    }
+
+    const reportType = templateTypeMap[schedule.template_type] ?? null;
+    if (!reportType) {
+      console.warn(`[Cron] 스케줄 ${schedule.id}: 알 수 없는 template_type=${schedule.template_type}`);
+      continue;
+    }
+
     const phone = (client.contact_phone as string).replace(/-/g, "");
+
     try {
       const snapshot = await getMetricsSnapshotForClient(supabase, client.id, reportType);
+
+      // 빈 데이터 체크: 모든 수치가 0이면 스킵
+      if (isSnapshotEmpty(snapshot)) {
+        console.log(`[Cron] 스케줄 ${schedule.id} (${client.name}): 데이터 없음 — 스킵`);
+        results.push({
+          scheduleId: schedule.id,
+          clientId: client.id,
+          clientName: client.name,
+          success: false,
+          skipped: true,
+        });
+        continue;
+      }
+
       const aiMessage = await getAiMessageForReport(supabase, client.id, reportType, snapshot);
 
       const created = await createWeeklyNotification(supabase, {
@@ -110,15 +163,10 @@ export async function GET(req: NextRequest) {
           notification_type: `alimtalk_weekly_${reportType}`,
           recipient_phone: phone,
           success: true,
-          payload: { notification_id: created.id },
+          payload: { notification_id: created.id, schedule_id: schedule.id },
         });
 
         // 클라이언트 캘린더에 알림톡 발송 이벤트 자동 기록
-        const calendarTitleMap: Record<string, string> = {
-          MON_REVIEW: "📊 주간 성과 리뷰 알림톡 발송",
-          WED_BUDGET: "📈 예산 페이싱 알림톡 발송",
-          THU_PROPOSAL: "💡 다음주 제안 알림톡 발송",
-        };
         await createAutoCalendarEvent(supabase, {
           clientId: client.id,
           title: calendarTitleMap[reportType] ?? `알림톡 발송: ${reportType}`,
@@ -132,17 +180,22 @@ export async function GET(req: NextRequest) {
           recipient_phone: phone,
           success: false,
           error_message: sendResult.error ?? undefined,
-          payload: { notification_id: created.id },
+          payload: { notification_id: created.id, schedule_id: schedule.id },
         });
       }
 
-      results.push({ clientId: client.id, clientName: client.name, success: sendResult.success });
-      if (!sendResult.success) {
-        results[results.length - 1].error = sendResult.error;
-      }
+      results.push({
+        scheduleId: schedule.id,
+        clientId: client.id,
+        clientName: client.name,
+        success: sendResult.success,
+        ...(sendResult.success ? {} : { error: sendResult.error }),
+      });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Unknown error";
+      console.error(`[Cron] 스케줄 ${schedule.id} (${client.name}) 오류:`, message);
       results.push({
+        scheduleId: schedule.id,
         clientId: client.id,
         clientName: client.name,
         success: false,
@@ -151,10 +204,31 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // 실패 건 관리자 알림
+  const failures = results.filter((r) => !r.success && !r.skipped);
+  if (failures.length > 0) {
+    const adminPhone = process.env.ADMIN_NOTIFY_PHONE;
+    if (adminPhone) {
+      try {
+        await notifyMonReview({
+          phoneNumber: adminPhone,
+          clientName: "관리자",
+          summary: `알림톡 발송 실패 ${failures.length}건: ${failures.map((f) => f.clientName).join(", ")}`,
+          viewUrl: "",
+        });
+      } catch (adminErr) {
+        console.error("[Cron] 관리자 알림 발송 실패:", adminErr);
+      }
+    }
+  }
+
   const successCount = results.filter((r) => r.success).length;
+  const skippedCount = results.filter((r) => r.skipped).length;
+
   return NextResponse.json({
-    message: `주간 알림톡 발송 완료: ${successCount}/${results.length}건`,
-    reportType,
+    message: `알림톡 발송 완료: ${successCount}/${results.length}건 (스킵: ${skippedCount}건)`,
+    day,
+    koreaDay: ["일", "월", "화", "수", "목", "금", "토"][day],
     results,
   });
 }

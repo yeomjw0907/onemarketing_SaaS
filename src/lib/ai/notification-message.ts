@@ -153,8 +153,14 @@ ${COMMON_RULES}
 데이터: ${dataText}
 
 한 줄 요약:`;
-    const result = await model.generateContent(prompt);
-    return result.response.text()?.trim() ?? getFallbackMessage(reportType);
+    try {
+      const result = await model.generateContent(prompt);
+      const text = result.response.text()?.trim();
+      return text ? text.slice(0, 50) : getFallbackMessage(reportType);
+    } catch (err) {
+      console.error("[AI] generateContent 실패 (MON_REVIEW):", err);
+      return getFallbackMessage(reportType);
+    }
   }
 
   if (reportType === "WED_BUDGET") {
@@ -168,8 +174,14 @@ ${COMMON_RULES}
 데이터: ${dataText}
 
 한 줄 브리핑:`;
-    const result = await model.generateContent(prompt);
-    return result.response.text()?.trim() ?? getFallbackMessage(reportType);
+    try {
+      const result = await model.generateContent(prompt);
+      const text = result.response.text()?.trim();
+      return text ? text.slice(0, 50) : getFallbackMessage(reportType);
+    } catch (err) {
+      console.error("[AI] generateContent 실패 (WED_BUDGET):", err);
+      return getFallbackMessage(reportType);
+    }
   }
 
   if (reportType === "THU_PROPOSAL") {
@@ -188,8 +200,14 @@ ${COMMON_RULES}
 데이터: ${dataText}
 
 한 줄 제안:`;
-    const result = await model.generateContent(prompt);
-    return result.response.text()?.trim() ?? getFallbackMessage(reportType);
+    try {
+      const result = await model.generateContent(prompt);
+      const text = result.response.text()?.trim();
+      return text ? text.slice(0, 50) : getFallbackMessage(reportType);
+    } catch (err) {
+      console.error("[AI] generateContent 실패 (THU_PROPOSAL):", err);
+      return getFallbackMessage(reportType);
+    }
   }
 
   return getFallbackMessage(reportType);
