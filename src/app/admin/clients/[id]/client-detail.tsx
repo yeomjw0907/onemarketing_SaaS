@@ -306,7 +306,7 @@ export function ClientDetail({
           {activeSection === "instagram" && <InstagramTab clientId={client.id} initialAccounts={initialIgAccounts} />}
           {activeSection === "services" && <ServiceTab clientId={client.id} initialServices={(client.enabled_services || {}) as Record<string, boolean>} initialServiceUrls={(client.service_urls || {}) as Record<string, string>} supabase={supabase} router={router} />}
           {activeSection === "modules" && <ModuleTab clientId={client.id} initialModules={{ ...(client.enabled_modules || {}), overview: true, execution: true, calendar: true, projects: true, reports: true, assets: true, support: true, timeline: true } as EnabledModules} supabase={supabase} router={router} />}
-          {activeSection === "alimtalk" && <AlimtalkScheduleTab clientId={client.id} />}
+          {activeSection === "alimtalk" && <AlimtalkScheduleTab clientId={client.id} clientName={client.name} />}
           {activeSection === "team" && <ClientTeamTab clientId={client.id} />}
         </div>
       </div>

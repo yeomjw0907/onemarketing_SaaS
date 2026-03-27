@@ -10,7 +10,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Loader2, Save, Trash2 } from "lucide-react";
+import { Loader2, Save, Trash2, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -50,8 +50,34 @@ interface NotificationHistory {
   phone: string;
 }
 
+// ── 알림톡 미리보기 콘텐츠 ──
+const PREVIEW_CONTENT = {
+  PERFORMANCE: {
+    title: "지난주 성과 리포트",
+    body: (name: string) =>
+      `안녕하세요, ${name}님.\n지난주 광고 성과를 안내드립니다.\n\n[AI 요약 내용]\n예) 클릭률 8.2% 달성, 전환 12건, 소진률 94%`,
+    buttons: [{ label: "자세히 보기", style: "primary" }],
+  },
+  BUDGET: {
+    title: "이번달 예산 현황",
+    body: (name: string) =>
+      `안녕하세요, ${name}님.\n이번달 광고 예산 현황입니다.\n\n[AI 요약 내용]\n예) 예산 68% 소진, 잔여 약 320만원`,
+    buttons: [{ label: "자세히 보기", style: "primary" }],
+  },
+  PROPOSAL: {
+    title: "다음주 운영 제안",
+    body: (name: string) =>
+      `안녕하세요, ${name}님.\n다음주 광고 운영 제안입니다.\n\n[AI 요약 내용]\n예) 키워드 확대 + 소재 교체 제안`,
+    buttons: [
+      { label: "자세히 보기", style: "secondary" },
+      { label: "승인하기", style: "primary" },
+    ],
+  },
+} as const;
+
 interface Props {
   clientId: string;
+  clientName?: string;
 }
 
 // ── 전화번호 마스킹 ──
@@ -79,10 +105,11 @@ function formatDateTime(dateStr: string): string {
   }
 }
 
-export function AlimtalkScheduleTab({ clientId }: Props) {
+export function AlimtalkScheduleTab({ clientId, clientName = "고객명" }: Props) {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [previewType, setPreviewType] = useState<"PERFORMANCE" | "BUDGET" | "PROPOSAL">("PERFORMANCE");
 
   // 선택 중인 요일 → templateType 매핑 (미저장 상태)
   const [pendingSelections, setPendingSelections] = useState<
@@ -388,6 +415,98 @@ export function AlimtalkScheduleTab({ clientId }: Props) {
               저장
             </Button>
           )}
+        </CardContent>
+      </Card>
+
+      {/* ── 알림톡 미리보기 카드 ── */}
+      <Card>
+        <CardContent className="pt-6 space-y-4">
+          <div className="flex items-center gap-2">
+            <Eye className="h-4 w-4 text-muted-foreground" />
+            <h3 className="text-sm font-semibold">알림톡 미리보기</h3>
+            <span className="text-xs text-muted-foreground">— 실제 발송 시 AI가 생성한 내용으로 채워집니다</span>
+          </div>
+
+          {/* 템플릿 타입 탭 */}
+          <div className="flex gap-1.5 flex-wrap">
+            {TEMPLATE_TYPES.map((t) => (
+              <button
+                key={t.value}
+                onClick={() => setPreviewType(t.value as typeof previewType)}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border",
+                  previewType === t.value
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-muted/40 text-muted-foreground border-border hover:bg-muted"
+                )}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {/* 카카오톡 알림톡 버블 */}
+          <div className="flex justify-center">
+            <div className="w-full max-w-sm">
+              {/* 폰 느낌 배경 */}
+              <div className="rounded-2xl bg-[#B2C7D9] p-4 shadow-inner">
+                {/* 상단 채널 정보 */}
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-8 h-8 rounded-full bg-[#FEE500] flex items-center justify-center shrink-0 shadow-sm">
+                    <span className="text-[10px] font-black text-[#3A1D1D]">원</span>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-bold text-gray-800">원마케팅</p>
+                    <p className="text-[9px] text-gray-500">카카오 알림톡</p>
+                  </div>
+                </div>
+
+                {/* 메시지 버블 */}
+                <div className="bg-white rounded-2xl rounded-tl-sm shadow-sm overflow-hidden">
+                  {/* 템플릿 헤더 */}
+                  <div className="bg-[#FEE500] px-4 py-2.5">
+                    <p className="text-xs font-bold text-[#3A1D1D]">
+                      {PREVIEW_CONTENT[previewType].title}
+                    </p>
+                  </div>
+
+                  {/* 메시지 본문 */}
+                  <div className="px-4 py-3">
+                    <p className="text-[12px] text-gray-800 whitespace-pre-line leading-relaxed">
+                      {PREVIEW_CONTENT[previewType].body(clientName)}
+                    </p>
+                  </div>
+
+                  {/* 구분선 */}
+                  <div className="mx-4 border-t border-gray-100" />
+
+                  {/* 버튼 영역 */}
+                  <div className={cn(
+                    "grid divide-x divide-gray-100",
+                    PREVIEW_CONTENT[previewType].buttons.length === 2 ? "grid-cols-2" : "grid-cols-1"
+                  )}>
+                    {PREVIEW_CONTENT[previewType].buttons.map((btn) => (
+                      <button
+                        key={btn.label}
+                        disabled
+                        className={cn(
+                          "py-2.5 text-[12px] font-semibold transition-colors",
+                          btn.style === "primary"
+                            ? "text-[#3A1D1D]"
+                            : "text-gray-500"
+                        )}
+                      >
+                        {btn.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 발송 시간 표시 */}
+                <p className="text-[10px] text-gray-500 mt-2 text-right">오전 9:00</p>
+              </div>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
