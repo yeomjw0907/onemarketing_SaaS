@@ -33,11 +33,12 @@ import {
   LayoutDashboard, CalendarDays, FolderKanban, FileText, Image, MessageCircle,
   GripVertical, BarChart2, BookOpen, Settings, History,
   Users, Mail, Copy, Crown, ShieldCheck, Eye,
-  BarChart3, Target, TrendingUp, Flag, Wallet, Layers, ToggleRight, Link2, MessageSquare,
+  BarChart3, Target, TrendingUp, Flag, Wallet, Layers, ToggleRight, Link2, MessageSquare, PenLine,
 } from "lucide-react";
 import { InstagramTab } from "./instagram-tab";
 import { IntegrationTab } from "./integration-tab";
 import { AlimtalkScheduleTab } from "./alimtalk-schedule-tab";
+import { ManualMetricsTab } from "./manual-metrics-tab";
 import { SERVICE_CATALOG, ALL_SERVICE_KEYS, defaultEnabledServices, findServiceItem } from "@/lib/service-catalog";
 import { ServiceIcon } from "@/components/service-icon";
 import { toast } from "sonner";
@@ -181,6 +182,7 @@ export function ClientDetail({
           { key: "actions", label: "실행 항목" },
           { key: "executionTargets", label: "실행 목표" },
           { key: "adBudget", label: "광고 예산" },
+          { key: "manualMetrics", label: "수기 입력" },
           { key: "calendar", label: "캘린더" },
           { key: "projects", label: "프로젝트" },
           { key: "reports", label: "리포트" },
@@ -219,6 +221,7 @@ export function ClientDetail({
               { key: "actions", label: "실행 항목", Icon: Zap },
               { key: "executionTargets", label: "실행 목표", Icon: Flag },
               { key: "adBudget", label: "광고 예산", Icon: Wallet },
+              { key: "manualMetrics", label: "수기 입력", Icon: PenLine },
             ].map(item => (
               <button
                 key={item.key}
@@ -294,6 +297,7 @@ export function ClientDetail({
           {activeSection === "actions" && <ActionTab clientId={client.id} initialActions={initialActions} supabase={supabase} router={router} />}
           {activeSection === "executionTargets" && <ExecutionTargetsTab clientId={client.id} initialTargets={(client.execution_targets || {}) as ExecutionTargets} supabase={supabase} router={router} />}
           {activeSection === "adBudget" && <AdBudgetTab clientId={client.id} initialBudget={(client.monthly_ad_budget || {}) as Record<string, number>} supabase={supabase} router={router} />}
+          {activeSection === "manualMetrics" && <ManualMetricsTab clientId={client.id} />}
           {activeSection === "calendar" && <CalendarTab clientId={client.id} initialEvents={initialEvents} projects={initialProjects} supabase={supabase} router={router} />}
           {activeSection === "projects" && <ProjectTab clientId={client.id} initialProjects={initialProjects} supabase={supabase} router={router} />}
           {activeSection === "reports" && <ReportTab clientId={client.id} initialReports={initialReports} supabase={supabase} router={router} />}
