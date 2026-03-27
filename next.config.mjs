@@ -14,9 +14,9 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Vercel 빌드 캐시가 Windows 임시경로(AppData/Local/Temp)로 오염되는 것을 방지
-  // 로컬에서는 상대경로 '.next'가 그대로 사용됨
-  distDir: '.next',
+  // OneDrive 환경에서 .next/trace EPERM 오류 방지 — distDir을 OneDrive 밖 temp로 이동
+  // Vercel 빌드 서버에서는 표준 .next 사용 (상대경로 충돌 방지)
+  distDir: process.env.VERCEL ? ".next" : "../../../AppData/Local/Temp/onecation-next",
   // ── 워크스페이스 루트를 이 프로젝트 폴더로 고정 ──
   // 상위 폴더에 package-lock.json 등이 있으면 Next.js가 루트를 잘못 추론하므로 명시 지정
   outputFileTracingRoot: __dirname,
