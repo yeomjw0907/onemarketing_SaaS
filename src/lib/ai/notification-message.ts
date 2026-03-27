@@ -78,7 +78,7 @@ export async function getMetricsSnapshotForClient(
     const spend = Math.round(totalCost);
     const cpc = totalClicks > 0 ? Math.round(totalCost / totalClicks) : undefined;
     const ctr = totalImpressions > 0 ? +(totalClicks / totalImpressions * 100).toFixed(1) : undefined;
-    return {
+    const snapshot: Record<string, unknown> = {
       ...(spend > 0 && { spend }),
       ...(totalClicks > 0 && { clicks: totalClicks }),
       ...(totalImpressions > 0 && { impressions: totalImpressions }),
@@ -87,6 +87,50 @@ export async function getMetricsSnapshotForClient(
       ...(ctr !== undefined && { ctr }),
       period: `${dateFrom} ~ ${dateTo}`,
     };
+
+    // 수기 입력 채널 데이터 추가 (지난 7일 이내 입력된 것)
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    const weekStr = oneWeekAgo.toISOString().slice(0, 10);
+
+    const { data: manualData } = await supabase
+      .from("manual_metrics")
+      .select("channel_type, channel_name, metrics, memo")
+      .eq("client_id", clientId)
+      .gte("period_end", weekStr)
+      .order("created_at", { ascending: false })
+      .limit(3);
+
+    if (manualData && manualData.length > 0) {
+      const experiential = manualData.filter((d: { channel_type: string }) => d.channel_type === 'EXPERIENTIAL');
+      if (experiential.length > 0) {
+        const m = experiential[0].metrics as Record<string, number>;
+        if (m.completed || m.participants) {
+          return {
+            ...snapshot,
+            experiential_completed: m.completed ?? m.participants ?? 0,
+            experiential_posts: (m.blog_posts ?? 0) + (m.insta_posts ?? 0),
+            experiential_views: m.total_views ?? 0,
+          };
+        }
+      }
+      const seo = manualData.filter((d: { channel_type: string }) => d.channel_type === 'SEO');
+      if (seo.length > 0) {
+        const m = seo[0].metrics as Record<string, unknown>;
+        if (m.main_keyword) {
+          return {
+            ...snapshot,
+            seo_keyword: m.main_keyword as string,
+            seo_rank: m.main_rank as number,
+            seo_prev_rank: m.prev_rank as number,
+            seo_top3_count: m.top3_count as number,
+            seo_target_count: m.target_keywords as number,
+          };
+        }
+      }
+    }
+
+    return snapshot;
   }
 
   if (reportType === "WED_BUDGET") {
@@ -99,11 +143,55 @@ export async function getMetricsSnapshotForClient(
     }
     const daysRemaining = getDaysRemainingInMonth();
     const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
-    return {
+    const snapshot: Record<string, unknown> = {
       spendThisMonth: Math.round(totalSpend),
       daysRemaining,
       daysInMonth,
     };
+
+    // 수기 입력 채널 데이터 추가 (지난 7일 이내 입력된 것)
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    const weekStr = oneWeekAgo.toISOString().slice(0, 10);
+
+    const { data: manualData } = await supabase
+      .from("manual_metrics")
+      .select("channel_type, channel_name, metrics, memo")
+      .eq("client_id", clientId)
+      .gte("period_end", weekStr)
+      .order("created_at", { ascending: false })
+      .limit(3);
+
+    if (manualData && manualData.length > 0) {
+      const experiential = manualData.filter((d: { channel_type: string }) => d.channel_type === 'EXPERIENTIAL');
+      if (experiential.length > 0) {
+        const m = experiential[0].metrics as Record<string, number>;
+        if (m.completed || m.participants) {
+          return {
+            ...snapshot,
+            experiential_completed: m.completed ?? m.participants ?? 0,
+            experiential_posts: (m.blog_posts ?? 0) + (m.insta_posts ?? 0),
+            experiential_views: m.total_views ?? 0,
+          };
+        }
+      }
+      const seo = manualData.filter((d: { channel_type: string }) => d.channel_type === 'SEO');
+      if (seo.length > 0) {
+        const m = seo[0].metrics as Record<string, unknown>;
+        if (m.main_keyword) {
+          return {
+            ...snapshot,
+            seo_keyword: m.main_keyword as string,
+            seo_rank: m.main_rank as number,
+            seo_prev_rank: m.prev_rank as number,
+            seo_top3_count: m.top3_count as number,
+            seo_target_count: m.target_keywords as number,
+          };
+        }
+      }
+    }
+
+    return snapshot;
   }
 
   if (reportType === "THU_PROPOSAL") {
@@ -117,10 +205,54 @@ export async function getMetricsSnapshotForClient(
       if (cost) totalCost += cost.total;
       if (conversions) totalConversions += conversions.total;
     }
-    return {
+    const snapshot: Record<string, unknown> = {
       lastWeekSpend: Math.round(totalCost),
       lastWeekConversions: totalConversions,
     };
+
+    // 수기 입력 채널 데이터 추가 (지난 7일 이내 입력된 것)
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    const weekStr = oneWeekAgo.toISOString().slice(0, 10);
+
+    const { data: manualData } = await supabase
+      .from("manual_metrics")
+      .select("channel_type, channel_name, metrics, memo")
+      .eq("client_id", clientId)
+      .gte("period_end", weekStr)
+      .order("created_at", { ascending: false })
+      .limit(3);
+
+    if (manualData && manualData.length > 0) {
+      const experiential = manualData.filter((d: { channel_type: string }) => d.channel_type === 'EXPERIENTIAL');
+      if (experiential.length > 0) {
+        const m = experiential[0].metrics as Record<string, number>;
+        if (m.completed || m.participants) {
+          return {
+            ...snapshot,
+            experiential_completed: m.completed ?? m.participants ?? 0,
+            experiential_posts: (m.blog_posts ?? 0) + (m.insta_posts ?? 0),
+            experiential_views: m.total_views ?? 0,
+          };
+        }
+      }
+      const seo = manualData.filter((d: { channel_type: string }) => d.channel_type === 'SEO');
+      if (seo.length > 0) {
+        const m = seo[0].metrics as Record<string, unknown>;
+        if (m.main_keyword) {
+          return {
+            ...snapshot,
+            seo_keyword: m.main_keyword as string,
+            seo_rank: m.main_rank as number,
+            seo_prev_rank: m.prev_rank as number,
+            seo_top3_count: m.top3_count as number,
+            seo_target_count: m.target_keywords as number,
+          };
+        }
+      }
+    }
+
+    return snapshot;
   }
 
   return {};

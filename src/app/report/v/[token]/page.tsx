@@ -150,6 +150,51 @@ async function renderNotificationView(
           </div>
         )}
 
+        {/* 체험단 섹션 */}
+        {snapshot.experiential_completed !== undefined && (
+          <div className="bg-card rounded-2xl border shadow-sm p-5">
+            <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wide">체험단</p>
+            <div className="flex items-center justify-between py-2">
+              <span className="text-sm text-muted-foreground">완료</span>
+              <span className="text-sm font-semibold">{Number(snapshot.experiential_completed).toLocaleString('ko-KR')}명</span>
+            </div>
+            <div className="flex items-center justify-between py-2">
+              <span className="text-sm text-muted-foreground">포스팅</span>
+              <span className="text-sm font-semibold">{Number(snapshot.experiential_posts).toLocaleString('ko-KR')}개</span>
+            </div>
+            {Number(snapshot.experiential_views) > 0 && (
+              <div className="flex items-center justify-between py-2">
+                <span className="text-sm text-muted-foreground">총 조회수</span>
+                <span className="text-sm font-semibold">{Number(snapshot.experiential_views).toLocaleString('ko-KR')}회</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 상위노출 섹션 */}
+        {snapshot.seo_keyword && (
+          <div className="bg-card rounded-2xl border shadow-sm p-5">
+            <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wide">상위노출</p>
+            <div className="flex items-center justify-between py-2">
+              <span className="text-sm text-muted-foreground">{String(snapshot.seo_keyword)}</span>
+              <span className="text-sm font-semibold">
+                {Number(snapshot.seo_rank)}위
+                {snapshot.seo_prev_rank && snapshot.seo_prev_rank !== snapshot.seo_rank && (
+                  <span className={`ml-1 text-xs ${Number(snapshot.seo_rank) < Number(snapshot.seo_prev_rank) ? 'text-emerald-600' : 'text-red-500'}`}>
+                    {Number(snapshot.seo_rank) < Number(snapshot.seo_prev_rank) ? `▲${Number(snapshot.seo_prev_rank) - Number(snapshot.seo_rank)}` : `▼${Number(snapshot.seo_rank) - Number(snapshot.seo_prev_rank)}`}
+                  </span>
+                )}
+              </span>
+            </div>
+            {snapshot.seo_top3_count !== undefined && (
+              <div className="flex items-center justify-between py-2">
+                <span className="text-sm text-muted-foreground">3위 이내</span>
+                <span className="text-sm font-semibold">{Number(snapshot.seo_top3_count)}/{Number(snapshot.seo_target_count)}개</span>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* CTA 버튼 */}
         <div className="space-y-2 pt-1">
           {approveUrl && (
