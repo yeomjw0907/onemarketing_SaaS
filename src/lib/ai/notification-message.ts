@@ -7,12 +7,13 @@
  * 3. 톤은 페르소나별로 달라지되, 출력 형식("한 줄 OOO:")은 동일
  * 4. 숫자는 코드로 계산, AI는 문장만 생성 (할루시네이션 방지)
  */
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { generateText } from "ai";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getMetricSummary } from "./report-generator";
 import type { NotificationReportType } from "@/lib/types/database";
 
-const MODEL_NAME = "gemini-1.5-flash";
+const MODEL_NAME = "gemini-2.0-flash";
 
 const COMMON_RULES = `공통 규칙 (반드시 지킬 것):
 - 서비스명: 원마케팅. 답변에 서비스명을 넣지 말 것.
@@ -269,8 +270,8 @@ export async function getAiMessageForReport(
     return getFallbackMessage(reportType);
   }
 
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+  const googleAI = createGoogleGenerativeAI({ apiKey });
+  const model = googleAI(MODEL_NAME);
 
   const dataText = JSON.stringify(snapshot, null, 0);
 
@@ -286,11 +287,10 @@ ${COMMON_RULES}
 
 한 줄 요약:`;
     try {
-      const result = await model.generateContent(prompt);
-      const text = result.response.text()?.trim();
-      return text ? text.slice(0, 50) : getFallbackMessage(reportType);
+      const { text } = await generateText({ model, prompt });
+      return text?.trim() ? text.trim().slice(0, 50) : getFallbackMessage(reportType);
     } catch (err) {
-      console.error("[AI] generateContent 실패 (MON_REVIEW):", err);
+      console.error("[AI] generateText 실패 (MON_REVIEW):", err);
       return getFallbackMessage(reportType);
     }
   }
@@ -307,11 +307,10 @@ ${COMMON_RULES}
 
 한 줄 브리핑:`;
     try {
-      const result = await model.generateContent(prompt);
-      const text = result.response.text()?.trim();
-      return text ? text.slice(0, 50) : getFallbackMessage(reportType);
+      const { text } = await generateText({ model, prompt });
+      return text?.trim() ? text.trim().slice(0, 50) : getFallbackMessage(reportType);
     } catch (err) {
-      console.error("[AI] generateContent 실패 (WED_BUDGET):", err);
+      console.error("[AI] generateText 실패 (WED_BUDGET):", err);
       return getFallbackMessage(reportType);
     }
   }
@@ -333,11 +332,10 @@ ${COMMON_RULES}
 
 한 줄 제안:`;
     try {
-      const result = await model.generateContent(prompt);
-      const text = result.response.text()?.trim();
-      return text ? text.slice(0, 50) : getFallbackMessage(reportType);
+      const { text } = await generateText({ model, prompt });
+      return text?.trim() ? text.trim().slice(0, 50) : getFallbackMessage(reportType);
     } catch (err) {
-      console.error("[AI] generateContent 실패 (THU_PROPOSAL):", err);
+      console.error("[AI] generateText 실패 (THU_PROPOSAL):", err);
       return getFallbackMessage(reportType);
     }
   }
@@ -361,8 +359,8 @@ export async function getReportBrief(
   }
 
   try {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+    const googleAI = createGoogleGenerativeAI({ apiKey });
+    const model = googleAI(MODEL_NAME);
 
     const prompt = `역할: 간결한 보고서 요약가.
 톤: 감정 최소, 사실 중심. 이모지 사용 금지.
@@ -377,9 +375,8 @@ ${COMMON_RULES}
 
 한 줄 요약:`;
 
-    const result = await model.generateContent(prompt);
-    const brief = result.response.text()?.trim();
-    return brief || text.slice(0, 50);
+    const { text: brief } = await generateText({ model, prompt });
+    return brief?.trim() || text.slice(0, 50);
   } catch {
     return text.slice(0, 50);
   }

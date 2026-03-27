@@ -1,10 +1,11 @@
 /**
  * Google Gemini AI를 사용한 마케팅 보고서 자동 생성
  */
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { generateText } from "ai";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { SupabaseClient } from "@supabase/supabase-js";
 
-const MODEL_NAME = "gemini-1.5-flash";
+const MODEL_NAME = "gemini-2.0-flash";
 
 interface MetricSummary {
   platform: string;
@@ -68,8 +69,8 @@ export async function generateMarketingReport(
     throw new Error("GEMINI_API_KEY 환경 변수가 설정되지 않았습니다.");
   }
 
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+  const googleAI = createGoogleGenerativeAI({ apiKey });
+  const model = googleAI(MODEL_NAME);
 
   const periodLabel = reportType === "weekly" ? "주간" : "월간";
 
@@ -128,9 +129,8 @@ ${metricsText || "수집된 데이터가 없습니다."}
 
 보고서를 작성해주세요:`;
 
-  const result = await model.generateContent(prompt);
-  const response = result.response;
-  return response.text();
+  const { text } = await generateText({ model, prompt });
+  return text;
 }
 
 /**
